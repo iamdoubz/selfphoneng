@@ -10,7 +10,7 @@
     "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,
     "rewriteRelativeImportExtensions": true,
-    "customConditions": ["development"],
+    "customConditions": ["source"],
     "skipLibCheck": true,
     "isolatedModules": true
   }
