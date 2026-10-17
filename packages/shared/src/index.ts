@@ -5,3 +5,4 @@ export * from './destination.ts';
 export * from './settings.ts';
 export * from './auth.ts';
 export * from './users.ts';
+export * from './extensions.ts';

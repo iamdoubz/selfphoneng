@@ -1,6 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Typed fetch wrappers (05 §1). Every request sends X-Requested-With (CSRF, 04 §2.2).
-import type { AuthUser, ListResponse, UserCreate, UserDto, UserUpdate } from '@selfphoneng/shared';
+import type {
+  AuthUser,
+  ExtensionCreate,
+  ExtensionDto,
+  ExtensionUpdate,
+  ListResponse,
+  NumberKind,
+  SipCredentials,
+  UserCreate,
+  UserDto,
+  UserUpdate,
+} from '@selfphoneng/shared';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -49,4 +60,17 @@ export const usersApi = {
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/users/${id}`),
   resetPassword: (id: string) =>
     api<{ temporaryPassword: string }>('POST', `/api/users/${id}/reset-password`),
+};
+
+export const extensionsApi = {
+  get: (id: string) => api<ExtensionDto>('GET', `/api/extensions/${id}`),
+  create: (e: ExtensionCreate) => api<ExtensionDto>('POST', '/api/extensions', e),
+  update: (id: string, e: ExtensionUpdate) =>
+    api<ExtensionDto>('PATCH', `/api/extensions/${id}`, e),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/extensions/${id}`),
+  credentials: (id: string) => api<SipCredentials>('GET', `/api/extensions/${id}/sip-credentials`),
+  regenerateSipPassword: (id: string) =>
+    api<{ ok: true }>('POST', `/api/extensions/${id}/regenerate-sip-password`),
+  nextNumber: (kind: NumberKind) =>
+    api<{ number: string | null }>('GET', `/api/numbering/next?kind=${kind}`).then((r) => r.number),
 };

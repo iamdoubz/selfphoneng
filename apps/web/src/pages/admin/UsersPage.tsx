@@ -1,22 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Users & Extensions (05 §2). M1: the General tab only; extension tabs arrive in M2.
-import { zodResolver } from '@hookform/resolvers/zod';
+// Users & Extensions (05 §2).
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { RoleSchema, type UserDto } from '@selfphoneng/shared';
+import type { UserDto } from '@selfphoneng/shared';
 import { usersApi } from '../../api/client.ts';
 import { ConfirmDialog, Dialog } from '../../components/Dialog.tsx';
-import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
-
-const FormSchema = z.object({
-  displayName: z.string().trim().min(1, 'Required').max(100),
-  email: z.email('Enter a valid email'),
-  role: RoleSchema,
-  isActive: z.boolean(),
-});
-type FormValues = z.infer<typeof FormSchema>;
+import { Alert, Button } from '../../components/ui.tsx';
+import { UserDrawer } from './UserDrawer.tsx';
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : 'Never');
 
@@ -85,6 +75,8 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
           <p>
             Delete <strong>{deleting?.displayName}</strong> ({deleting?.email})? They will be signed
             out and can no longer log in.
+            {deleting?.extension &&
+              ` Extension ${deleting.extension.number} stays, without a user.`}
           </p>
         }
         confirmLabel="Delete"
@@ -165,7 +157,14 @@ function UsersTable({
           <li key={u.id} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="font-medium">{u.displayName}</p>
+                <p className="font-medium">
+                  {u.displayName}
+                  {u.extension && (
+                    <span className="ml-2 font-mono text-sm text-zinc-500">
+                      {u.extension.number}
+                    </span>
+                  )}
+                </p>
                 <p className="truncate text-sm text-zinc-500">{u.email}</p>
               </div>
               {badge(u)}
@@ -180,6 +179,7 @@ function UsersTable({
       <table className="hidden w-full text-left text-sm md:table">
         <thead className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800">
           <tr>
+            <th className="py-2 font-medium">Ext.</th>
             <th className="py-2 font-medium">Name</th>
             <th className="py-2 font-medium">Email</th>
             <th className="py-2 font-medium">Role</th>
@@ -192,6 +192,7 @@ function UsersTable({
         <tbody>
           {users.map((u) => (
             <tr key={u.id} className="border-b border-zinc-100 dark:border-zinc-800/60">
+              <td className="py-2 font-mono">{u.extension?.number ?? '–'}</td>
               <td className="py-2 font-medium">{u.displayName}</td>
               <td className="py-2">{u.email}</td>
               <td className="py-2">{badge(u)}</td>
@@ -202,124 +203,5 @@ function UsersTable({
         </tbody>
       </table>
     </>
-  );
-}
-
-function UserDrawer({
-  user,
-  isSelf,
-  onClose,
-  onSaved,
-  onResetPassword,
-}: {
-  user: UserDto | null;
-  isSelf: boolean;
-  onClose: () => void;
-  onSaved: (created?: { email: string; password: string }) => void;
-  onResetPassword: (u: UserDto) => void;
-}) {
-  const [error, setError] = useState<string>();
-  const form = useForm<FormValues>({
-    resolver: zodResolver(FormSchema),
-    defaultValues: user
-      ? {
-          displayName: user.displayName,
-          email: user.email,
-          role: user.role,
-          isActive: user.isActive,
-        }
-      : { displayName: '', email: '', role: 'user', isActive: true },
-  });
-  const { errors, isSubmitting } = form.formState;
-
-  const onSubmit = form.handleSubmit(async (v) => {
-    setError(undefined);
-    try {
-      if (user) {
-        await usersApi.update(user.id, v);
-        onSaved();
-      } else {
-        const r = await usersApi.create({
-          displayName: v.displayName,
-          email: v.email,
-          role: v.role,
-        });
-        onSaved({ email: r.user.email, password: r.temporaryPassword });
-      }
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  });
-
-  return (
-    <Dialog
-      open
-      drawer
-      onClose={onClose}
-      title={user ? `Edit ${user.displayName}` : 'New user'}
-      footer={
-        <>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button variant="primary" type="submit" form="user-form" disabled={isSubmitting}>
-            {user ? 'Save' : 'Create user'}
-          </Button>
-        </>
-      }
-    >
-      {/* Tabs (05 §2): General now; Phone, Voicemail, Calling, Emergency, Credentials and
-          Forwarding arrive with extensions in M2. */}
-      <div role="tablist" className="mb-4 flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
-        <span
-          role="tab"
-          aria-selected="true"
-          className="border-b-2 border-sky-600 px-3 py-1.5 text-sm font-medium"
-        >
-          General
-        </span>
-      </div>
-      <form id="user-form" onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-        {error && <Alert>{error}</Alert>}
-        <Field label="Name" error={errors.displayName?.message}>
-          {(a) => <input {...a} {...form.register('displayName')} className={inputClass} />}
-        </Field>
-        <Field label="Email" error={errors.email?.message}>
-          {(a) => <input {...a} {...form.register('email')} type="email" className={inputClass} />}
-        </Field>
-        <Field
-          label="Role"
-          error={errors.role?.message}
-          hint={
-            isSelf ? 'You cannot remove your own admin role if you are the last admin.' : undefined
-          }
-        >
-          {(a) => (
-            <select {...a} {...form.register('role')} className={inputClass}>
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
-          )}
-        </Field>
-        {user && (
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              {...form.register('isActive')}
-              className="size-4"
-              disabled={isSelf}
-            />
-            Active (inactive users cannot sign in)
-          </label>
-        )}
-        <p className="text-xs text-zinc-500">Extension number and phone settings: coming in M2.</p>
-        {user && (
-          <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
-            <Button onClick={() => onResetPassword(user)}>Reset password</Button>
-            <p className="mt-1 text-xs text-zinc-500">
-              Creates a new temporary password and signs them out everywhere.
-            </p>
-          </div>
-        )}
-      </form>
-    </Dialog>
   );
 }

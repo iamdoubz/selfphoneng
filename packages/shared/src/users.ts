@@ -31,6 +31,7 @@ export type UserDto = {
   mustChangePassword: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  extension: { id: string; number: string } | null;
 };
 
 export type ListResponse<T> = { items: T[]; nextCursor: string | null };

@@ -10,7 +10,7 @@ import {
   type UserDto,
 } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
-import { users } from '../db/schema.ts';
+import { extensions, users } from '../db/schema.ts';
 import { badRequest, conflict, notFound } from '../errors.ts';
 import { requireAdmin } from '../auth/guards.ts';
 import { hashPassword } from '../auth/passwords.ts';
@@ -20,7 +20,7 @@ import { audit } from '../services/audit.ts';
 
 type UserRow = typeof users.$inferSelect;
 
-export const toUserDto = (u: UserRow): UserDto => ({
+export const toUserDto = (u: UserRow, extension: UserDto['extension'] = null): UserDto => ({
   id: u.id,
   email: u.email,
   displayName: u.displayName,
@@ -29,7 +29,16 @@ export const toUserDto = (u: UserRow): UserDto => ({
   mustChangePassword: u.mustChangePassword,
   lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
   createdAt: u.createdAt.toISOString(),
+  extension,
 });
+
+const extOf = async (db: Db, userId: string) => {
+  const [e] = await db
+    .select({ id: extensions.id, number: extensions.number })
+    .from(extensions)
+    .where(eq(extensions.userId, userId));
+  return e ?? null;
+};
 
 const IdParams = z.object({ id: z.uuid() });
 
@@ -61,13 +70,22 @@ export async function userRoutes(app: FastifyInstance) {
 
   // ponytail: one page with every user (v1 targets ≤100 users); cursor paging when it's needed.
   app.get('/api/users', async (): Promise<ListResponse<UserDto>> => {
-    const rows = await db.select().from(users).orderBy(asc(users.displayName), asc(users.id));
-    return { items: rows.map(toUserDto), nextCursor: null };
+    const rows = await db
+      .select({ u: users, extId: extensions.id, extNumber: extensions.number })
+      .from(users)
+      .leftJoin(extensions, eq(extensions.userId, users.id))
+      .orderBy(asc(users.displayName), asc(users.id));
+    return {
+      items: rows.map((r) =>
+        toUserDto(r.u, r.extId && r.extNumber ? { id: r.extId, number: r.extNumber } : null),
+      ),
+      nextCursor: null,
+    };
   });
 
   app.get('/api/users/:id', async (req) => {
     const { id } = IdParams.parse(req.params);
-    return toUserDto(await getUser(db, id));
+    return toUserDto(await getUser(db, id), await extOf(db, id));
   });
 
   app.post('/api/users', async (req, reply) => {
@@ -131,7 +149,7 @@ export async function userRoutes(app: FastifyInstance) {
         after: Object.fromEntries(changed.map((k) => [k, after[k]])),
       },
     });
-    return toUserDto(after);
+    return toUserDto(after, await extOf(db, id));
   });
 
   app.delete('/api/users/:id', async (req) => {

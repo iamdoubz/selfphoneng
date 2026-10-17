@@ -12,10 +12,12 @@ import { errorHandler, forbidden, notFound, sendError } from './errors.ts';
 import { authRoutes } from './routes/auth.ts';
 import { userRoutes } from './routes/users.ts';
 import { systemRoutes } from './routes/system.ts';
+import { extensionRoutes } from './routes/extensions.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
     db: Db;
+    config: Config;
     /** Decorated by the caller (index.ts, tests) before ready(): it needs app.log. */
     generator: Generator;
   }
@@ -43,6 +45,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   });
 
   app.decorate('db', db);
+  app.decorate('config', config);
   app.decorateRequest('user', null);
   app.decorateRequest('sessionId', null);
   app.register(fastifyCookie);
@@ -72,6 +75,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.register(authRoutes);
   app.register(userRoutes);
   app.register(systemRoutes);
+  app.register(extensionRoutes);
 
   if (existsSync(publicDir)) {
     app.register(fastifyStatic, { root: publicDir, wildcard: false });
