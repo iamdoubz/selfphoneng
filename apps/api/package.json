@@ -5,11 +5,14 @@
   "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
-    "dev": "node --watch --conditions=development src/index.ts",
+    "dev": "node --watch --env-file-if-exists=../../.env --conditions=development src/index.ts",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@selfphoneng/shared": "workspace:*"
+    "@fastify/static": "^10.1.6",
+    "@selfphoneng/shared": "workspace:*",
+    "fastify": "^5.12.7",
+    "zod": "^4.6.7"
   }
 }
