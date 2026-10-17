@@ -1,0 +1,3395 @@
+Asterisk Call Manager/13.0.0
+Response: Success
+ActionID: rec-1
+Message: Authentication accepted
+
+Event: FullyBooted
+Privilege: system,all
+Uptime: 0
+LastReload: 0
+Status: Fully Booted
+
+Event: SuccessfulAuth
+Privilege: security,all
+EventTV: 2026-10-17T21:42:41.808+0000
+Severity: Informational
+Service: AMI
+EventVersion: 1
+AccountID: selfphoneng
+SessionID: 0x7f4820000e10
+LocalAddress: IPV4/TCP/0.0.0.0/5038
+RemoteAddress: IPV4/TCP/172.21.0.1/55362
+UsingPassword: 0
+SessionTV: 2026-10-17T21:42:41.808+0000
+
+Event: ChallengeSent
+Privilege: security,all
+EventTV: 2026-10-17T21:42:48.692+0000
+Severity: Informational
+Service: PJSIP
+EventVersion: 1
+AccountID: 101
+SessionID: 195ca4cd35e27f2d
+LocalAddress: IPV4/UDP/172.21.0.2/5060
+RemoteAddress: IPV4/UDP/172.21.0.3/5070
+Challenge: 
+
+Event: ChallengeSent
+Privilege: security,all
+EventTV: 2026-10-17T21:42:48.692+0000
+Severity: Informational
+Service: PJSIP
+EventVersion: 1
+AccountID: 102
+SessionID: 9635165a5b1f44ad
+LocalAddress: IPV4/UDP/172.21.0.2/5060
+RemoteAddress: IPV4/UDP/172.21.0.3/5072
+Challenge: 
+
+Event: SuccessfulAuth
+Privilege: security,all
+EventTV: 2026-10-17T21:42:48.697+0000
+Severity: Informational
+Service: PJSIP
+EventVersion: 1
+AccountID: 102
+SessionID: 9635165a5b1f44ad
+LocalAddress: IPV4/UDP/172.21.0.2/5060
+RemoteAddress: IPV4/UDP/172.21.0.3/5072
+UsingPassword: 1
+
+Event: SuccessfulAuth
+Privilege: security,all
+EventTV: 2026-10-17T21:42:48.697+0000
+Severity: Informational
+Service: PJSIP
+EventVersion: 1
+AccountID: 101
+SessionID: 195ca4cd35e27f2d
+LocalAddress: IPV4/UDP/172.21.0.2/5060
+RemoteAddress: IPV4/UDP/172.21.0.3/5070
+UsingPassword: 1
+
+Event: ContactStatus
+Privilege: system,all
+URI: sip:102-0x5fc5ce05a0b0@172.21.0.3:5072
+ContactStatus: NonQualified
+AOR: 102
+EndpointName: 102
+RoundtripUsec: 0
+
+Event: PeerStatus
+Privilege: system,all
+ChannelType: PJSIP
+Peer: PJSIP/102
+PeerStatus: Reachable
+
+Event: ContactStatus
+Privilege: system,all
+URI: sip:102-0x5fc5ce05a0b0@172.21.0.3:5072
+ContactStatus: Reachable
+AOR: 102
+EndpointName: 102
+RoundtripUsec: 1054
+
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/102
+State: NOT_INUSE
+
+Event: ExtensionStatus
+Privilege: call,all
+Exten: 102
+Context: sp-local-numbers
+Hint: PJSIP/102
+Status: 0
+StatusText: Idle
+
+Event: ContactStatus
+Privilege: system,all
+URI: sip:101-0x58c682a440b0@172.21.0.3:5070
+ContactStatus: NonQualified
+AOR: 101
+EndpointName: 101
+RoundtripUsec: 0
+
+Event: PeerStatus
+Privilege: system,all
+ChannelType: PJSIP
+Peer: PJSIP/101
+PeerStatus: Reachable
+
+Event: ContactStatus
+Privilege: system,all
+URI: sip:101-0x58c682a440b0@172.21.0.3:5070
+ContactStatus: Reachable
+AOR: 101
+EndpointName: 101
+RoundtripUsec: 1137
+
+Event: ExtensionStatus
+Privilege: call,all
+Exten: 101
+Context: sp-local-numbers
+Hint: PJSIP/101
+Status: 0
+StatusText: Idle
+
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/101
+State: NOT_INUSE
+
+Response: Success
+ActionID: rec-2
+EventList: start
+Message: A listing of Contacts follows, presented as ContactList events
+
+Event: ContactList
+ActionID: rec-2
+ObjectType: contact
+ObjectName: 101;@3378a8f8702d92995bd8922d8ee5af4a
+ViaAddr: 172.21.0.3
+QualifyTimeout: 3.000000
+Qualify2xxOnly: false
+CallId: 195ca4cd35e27f2d
+RegServer: 
+PruneOnBoot: no
+Path: 
+Endpoint: 101
+ViaPort: 5070
+AuthenticateQualify: no
+Uri: sip:101-0x58c682a440b0@172.21.0.3:5070
+QualifyFrequency: 30
+UserAgent: baresip v1.1.0 (x86_64/linux)
+ExpirationTime: 1792273428
+OutboundProxy: 
+Status: Reachable
+RoundtripUsec: 1137
+
+Event: ContactList
+ActionID: rec-2
+ObjectType: contact
+ObjectName: 102;@aa1710b72e39d93124de8eab2870755a
+ViaAddr: 172.21.0.3
+QualifyTimeout: 3.000000
+Qualify2xxOnly: false
+CallId: 9635165a5b1f44ad
+RegServer: 
+PruneOnBoot: no
+Path: 
+Endpoint: 102
+ViaPort: 5072
+AuthenticateQualify: no
+Uri: sip:102-0x5fc5ce05a0b0@172.21.0.3:5072
+QualifyFrequency: 30
+UserAgent: baresip v1.1.0 (x86_64/linux)
+ExpirationTime: 1792273428
+OutboundProxy: 
+Status: Reachable
+RoundtripUsec: 1054
+
+Event: ContactListComplete
+ActionID: rec-2
+EventList: Complete
+ListItems: 2
+
+Response: Success
+ActionID: rec-3
+EventList: start
+Message: Extension Statuses will follow
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 101
+Context: sp-local-numbers
+Hint: PJSIP/101
+Status: 0
+StatusText: Idle
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 102
+Context: sp-local-numbers
+Hint: PJSIP/102
+Status: 0
+StatusText: Idle
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 701
+Context: sp-parkedcalls
+Hint: park:701@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 702
+Context: sp-parkedcalls
+Hint: park:702@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 703
+Context: sp-parkedcalls
+Hint: park:703@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 704
+Context: sp-parkedcalls
+Hint: park:704@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 705
+Context: sp-parkedcalls
+Hint: park:705@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 706
+Context: sp-parkedcalls
+Hint: park:706@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 707
+Context: sp-parkedcalls
+Hint: park:707@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 708
+Context: sp-parkedcalls
+Hint: park:708@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 709
+Context: sp-parkedcalls
+Hint: park:709@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 710
+Context: sp-parkedcalls
+Hint: park:710@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 711
+Context: sp-parkedcalls
+Hint: park:711@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 712
+Context: sp-parkedcalls
+Hint: park:712@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 713
+Context: sp-parkedcalls
+Hint: park:713@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 714
+Context: sp-parkedcalls
+Hint: park:714@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 715
+Context: sp-parkedcalls
+Hint: park:715@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 716
+Context: sp-parkedcalls
+Hint: park:716@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 717
+Context: sp-parkedcalls
+Hint: park:717@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 718
+Context: sp-parkedcalls
+Hint: park:718@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 719
+Context: sp-parkedcalls
+Hint: park:719@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: rec-3
+Exten: 720
+Context: sp-parkedcalls
+Hint: park:720@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStateListComplete
+ActionID: rec-3
+EventList: Complete
+ListItems: 22
+
+Event: Newchannel
+Privilege: call,all
+Channel: PJSIP/102-00000000
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: SP_EXT
+Value: 102
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: SP_CLASS
+Value: 2
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: SP_RECMODE
+Value: never
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: __SP_DIRECTION
+Value: internal
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: AppDial2
+AppData: (Outgoing Line)
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: PJSIP/102-00000000
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+
+Event: DialBegin
+Privilege: call,all
+DestChannel: PJSIP/102-00000000
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 102
+DestCallerIDName: Bob
+DestConnectedLineNum: 102
+DestConnectedLineName: Bob
+DestLanguage: en
+DestAccountCode: 
+DestContext: sp-from-ext
+DestExten: s
+DestPriority: 1
+DestUniqueid: 1792273369.0
+DestLinkedid: 1792273369.0
+DialString: 102
+
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/102-00000000
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+
+Event: ExtensionStatus
+Privilege: call,all
+Exten: 102
+Context: sp-local-numbers
+Hint: PJSIP/102
+Status: 8
+StatusText: Ringing
+
+Event: DialState
+Privilege: call,all
+DestChannel: PJSIP/102-00000000
+DestChannelState: 5
+DestChannelStateDesc: Ringing
+DestCallerIDNum: 102
+DestCallerIDName: Bob
+DestConnectedLineNum: 102
+DestConnectedLineName: Bob
+DestLanguage: en
+DestAccountCode: 
+DestContext: sp-from-ext
+DestExten: s
+DestPriority: 1
+DestUniqueid: 1792273369.0
+DestLinkedid: 1792273369.0
+DialStatus: RINGING
+
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/102
+State: RINGING
+
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+
+Event: DialEnd
+Privilege: call,all
+DestChannel: PJSIP/102-00000000
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 102
+DestCallerIDName: Bob
+DestConnectedLineNum: 102
+DestConnectedLineName: Bob
+DestLanguage: en
+DestAccountCode: 
+DestContext: sp-from-ext
+DestExten: s
+DestPriority: 1
+DestUniqueid: 1792273369.0
+DestLinkedid: 1792273369.0
+DialStatus: ANSWER
+
+Event: OriginateResponse
+Privilege: call,all
+ActionID: sp-10
+Response: Success
+Channel: PJSIP/102-00000000
+Context: sp-from-ext
+Exten: 101
+Reason: 4
+Uniqueid: 1792273369.0
+CallerIDNum: 102
+CallerIDName: Bob
+
+Event: ExtensionStatus
+Privilege: call,all
+Exten: 102
+Context: sp-local-numbers
+Hint: PJSIP/102
+Status: 1
+StatusText: InUse
+
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/102
+State: INUSE
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 101
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: 101
+Application: Gosub
+AppData: sp-sub-user,s,1(101,25,0,never)
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 101
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: LOCAL(ARG1)
+Value: 101
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 101
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: LOCAL(ARG2)
+Value: 25
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 101
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: LOCAL(ARG3)
+Value: 0
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 101
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: LOCAL(ARG4)
+Value: never
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 101
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: LOCAL(ARGC)
+Value: 4
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: Set
+AppData: __SP_TARGET=101
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: __SP_TARGET
+Value: 101
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 2
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: ExecIf
+AppData: 0?Gosub(sp-sub-record,s,1)
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 3
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: GotoIf
+AppData: 0?busy
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 4
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: Set
+AppData: FWD=
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 4
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: FWD
+Value: 
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 5
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: GotoIf
+AppData: 0?forward
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: Gosub
+AppData: sp-sub-dial-user,s,1(101,25)
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: LOCAL(ARG1)
+Value: 101
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: LOCAL(ARG2)
+Value: 25
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: LOCAL(ARG3)
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: LOCAL(ARG4)
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: LOCAL(ARGC)
+Value: 2
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: Set
+AppData: DS=PJSIP/101/sip:101-0x58c682a440b0@172.21.0.3:5070
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: DS
+Value: PJSIP/101/sip:101-0x58c682a440b0@172.21.0.3:5070
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 2
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: Set
+AppData: WS=
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 2
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: WS
+Value: 
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 3
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: ExecIf
+AppData: 0?Set(DS=PJSIP/101/sip:101-0x58c682a440b0@172.21.0.3:5070&)
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 4
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: ExecIf
+AppData: 0?Set(DS=)
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 5
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: GotoIf
+AppData: 0?unavail
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Extension: s
+Application: Dial
+AppData: PJSIP/101/sip:101-0x58c682a440b0@172.21.0.3:5070,25,tx
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: DIALSTATUS
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: DIALEDPEERNUMBER
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: DIALEDPEERNAME
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: ANSWEREDTIME
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: ANSWEREDTIME_MS
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: DIALEDTIME
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: DIALEDTIME_MS
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: RINGTIME
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: RINGTIME_MS
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: PROGRESSTIME
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: PROGRESSTIME_MS
+Value: 
+
+Event: Newchannel
+Privilege: call,all
+Channel: PJSIP/101-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: SP_EXT
+Value: 101
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: SP_CLASS
+Value: 2
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: SP_RECMODE
+Value: never
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: __SP_DIRECTION
+Value: internal
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: DIALEDPEERNUMBER
+Value: 101/sip:101-0x58c682a440b0@172.21.0.3:5070
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: __SP_TARGET
+Value: 101
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: <unknown>
+ConnectedLineName: <unknown>
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: __SP_DIRECTION
+Value: internal
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Extension: s
+Application: AppDial
+AppData: (Outgoing Line)
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: PJSIP/101-00000001
+ChannelState: 0
+ChannelStateDesc: Down
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+
+Event: DialBegin
+Privilege: call,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+DestChannel: PJSIP/101-00000001
+DestChannelState: 0
+DestChannelStateDesc: Down
+DestCallerIDNum: 101
+DestCallerIDName: Alice
+DestConnectedLineNum: 102
+DestConnectedLineName: Bob
+DestLanguage: en
+DestAccountCode: 
+DestContext: sp-from-ext
+DestExten: s
+DestPriority: 1
+DestUniqueid: 1792273369.1
+DestLinkedid: 1792273369.0
+DialString: 101/sip:101-0x58c682a440b0@172.21.0.3:5070
+
+Event: NewConnectedLine
+Privilege: call,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/101-00000001
+ChannelState: 5
+ChannelStateDesc: Ringing
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+
+Event: ExtensionStatus
+Privilege: call,all
+Exten: 101
+Context: sp-local-numbers
+Hint: PJSIP/101
+Status: 8
+StatusText: Ringing
+
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/101
+State: RINGING
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: RINGTIME
+Value: 0
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: RINGTIME_MS
+Value: 2
+
+Event: DialState
+Privilege: call,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+DestChannel: PJSIP/101-00000001
+DestChannelState: 5
+DestChannelStateDesc: Ringing
+DestCallerIDNum: 101
+DestCallerIDName: Alice
+DestConnectedLineNum: 102
+DestConnectedLineName: Bob
+DestLanguage: en
+DestAccountCode: 
+DestContext: sp-from-ext
+DestExten: s
+DestPriority: 1
+DestUniqueid: 1792273369.1
+DestLinkedid: 1792273369.0
+DialStatus: RINGING
+
+Event: Newstate
+Privilege: call,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: s
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: DIALSTATUS
+Value: ANSWER
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: DIALEDPEERNAME
+Value: PJSIP/101-00000001
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: DIALEDPEERNUMBER
+Value: 101/sip:101-0x58c682a440b0@172.21.0.3:5070
+
+Event: ExtensionStatus
+Privilege: call,all
+Exten: 101
+Context: sp-local-numbers
+Hint: PJSIP/101
+Status: 1
+StatusText: InUse
+
+Event: DialEnd
+Privilege: call,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+DestChannel: PJSIP/101-00000001
+DestChannelState: 6
+DestChannelStateDesc: Up
+DestCallerIDNum: 101
+DestCallerIDName: Alice
+DestConnectedLineNum: 102
+DestConnectedLineName: Bob
+DestLanguage: en
+DestAccountCode: 
+DestContext: sp-from-ext
+DestExten: 
+DestPriority: 1
+DestUniqueid: 1792273369.1
+DestLinkedid: 1792273369.0
+DialStatus: ANSWER
+
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/101
+State: INUSE
+
+Event: BridgeCreate
+Privilege: call,all
+BridgeUniqueid: 3d086651-9dc6-4545-a191-5bd5c78f78f7
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+
+Event: Newexten
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Extension: 
+Application: AppDial
+AppData: (Outgoing Line)
+
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 3d086651-9dc6-4545-a191-5bd5c78f78f7
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+
+Event: BridgeEnter
+Privilege: call,all
+BridgeUniqueid: 3d086651-9dc6-4545-a191-5bd5c78f78f7
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 2
+BridgeVideoSourceMode: none
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: BRIDGEPEER
+Value: PJSIP/102-00000000
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: BRIDGEPVTCALLID
+Value: 7df6d8dd-47b5-4f44-a525-ec2aa954200f
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: BRIDGEPEER
+Value: PJSIP/101-00000001
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: BRIDGEPVTCALLID
+Value: 02bd9013-3540-4fea-b126-5f91dcd4a287
+
+Event: RTCPSent
+Privilege: reporting,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+To: 172.21.0.3:30063
+From: 172.21.0.2:16389
+MES: 88.1
+SSRC: 0x473a2bfe
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273374.255151
+SentRTP: 74856
+SentPackets: 250
+SentOctets: 40000
+Report0SourceSSRC: 0x98f8f606
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 28546
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 7
+Report0LSR: 0
+Report0DLSR: 0.0000
+
+Event: RTCPReceived
+Privilege: reporting,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+To: 172.21.0.2:16389
+From: 172.21.0.3:30063
+RTT: 0.0002
+MES: 88.1
+SSRC: 0xee7e6a5e
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273374.256279
+SentRTP: 65363
+SentPackets: 251
+SentOctets: 40160
+Report0SourceSSRC: 0x473a2bfe
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 41848
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 6
+Report0LSR: 1784562001
+Report0DLSR: 0.0010
+
+Event: RTCPReceived
+Privilege: reporting,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+To: 172.21.0.2:13143
+From: 172.21.0.3:30067
+RTT: 0.0000
+MES: 88.1
+SSRC: 0xee7e6a5e
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273374.256458
+SentRTP: 74952
+SentPackets: 250
+SentOctets: 40000
+Report0SourceSSRC: 0x4b403da3
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 24808
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 6
+Report0LSR: 0
+Report0DLSR: 0.0000
+
+Event: RTCPSent
+Privilege: reporting,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+To: 172.21.0.3:30067
+From: 172.21.0.2:13143
+MES: 88.1
+SSRC: 0x4b403da3
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273374.264301
+SentRTP: 65352
+SentPackets: 250
+SentOctets: 40000
+Report0SourceSSRC: 0x1e1fffe5
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 7626
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 5
+Report0LSR: 1784562087
+Report0DLSR: 0.0070
+
+Event: RTCPSent
+Privilege: reporting,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+To: 172.21.0.3:30063
+From: 172.21.0.2:16389
+MES: 88.1
+SSRC: 0x473a2bfe
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273379.255421
+SentRTP: 114856
+SentPackets: 500
+SentOctets: 80000
+Report0SourceSSRC: 0x98f8f606
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 28796
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 6
+Report0LSR: 1784562075
+Report0DLSR: 4.9990
+
+Event: RTCPReceived
+Privilege: reporting,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+To: 172.21.0.2:13143
+From: 172.21.0.3:30067
+RTT: 0.0003
+MES: 88.1
+SSRC: 0xee7e6a63
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273379.256508
+SentRTP: 114960
+SentPackets: 500
+SentOctets: 80000
+Report0SourceSSRC: 0x4b403da3
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 25058
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 6
+Report0LSR: 1784562601
+Report0DLSR: 4.9920
+
+Event: RTCPReceived
+Privilege: reporting,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+To: 172.21.0.2:16389
+From: 172.21.0.3:30063
+RTT: 0.0002
+MES: 88.1
+SSRC: 0xee7e6a63
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273379.256562
+SentRTP: 105395
+SentPackets: 501
+SentOctets: 80160
+Report0SourceSSRC: 0x473a2bfe
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 42098
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 9
+Report0LSR: 1784889699
+Report0DLSR: 0.0010
+
+Event: RTCPSent
+Privilege: reporting,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+To: 172.21.0.3:30067
+From: 172.21.0.2:13143
+MES: 88.1
+SSRC: 0x4b403da3
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273379.264552
+SentRTP: 105352
+SentPackets: 500
+SentOctets: 80000
+Report0SourceSSRC: 0x1e1fffe5
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 7876
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 6
+Report0LSR: 1784889770
+Report0DLSR: 0.0070
+
+Event: RTCPSent
+Privilege: reporting,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+To: 172.21.0.3:30063
+From: 172.21.0.2:16389
+MES: 88.1
+SSRC: 0x473a2bfe
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273384.254680
+SentRTP: 154856
+SentPackets: 750
+SentOctets: 120000
+Report0SourceSSRC: 0x98f8f606
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 29046
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 6
+Report0LSR: 1784889774
+Report0DLSR: 4.9980
+
+Event: RTCPReceived
+Privilege: reporting,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+To: 172.21.0.2:13143
+From: 172.21.0.3:30067
+RTT: 0.0002
+MES: 88.1
+SSRC: 0xee7e6a68
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273384.256717
+SentRTP: 154976
+SentPackets: 750
+SentOctets: 120000
+Report0SourceSSRC: 0x4b403da3
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 25308
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 6
+Report0LSR: 1784890297
+Report0DLSR: 4.9920
+
+Event: RTCPReceived
+Privilege: reporting,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+To: 172.21.0.2:16389
+From: 172.21.0.3:30063
+RTT: 0.0002
+MES: 88.1
+SSRC: 0xee7e6a68
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273384.256828
+SentRTP: 145379
+SentPackets: 751
+SentOctets: 120160
+Report0SourceSSRC: 0x473a2bfe
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 42348
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 9
+Report0LSR: 1785217330
+Report0DLSR: 0.0020
+
+Event: RTCPSent
+Privilege: reporting,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+To: 172.21.0.3:30067
+From: 172.21.0.2:13143
+MES: 88.1
+SSRC: 0x4b403da3
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273384.264827
+SentRTP: 145352
+SentPackets: 750
+SentOctets: 120000
+Report0SourceSSRC: 0x1e1fffe5
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 8126
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 6
+Report0LSR: 1785217464
+Report0DLSR: 0.0080
+
+Event: RTCPSent
+Privilege: reporting,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+To: 172.21.0.3:30063
+From: 172.21.0.2:16389
+MES: 88.1
+SSRC: 0x473a2bfe
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273389.254972
+SentRTP: 194856
+SentPackets: 1000
+SentOctets: 160000
+Report0SourceSSRC: 0x98f8f606
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 29296
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 7
+Report0LSR: 1785217471
+Report0DLSR: 4.9980
+
+Event: RTCPReceived
+Privilege: reporting,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+To: 172.21.0.2:13143
+From: 172.21.0.3:30067
+RTT: 0.0002
+MES: 88.1
+SSRC: 0xee7e6a6d
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273389.256129
+SentRTP: 194976
+SentPackets: 1000
+SentOctets: 160000
+Report0SourceSSRC: 0x4b403da3
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 25558
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 7
+Report0LSR: 1785217995
+Report0DLSR: 4.9920
+
+Event: RTCPReceived
+Privilege: reporting,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+To: 172.21.0.2:16389
+From: 172.21.0.3:30063
+RTT: 0.0002
+MES: 88.1
+SSRC: 0xee7e6a6d
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273389.256096
+SentRTP: 185379
+SentPackets: 1001
+SentOctets: 160160
+Report0SourceSSRC: 0x473a2bfe
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 42598
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 6
+Report0LSR: 1785545029
+Report0DLSR: 0.0010
+
+Event: RTCPSent
+Privilege: reporting,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+To: 172.21.0.3:30067
+From: 172.21.0.2:13143
+MES: 88.1
+SSRC: 0x4b403da3
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273389.265110
+SentRTP: 185352
+SentPackets: 1000
+SentOctets: 160000
+Report0SourceSSRC: 0x1e1fffe5
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 8376
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 6
+Report0LSR: 1785545105
+Report0DLSR: 0.0080
+
+Event: RTCPSent
+Privilege: reporting,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+To: 172.21.0.3:30063
+From: 172.21.0.2:16389
+MES: 88.1
+SSRC: 0x473a2bfe
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273394.255266
+SentRTP: 234856
+SentPackets: 1250
+SentOctets: 200000
+Report0SourceSSRC: 0x98f8f606
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 29546
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 6
+Report0LSR: 1785545103
+Report0DLSR: 4.9990
+
+Event: RTCPReceived
+Privilege: reporting,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+To: 172.21.0.2:16389
+From: 172.21.0.3:30063
+RTT: 0.0003
+MES: 88.1
+SSRC: 0xee7e6a72
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273394.256457
+SentRTP: 225387
+SentPackets: 1251
+SentOctets: 200160
+Report0SourceSSRC: 0x473a2bfe
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 42848
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 6
+Report0LSR: 1785872729
+Report0DLSR: 0.0010
+
+Event: RTCPReceived
+Privilege: reporting,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+To: 172.21.0.2:13143
+From: 172.21.0.3:30067
+RTT: 0.0005
+MES: 88.1
+SSRC: 0xee7e6a72
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273394.256499
+SentRTP: 234968
+SentPackets: 1250
+SentOctets: 200000
+Report0SourceSSRC: 0x4b403da3
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 25808
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 7
+Report0LSR: 1785545694
+Report0DLSR: 4.9910
+
+Event: RTCPSent
+Privilege: reporting,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+To: 172.21.0.3:30067
+From: 172.21.0.2:13143
+MES: 88.1
+SSRC: 0x4b403da3
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273394.264447
+SentRTP: 225352
+SentPackets: 1250
+SentOctets: 200000
+Report0SourceSSRC: 0x1e1fffe5
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 8626
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 5
+Report0LSR: 1785872809
+Report0DLSR: 0.0070
+
+Event: RTCPSent
+Privilege: reporting,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+To: 172.21.0.3:30063
+From: 172.21.0.2:16389
+MES: 88.1
+SSRC: 0x473a2bfe
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273399.254581
+SentRTP: 274856
+SentPackets: 1500
+SentOctets: 240000
+Report0SourceSSRC: 0x98f8f606
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 29796
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 5
+Report0LSR: 1785872807
+Report0DLSR: 4.9980
+
+Event: RTCPReceived
+Privilege: reporting,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+To: 172.21.0.2:16389
+From: 172.21.0.3:30063
+RTT: 0.0002
+MES: 88.1
+SSRC: 0xee7e6a77
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273399.256714
+SentRTP: 265387
+SentPackets: 1501
+SentOctets: 240160
+Report0SourceSSRC: 0x473a2bfe
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 43098
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 7
+Report0LSR: 1786200364
+Report0DLSR: 0.0020
+
+Event: RTCPReceived
+Privilege: reporting,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+To: 172.21.0.2:13143
+From: 172.21.0.3:30067
+RTT: 0.0003
+MES: 88.1
+SSRC: 0xee7e6a77
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273399.256690
+SentRTP: 274960
+SentPackets: 1500
+SentOctets: 240000
+Report0SourceSSRC: 0x4b403da3
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 26058
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 5
+Report0LSR: 1785873330
+Report0DLSR: 4.9920
+
+Event: RTCPSent
+Privilege: reporting,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+To: 172.21.0.3:30067
+From: 172.21.0.2:13143
+MES: 88.1
+SSRC: 0x4b403da3
+PT: 200(SR)
+ReportCount: 1
+SentNTP: 1792273399.264719
+SentRTP: 265352
+SentPackets: 1500
+SentOctets: 240000
+Report0SourceSSRC: 0x1e1fffe5
+Report0FractionLost: 0
+Report0CumulativeLost: 0
+Report0HighestSequence: 8876
+Report0SequenceNumberCycles: 0
+Report0IAJitter: 5
+Report0LSR: 1786200502
+Report0DLSR: 0.0070
+
+Event: SoftHangupRequest
+Privilege: call,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Cause: 32
+
+Event: SoftHangupRequest
+Privilege: call,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Cause: 32
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: BRIDGEPEER
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: BRIDGEPVTCALLID
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: BRIDGEPEER
+Value: 
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: BRIDGEPVTCALLID
+Value: 
+
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 3d086651-9dc6-4545-a191-5bd5c78f78f7
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 1
+BridgeVideoSourceMode: none
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: ANSWEREDTIME
+Value: 31
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: ANSWEREDTIME_MS
+Value: 31017
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: DIALEDTIME
+Value: 31
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: DIALEDTIME_MS
+Value: 31031
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: DIALSTATUS
+Value: ANSWER
+
+Event: SoftHangupRequest
+Privilege: call,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Cause: 16
+
+Event: BridgeLeave
+Privilege: call,all
+BridgeUniqueid: 3d086651-9dc6-4545-a191-5bd5c78f78f7
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+
+Event: BridgeDestroy
+Privilege: call,all
+BridgeUniqueid: 3d086651-9dc6-4545-a191-5bd5c78f78f7
+BridgeType: basic
+BridgeTechnology: simple_bridge
+BridgeCreator: <unknown>
+BridgeName: <unknown>
+BridgeNumChannels: 0
+BridgeVideoSourceMode: none
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: RTPAUDIOQOS
+Value: ssrc=1194994686;themssrc=2566452742;lp=0;rxjitter=0.000875;rxcount=1551;txjitter=0.000750;txcount=1551;rlp=0;rtt=0.000183;rxmes=88.085866;txmes=88.086373
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: RTPAUDIOQOSJITTER
+Value: minrxjitter=000.000000;maxrxjitter=000.000875;avgrxjitter=000.000737;stdevrxjitter=000.000095;mintxjitter=000.000750;maxtxjitter=000.001125;avgtxjitter=000.000896;stdevtxjitter=000.000168;
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: RTPAUDIOQOS
+Value: ssrc=1262501283;themssrc=505413605;lp=0;rxjitter=0.000625;rxcount=1551;txjitter=0.000750;txcount=1550;rlp=0;rtt=0.000335;rxmes=88.085813;txmes=88.085793
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: RTPAUDIOQOSLOSS
+Value:   minrxlost=000.000000;  maxrxlost=000.000000;  avgrxlost=000.000000;  stdevrxlost=000.000000;  mintxlost=000.000000;  maxtxlost=000.000000;  avgtxlost=000.000000;  stdevtxlost=000.000000;
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: RTPAUDIOQOSRTT
+Value:      minrtt=000.000183;     maxrtt=000.000274;     avgrtt=000.000208;     stdevrtt=000.000032;
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: RTPAUDIOQOSJITTER
+Value: minrxjitter=000.000000;maxrxjitter=000.000875;avgrxjitter=000.000725;stdevrxjitter=000.000095;mintxjitter=000.000625;maxtxjitter=000.000875;avgtxjitter=000.000771;stdevtxjitter=000.000086;
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: RTPAUDIOQOSLOSS
+Value:   minrxlost=000.000000;  maxrxlost=000.000000;  avgrxlost=000.000000;  stdevrxlost=000.000000;  mintxlost=000.000000;  maxtxlost=000.000000;  avgtxlost=000.000000;  stdevtxlost=000.000000;
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Variable: RTPAUDIOQOSMES
+Value:    minrxmes=088.086373;   maxrxmes=088.087190;   avgrxmes=088.086539;   stdevrxmes=000.000292;   mintxmes=088.085743;   maxtxmes=088.086983;   avgtxmes=088.085976;   stdevtxmes=000.000452;
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: RTPAUDIOQOSRTT
+Value:      minrtt=000.000244;     maxrtt=000.000457;     avgrtt=000.000331;     stdevrtt=000.000079;
+
+Event: VarSet
+Privilege: dialplan,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Variable: RTPAUDIOQOSMES
+Value:    minrxmes=088.085781;   maxrxmes=088.087204;   avgrxmes=088.086131;   stdevrxmes=000.000493;   mintxmes=088.085813;   maxtxmes=088.087887;   avgtxmes=088.086492;   stdevtxmes=000.000679;
+
+Event: Hangup
+Privilege: call,all
+Channel: PJSIP/101-00000001
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 101
+CallerIDName: Alice
+ConnectedLineNum: 102
+ConnectedLineName: Bob
+Language: en
+AccountCode: 
+Context: sp-from-ext
+Exten: 
+Priority: 1
+Uniqueid: 1792273369.1
+Linkedid: 1792273369.0
+Cause: 16
+Cause-txt: Normal Clearing
+
+Event: Hangup
+Privilege: call,all
+Channel: PJSIP/102-00000000
+ChannelState: 6
+ChannelStateDesc: Up
+CallerIDNum: 102
+CallerIDName: Bob
+ConnectedLineNum: 101
+ConnectedLineName: Alice
+Language: en
+AccountCode: 
+Context: sp-sub-dial-user
+Exten: s
+Priority: 6
+Uniqueid: 1792273369.0
+Linkedid: 1792273369.0
+Cause: 16
+Cause-txt: Normal Clearing
+
+Event: Cdr
+Privilege: cdr,all
+AccountCode: 
+Source: 102
+Destination: 101
+DestinationContext: sp-from-ext
+CallerID: "Bob" <102>
+Channel: PJSIP/102-00000000
+DestinationChannel: PJSIP/101-00000001
+LastApplication: Dial
+LastData: PJSIP/101/sip:101-0x58c682a440b0@172.21.0.3:5070,25,tx
+StartTime: 2026-10-17 21:42:49
+AnswerTime: 2026-10-17 21:42:49
+EndTime: 2026-10-17 21:43:20
+Duration: 31
+BillableSeconds: 31
+Disposition: ANSWERED
+AMAFlags: DOCUMENTATION
+UniqueID: 1792273369.0
+UserField: 
+sp_did: 
+sp_direction: 
+sp_recording: 
+
+Event: ExtensionStatus
+Privilege: call,all
+Exten: 101
+Context: sp-local-numbers
+Hint: PJSIP/101
+Status: 0
+StatusText: Idle
+
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/101
+State: NOT_INUSE
+
+Event: ExtensionStatus
+Privilege: call,all
+Exten: 102
+Context: sp-local-numbers
+Hint: PJSIP/102
+Status: 0
+StatusText: Idle
+
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/102
+State: NOT_INUSE
+

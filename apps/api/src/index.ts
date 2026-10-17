@@ -8,6 +8,7 @@ import { setSecretKey } from './crypto/secrets.ts';
 import { createDb, runMigrations } from './db/client.ts';
 import { createGenerator } from './generator/index.ts';
 import { ensureInitialAdmin } from './services/bootstrap.ts';
+import { LiveState } from './live/state.ts';
 
 let config;
 try {
@@ -28,13 +29,22 @@ const ami = new AmiClient({
   secret: config.AMI_SECRET,
   logger: app.log,
 });
+const live = new LiveState(db, ami);
 const generator = createGenerator({
   db,
   ami,
   dir: resolve(config.ASTERISK_CONFIG_DIR),
   log: app.log,
+  onApplied: (r) => {
+    live.emit('message', {
+      type: 'system.configApplied',
+      data: { ok: r.ok, error: r.error, restartRequired: r.restartRequired },
+    });
+    void live.loadExtensions().catch((err) => app.log.error({ err }, 'live reload failed'));
+  },
 });
 app.decorate('generator', generator);
+app.decorate('live', live);
 
 await runMigrations(db);
 app.log.info('database migrated');
@@ -47,9 +57,15 @@ if (admin === 'created')
   app.log.info({ email: config.INITIAL_ADMIN_EMAIL }, 'initial admin created');
 await app.listen({ host: '127.0.0.1', port: config.API_PORT });
 
-// Every (re)connect: Asterisk may have restarted, so push the full config again.
-// TODO(M2-T6): load live state; TODO(M6): sync AstDB first (04 §5.5).
-ami.on('connected', () => void generator.apply({ trigger: 'startup', force: true }));
+await live.loadExtensions();
+// Every (re)connect: Asterisk may have restarted, so push the full config again, then read its
+// state (after the apply, so hints for new extensions exist). TODO(M6): sync AstDB first (04 §5.5).
+ami.on('connected', () => {
+  void (async () => {
+    await generator.apply({ trigger: 'startup', force: true });
+    await live.loadFromAsterisk();
+  })().catch((err) => app.log.error({ err }, 'startup sync failed'));
+});
 ami.start();
 
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {

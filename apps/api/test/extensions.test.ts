@@ -61,7 +61,7 @@ describe.skipIf(!hasTestDb)('extensions API', () => {
     await settle();
     expect(pjsip()).toContain('[101]\ntype = endpoint');
     expect(pjsip()).toContain('[101-web]\ntype = endpoint');
-    expect(t.ami.commands).toContain('pjsip reload');
+    expect(t.ami.commands).toContain('module reload res_pjsip.so');
   });
 
   it('enforces the numbering rules', async () => {

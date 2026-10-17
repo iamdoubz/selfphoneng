@@ -12,15 +12,24 @@ import { users } from '../src/db/schema.ts';
 import { hashPassword } from '../src/auth/passwords.ts';
 import { resetLoginLimiter } from '../src/auth/login-limiter.ts';
 import { ensureInitialAdmin } from '../src/services/bootstrap.ts';
+import { EventEmitter } from 'node:events';
 import { createGenerator } from '../src/generator/index.ts';
+import { LiveState } from '../src/live/state.ts';
 import { createTestDb } from './db.ts';
 
 /** Stand-in for AmiClient: records commands; flip `connected` to simulate Asterisk going away. */
 export function fakeAmi() {
   const commands: string[] = [];
+  const events = new EventEmitter();
   return {
     connected: true,
     commands,
+    events,
+    on: events.on.bind(events),
+    off: events.off.bind(events),
+    async actionList(): Promise<Record<string, string>[]> {
+      return [];
+    },
     isConnected() {
       return this.connected;
     },
@@ -51,9 +60,18 @@ export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) 
   const app = buildApp(config, t.db, pub);
   const ami = fakeAmi();
   const genDir = mkdtempSync(join(tmpdir(), 'sp-gen-'));
+  const live = new LiveState(t.db, ami);
+  app.decorate('live', live);
   app.decorate(
     'generator',
-    createGenerator({ db: t.db, ami, dir: genDir, log: app.log, debounceMs: 20 }),
+    createGenerator({
+      db: t.db,
+      ami,
+      dir: genDir,
+      log: app.log,
+      debounceMs: 20,
+      onApplied: () => void live.loadExtensions(),
+    }),
   );
   extend?.(app);
   await ensureInitialAdmin(t.db, ADMIN.email, ADMIN.password);
@@ -90,6 +108,7 @@ export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) 
     app,
     db: t.db,
     ami,
+    live,
     genDir,
     login,
     addUser,

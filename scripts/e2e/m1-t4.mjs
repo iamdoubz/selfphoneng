@@ -33,7 +33,7 @@ try {
   await p.fill('Repeat new password', NEW_PW);
   await p.click('Change password');
   await p.waitFor(`location.pathname === '/admin'`, 'admin dashboard after change');
-  assert.match(await p.text(), /Coming in M2/);
+  assert.match(await p.text(), /Extensions online/);
 
   await p.click('Users & Extensions');
   await p.waitFor(`document.body.innerText.includes('Administrator')`, 'users table');

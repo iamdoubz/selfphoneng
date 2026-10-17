@@ -10,8 +10,9 @@
 5. Build Fastify: plugins (cookie, rate-limit, multipart, websocket, static for
    `./public` with SPA fallback to `index.html` for non-`/api`, non-`/prov`, non-`/hooks` paths), then routes.
 6. Listen on `127.0.0.1:${API_PORT}`.
-7. Start the AMI client (§4). On every successful login: sync AstDB (§5.5), load
-   live state (§5.1), `generator.apply({ trigger: 'startup', force: true })`.
+7. Start the AMI client (§4). On every successful login: sync AstDB (§5.5),
+   `generator.apply({ trigger: 'startup', force: true })`, then load live state (§5.1). The apply comes
+   first so hints for extensions created while Asterisk was away exist before their states are read.
 8. Start the voicemail watcher (§5.6) and the jobs (§8).
 9. On SIGTERM: stop jobs, close WS clients, close AMI, close DB, exit 0.
 

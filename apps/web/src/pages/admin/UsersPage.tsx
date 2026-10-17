@@ -7,6 +7,8 @@ import { usersApi } from '../../api/client.ts';
 import { ConfirmDialog, Dialog } from '../../components/Dialog.tsx';
 import { Alert, Button } from '../../components/ui.tsx';
 import { UserDrawer } from './UserDrawer.tsx';
+import { StatusDot } from '../../components/StatusDot.tsx';
+import { useLive } from '../../live/store.ts';
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : 'Never');
 
@@ -126,7 +128,17 @@ function UsersTable({
   onEdit: (u: UserDto) => void;
   onDelete: (u: UserDto) => void;
 }) {
+  const live = useLive((s) => s.extensions);
   if (users.length === 0) return <p className="text-sm text-zinc-500">No users yet.</p>;
+  const ext = (u: UserDto) =>
+    u.extension ? (
+      <span className="inline-flex items-center gap-1.5 font-mono">
+        <StatusDot ext={live[u.extension.number]} />
+        {u.extension.number}
+      </span>
+    ) : (
+      '–'
+    );
   const badge = (u: UserDto) => (
     <span className="flex flex-wrap gap-1">
       {u.role === 'admin' && (
@@ -159,11 +171,7 @@ function UsersTable({
               <div className="min-w-0">
                 <p className="font-medium">
                   {u.displayName}
-                  {u.extension && (
-                    <span className="ml-2 font-mono text-sm text-zinc-500">
-                      {u.extension.number}
-                    </span>
-                  )}
+                  {u.extension && <span className="ml-2 text-sm text-zinc-500">{ext(u)}</span>}
                 </p>
                 <p className="truncate text-sm text-zinc-500">{u.email}</p>
               </div>
@@ -192,7 +200,7 @@ function UsersTable({
         <tbody>
           {users.map((u) => (
             <tr key={u.id} className="border-b border-zinc-100 dark:border-zinc-800/60">
-              <td className="py-2 font-mono">{u.extension?.number ?? '–'}</td>
+              <td className="py-2">{ext(u)}</td>
               <td className="py-2 font-medium">{u.displayName}</td>
               <td className="py-2">{u.email}</td>
               <td className="py-2">{badge(u)}</td>

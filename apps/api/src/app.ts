@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import Fastify from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
+import fastifyWebsocket from '@fastify/websocket';
 import { sql } from 'drizzle-orm';
 import type { Config } from './config.ts';
 import type { Db } from './db/client.ts';
@@ -13,6 +14,7 @@ import { authRoutes } from './routes/auth.ts';
 import { userRoutes } from './routes/users.ts';
 import { systemRoutes } from './routes/system.ts';
 import { extensionRoutes } from './routes/extensions.ts';
+import { liveRoutes } from './live/hub.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -49,6 +51,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.decorateRequest('user', null);
   app.decorateRequest('sessionId', null);
   app.register(fastifyCookie);
+  app.register(fastifyWebsocket);
   app.setErrorHandler(errorHandler);
 
   // CSRF (04 §2.2): browsers can't add this header cross-site without CORS, and CORS is off.
@@ -76,6 +79,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.register(userRoutes);
   app.register(systemRoutes);
   app.register(extensionRoutes);
+  app.register(liveRoutes);
 
   if (existsSync(publicDir)) {
     app.register(fastifyStatic, { root: publicDir, wildcard: false });

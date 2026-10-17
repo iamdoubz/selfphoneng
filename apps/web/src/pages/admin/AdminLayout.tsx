@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Admin shell (05 §2): sidebar in spec order; unbuilt pages say which milestone brings them.
 import { useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { APP_NAME, type AuthUser } from '@selfphoneng/shared';
 import { authApi } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
 import { Button } from '../../components/ui.tsx';
+import { subscribeLive, useLive } from '../../live/store.ts';
 
 export const ADMIN_PAGES = [
-  { path: '', label: 'Dashboard', milestone: 'M2' },
+  { path: '', label: 'Dashboard', milestone: null },
   { path: 'users', label: 'Users & Extensions', milestone: null },
   { path: 'trunks', label: 'Trunks', milestone: 'M3' },
   { path: 'numbers', label: 'Phone numbers', milestone: 'M3' },
@@ -29,11 +30,13 @@ export const ADMIN_PAGES = [
   { path: 'sms', label: 'SMS', milestone: 'M9' },
   { path: 'blocked', label: 'Blocked numbers', milestone: 'M6' },
   { path: 'settings', label: 'Settings', milestone: 'M3' },
-  { path: 'system', label: 'System', milestone: 'M2' },
+  { path: 'system', label: 'System', milestone: 'M11' },
 ] as const;
 
 export function AdminLayout({ user }: { user: AuthUser }) {
   const [navOpen, setNavOpen] = useState(false);
+  const liveStatus = useLive((s) => s.status);
+  useEffect(subscribeLive, []);
   const qc = useQueryClient();
   const nav = useNavigate();
 
@@ -117,6 +120,14 @@ export function AdminLayout({ user }: { user: AuthUser }) {
               </Button>
             </div>
           </div>
+        )}
+        {liveStatus === 'reconnecting' && (
+          <p
+            role="status"
+            className="bg-amber-100 px-4 py-1 text-center text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+          >
+            Reconnecting…
+          </p>
         )}
         <main className="flex-1 p-4 md:p-6">
           <Outlet />

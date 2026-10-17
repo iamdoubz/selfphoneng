@@ -99,7 +99,7 @@ Legend: 📖 read · 🔨 build · ✅ done when
 **M2-T6 Live state v1 + dashboard**
 📖 04 §5.1 (extension states + contacts only), §5.2
 🔨 Live store, initial load, ExtensionStatus/ContactStatus handlers, `/api/live` WS, dashboard "extensions online", StatusDots in the Users table.
-✅ **Milestone check:** register two softphones (e.g. baresip/MicroSIP/Linphone) on the LAN as 101 and 102. 101 calls 102 → two-way audio for 30 s. The dashboard shows both online, and the dots go red during the call. Write `apps/api/test/sipp/register-and-call.xml` (or a baresip script) that automates register + call + BYE and run it in `pnpm test:asterisk`.
+✅ **Milestone check:** register two softphones (e.g. baresip/MicroSIP/Linphone) on the LAN as 101 and 102. 101 calls 102 → two-way audio for 30 s. The dashboard shows both online, and the dots go red during the call. Write `apps/api/test/sipp/register-and-call.xml` (or a baresip script) that automates register + call + BYE and run it in `pnpm test:asterisk`. **Done as `apps/api/test/asterisk/call-test.ts` (baresip in Docker, checks RTP both ways).**
 
 ---
 

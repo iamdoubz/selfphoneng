@@ -9,6 +9,7 @@ import { ChangePasswordPage } from './pages/ChangePasswordPage.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
 import { ADMIN_PAGES, AdminLayout, ComingSoon } from './pages/admin/AdminLayout.tsx';
 import { UsersPage } from './pages/admin/UsersPage.tsx';
+import { DashboardPage } from './pages/admin/DashboardPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
 import './index.css';
 
@@ -21,7 +22,9 @@ const router = createBrowserRouter([
     children: ADMIN_PAGES.map((p) => ({
       ...(p.path ? { path: p.path } : { index: true }),
       element:
-        p.path === 'users' ? (
+        p.path === '' ? (
+          <DashboardPage />
+        ) : p.path === 'users' ? (
           <RequireAuth>{(user) => <UsersPage currentUserId={user.id} />}</RequireAuth>
         ) : (
           <ComingSoon label={p.label} milestone={p.milestone ?? ''} />

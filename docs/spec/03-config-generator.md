@@ -76,7 +76,7 @@ All files go to `/etc/asterisk/selfphoneng/`.
 
 | File | Module | AMI `Command:` after change |
 |---|---|---|
-| `pjsip_selfphoneng.conf` | res_pjsip | `pjsip reload` (or restart-required if transports changed) |
+| `pjsip_selfphoneng.conf` | res_pjsip | `module reload res_pjsip.so` (or restart-required if transports changed). Asterisk 24 has no `pjsip reload` CLI command. |
 | `extensions_selfphoneng.conf` | pbx_config | `dialplan reload` |
 | `extensions_globals_selfphoneng.conf` | pbx_config | `dialplan reload` |
 | `voicemail_selfphoneng.conf` | app_voicemail | `voicemail reload` |

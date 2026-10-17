@@ -13,7 +13,9 @@ export class AmiDisconnectedError extends Error {
 export class AmiActionError extends Error {
   readonly response: AmiMessage;
   constructor(response: AmiMessage) {
-    super(`AMI action failed: ${field(response, 'Message') ?? 'unknown error'}`);
+    // A failed CLI Command says "Command output follows"; the Output lines say what went wrong.
+    const output = fields(response, 'Output').join(' ');
+    super(`AMI action failed: ${output || field(response, 'Message') || 'unknown error'}`);
     this.response = response;
   }
 }

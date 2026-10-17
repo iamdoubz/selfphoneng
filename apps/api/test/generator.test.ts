@@ -64,7 +64,7 @@ describe.skipIf(!hasTestDb)('generator apply', () => {
     expect(r).toMatchObject({ ok: true, error: null });
     expect(r.filesChanged.sort()).toEqual([...GENERATED_FILES].sort());
     expect(ami.commands).toEqual([
-      'pjsip reload',
+      'module reload res_pjsip.so',
       'module reload res_rtp_asterisk.so',
       'dialplan reload', // two dialplan files, one reload
       'voicemail reload',
@@ -165,7 +165,7 @@ describe.skipIf(!hasTestDb)('generator apply', () => {
     writeFileSync(join(dir, 'pjsip_selfphoneng.conf'), '; old\n');
     const r = await gen.apply({ trigger: 'api-change' });
     expect(r.restartRequired).toBe(true);
-    expect(ami.commands).not.toContain('pjsip reload');
+    expect(ami.commands).not.toContain('module reload res_pjsip.so');
     expect(await getSetting(db, 'system.restartRequired')).toBe(true);
     await setSetting(db, 'system.restartRequired', false);
   });
