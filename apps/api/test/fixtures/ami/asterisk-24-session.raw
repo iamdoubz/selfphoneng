@@ -1,0 +1,215 @@
+Asterisk Call Manager/13.0.0
+Response: Success
+ActionID: sp-1
+Message: Authentication accepted
+
+Response: Success
+ActionID: sp-2
+Message: Command output follows
+Output: Asterisk 24.0.0-rc2 built by root @ buildkitsandbox on a x86_64 running Linux on 2026-10-17 19:25:59 UTC
+
+Response: Success
+ActionID: sp-3
+EventList: start
+Message: Channels will follow
+
+Event: CoreShowChannelsComplete
+ActionID: sp-3
+EventList: Complete
+ListItems: 0
+
+Response: Error
+ActionID: sp-4
+Message: No Contacts found
+
+
+Response: Success
+ActionID: sp-5
+EventList: start
+Message: Extension Statuses will follow
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 701
+Context: sp-parkedcalls
+Hint: park:701@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 702
+Context: sp-parkedcalls
+Hint: park:702@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 703
+Context: sp-parkedcalls
+Hint: park:703@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 704
+Context: sp-parkedcalls
+Hint: park:704@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 705
+Context: sp-parkedcalls
+Hint: park:705@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 706
+Context: sp-parkedcalls
+Hint: park:706@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 707
+Context: sp-parkedcalls
+Hint: park:707@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 708
+Context: sp-parkedcalls
+Hint: park:708@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 709
+Context: sp-parkedcalls
+Hint: park:709@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 710
+Context: sp-parkedcalls
+Hint: park:710@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 711
+Context: sp-parkedcalls
+Hint: park:711@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 712
+Context: sp-parkedcalls
+Hint: park:712@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 713
+Context: sp-parkedcalls
+Hint: park:713@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 714
+Context: sp-parkedcalls
+Hint: park:714@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 715
+Context: sp-parkedcalls
+Hint: park:715@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 716
+Context: sp-parkedcalls
+Hint: park:716@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 717
+Context: sp-parkedcalls
+Hint: park:717@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 718
+Context: sp-parkedcalls
+Hint: park:718@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 719
+Context: sp-parkedcalls
+Hint: park:719@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStatus
+ActionID: sp-5
+Exten: 720
+Context: sp-parkedcalls
+Hint: park:720@sp-parkedcalls
+Status: 4
+StatusText: Unavailable
+
+Event: ExtensionStateListComplete
+ActionID: sp-5
+EventList: Complete
+ListItems: 20
+
+Response: Success
+ActionID: sp-6
+Message: Command output follows
+Output: Module                         Description                              Use Count  Status      Support Level
+Output: res_pjsip.so                   Basic SIP resource                       46         Running              core
+Output: 1 modules loaded
+
+Response: Error
+ActionID: sp-7
+Message: Database entry not found
+
+Response: Success
+ActionID: sp-8
+Ping: Pong
+Timestamp: 1792271308.421406
+
+Response: Error
+ActionID: sp-9
+Message: Invalid/unknown command: Nope. Use Action: ListCommands to show available commands.
+

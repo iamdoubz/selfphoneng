@@ -85,6 +85,9 @@ Details:
 - Send `Action: Ping` every 20 s. If no reply in 10 s, destroy the socket and reconnect.
 - Reconnect backoff: 1, 2, 4, 8, 16, 30, 30, … seconds.
 - Pending actions reject with `AmiDisconnectedError` when the socket closes.
+- Some list actions answer an empty list with `Response: Error` instead of an empty EventList
+  (Asterisk 24: `PJSIPShowContacts` → `Message: No Contacts found`, ending in a bare LF). `actionList`
+  turns `No … found` errors into `[]`. The parser strips stray CR/LF from the end of values.
 - Default action timeout: 10 s.
 - **Never log the Login action fields.**
 
