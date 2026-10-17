@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// A full api on a throwaway database, for Fastify inject() tests.
+import { randomBytes } from 'node:crypto';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { eq } from 'drizzle-orm';
+import { buildApp } from '../src/app.ts';
+import { loadConfig } from '../src/config.ts';
+import { setSecretKey } from '../src/crypto/secrets.ts';
+import { users } from '../src/db/schema.ts';
+import { hashPassword } from '../src/auth/passwords.ts';
+import { resetLoginLimiter } from '../src/auth/login-limiter.ts';
+import { ensureInitialAdmin } from '../src/services/bootstrap.ts';
+import { createTestDb } from './db.ts';
+
+export const ADMIN = { email: 'admin@example.com', password: 'initial-admin-pw' };
+export const H = { 'x-requested-with': 'selfphoneng' };
+
+export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) => void) {
+  const t = await createTestDb();
+  const config = loadConfig({
+    APP_SECRET: randomBytes(32).toString('base64'),
+    PUBLIC_HOSTNAME: 'pbx.test',
+    DATABASE_URL: t.url,
+    INITIAL_ADMIN_EMAIL: ADMIN.email,
+    INITIAL_ADMIN_PASSWORD: ADMIN.password,
+    LOG_LEVEL: 'fatal',
+  });
+  setSecretKey(config.APP_SECRET);
+  const pub = mkdtempSync(join(tmpdir(), 'sp-public-'));
+  writeFileSync(join(pub, 'index.html'), '<h1>spa</h1>');
+  const app = buildApp(config, t.db, pub);
+  extend?.(app);
+  await ensureInitialAdmin(t.db, ADMIN.email, ADMIN.password);
+  resetLoginLimiter();
+  await app.ready();
+
+  /** Logs in and returns the Cookie header value. */
+  async function login(email: string, password: string): Promise<string> {
+    const r = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      headers: H,
+      payload: { email, password },
+    });
+    if (r.statusCode !== 200) throw new Error(`login failed: ${r.statusCode} ${r.body}`);
+    const c = r.cookies.find((x) => x.name === 'sp_session')!;
+    return `sp_session=${c.value}`;
+  }
+
+  /** Creates a user directly in the DB (no password-change requirement). */
+  async function addUser(email: string, password: string, role: 'admin' | 'user' = 'user') {
+    const [u] = await t.db
+      .insert(users)
+      .values({ email, displayName: email, passwordHash: await hashPassword(password), role })
+      .returning();
+    return u!;
+  }
+
+  async function clearMustChange(email: string) {
+    await t.db.update(users).set({ mustChangePassword: false }).where(eq(users.email, email));
+  }
+
+  return {
+    app,
+    db: t.db,
+    login,
+    addUser,
+    clearMustChange,
+    close: async () => {
+      await app.close();
+      await t.drop();
+    },
+  };
+}

@@ -3,3 +3,4 @@ export const APP_NAME = 'SelfPhoneNG';
 export * from './phone.ts';
 export * from './destination.ts';
 export * from './settings.ts';
+export * from './auth.ts';

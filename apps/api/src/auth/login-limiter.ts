@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Login failure limits (04 §2.2): 5 per IP per 15 min, 10 per email per hour.
+// ponytail: in-process memory, resets on restart; fine for one api process (v1 has no HA).
+const MIN = 60_000;
+const RULES = { ip: { max: 5, windowMs: 15 * MIN }, email: { max: 10, windowMs: 60 * MIN } };
+
+const failures = new Map<string, number[]>();
+
+function recent(key: string, windowMs: number, now: number): number[] {
+  const list = (failures.get(key) ?? []).filter((t) => now - t < windowMs);
+  if (list.length) failures.set(key, list);
+  else failures.delete(key);
+  return list;
+}
+
+export function isLoginBlocked(ip: string, email: string, now = Date.now()): boolean {
+  return (
+    recent(`ip:${ip}`, RULES.ip.windowMs, now).length >= RULES.ip.max ||
+    recent(`email:${email.toLowerCase()}`, RULES.email.windowMs, now).length >= RULES.email.max
+  );
+}
+
+export function recordLoginFailure(ip: string, email: string, now = Date.now()): void {
+  for (const key of [`ip:${ip}`, `email:${email.toLowerCase()}`]) {
+    failures.set(key, [...(failures.get(key) ?? []), now]);
+  }
+}
+
+/** Tests only. */
+export function resetLoginLimiter(): void {
+  failures.clear();
+}

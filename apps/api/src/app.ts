@@ -2,13 +2,25 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import Fastify from 'fastify';
+import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
+import { sql } from 'drizzle-orm';
 import type { Config } from './config.ts';
+import type { Db } from './db/client.ts';
+import { errorHandler, forbidden, notFound, sendError } from './errors.ts';
+import { authRoutes } from './routes/auth.ts';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    db: Db;
+  }
+}
 
 // Paths the SPA must never swallow (04 §1 step 5).
 const NON_SPA = /^\/(api|prov|hooks)(\/|$)/;
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
-export function buildApp(config: Config, publicDir = resolve('public')) {
+export function buildApp(config: Config, db: Db, publicDir = resolve('public')) {
   const app = Fastify({
     trustProxy: config.TRUST_PROXY ? '127.0.0.1' : false,
     logger: {
@@ -25,16 +37,42 @@ export function buildApp(config: Config, publicDir = resolve('public')) {
     },
   });
 
-  app.get('/healthz', async () => ({ ok: true }));
+  app.decorate('db', db);
+  app.decorateRequest('user', null);
+  app.decorateRequest('sessionId', null);
+  app.register(fastifyCookie);
+  app.setErrorHandler(errorHandler);
+
+  // CSRF (04 §2.2): browsers can't add this header cross-site without CORS, and CORS is off.
+  // ponytail: required on every unsafe /api request, not only cookie-authenticated ones; the
+  // Bearer-token exemption arrives with API tokens in M11.
+  app.addHook('onRequest', async (req, reply) => {
+    if (
+      req.url.startsWith('/api/') &&
+      !SAFE_METHODS.has(req.method) &&
+      req.headers['x-requested-with'] !== 'selfphoneng'
+    )
+      return sendError(reply, forbidden('Missing X-Requested-With header', 'csrf'));
+  });
+
+  app.get('/healthz', async (_req, reply) => {
+    try {
+      await db.execute(sql`select 1`);
+      return { ok: true };
+    } catch {
+      return reply.code(503).send({ ok: false, reasons: ['db'] });
+    }
+  });
+
+  app.register(authRoutes);
 
   if (existsSync(publicDir)) {
     app.register(fastifyStatic, { root: publicDir, wildcard: false });
-    app.setNotFoundHandler((req, reply) => {
-      if (req.method === 'GET' && !NON_SPA.test(req.url)) return reply.sendFile('index.html');
-      return reply
-        .code(404)
-        .send({ error: { code: 'not_found', message: 'Not found', details: {} } });
-    });
   }
+  app.setNotFoundHandler((req, reply) => {
+    if (existsSync(publicDir) && req.method === 'GET' && !NON_SPA.test(req.url))
+      return reply.sendFile('index.html');
+    return sendError(reply, notFound());
+  });
   return app;
 }
