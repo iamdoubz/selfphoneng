@@ -4,8 +4,8 @@ import { z } from 'zod';
 export const PASSWORD_MIN = 10;
 
 export const LoginSchema = z.object({
-  email: z.string().trim().min(3).max(254),
-  password: z.string().min(1).max(200),
+  email: z.string().trim().min(3, 'Enter your email').max(254),
+  password: z.string().min(1, 'Enter your password').max(200),
   totp: z
     .string()
     .regex(/^\d{6}$/)
@@ -13,8 +13,11 @@ export const LoginSchema = z.object({
 });
 
 export const ChangePasswordSchema = z.object({
-  currentPassword: z.string().min(1).max(200),
-  newPassword: z.string().min(PASSWORD_MIN).max(200),
+  currentPassword: z.string().min(1, 'Enter your current password').max(200),
+  newPassword: z
+    .string()
+    .min(PASSWORD_MIN, `Use at least ${PASSWORD_MIN} characters`)
+    .max(200, 'Use at most 200 characters'),
 });
 
 export type Role = 'admin' | 'user';

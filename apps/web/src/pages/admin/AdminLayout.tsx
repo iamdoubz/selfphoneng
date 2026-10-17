@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Admin shell (05 §2): sidebar in spec order; unbuilt pages say which milestone brings them.
+import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { NavLink, Outlet, useNavigate } from 'react-router';
+import { APP_NAME, type AuthUser } from '@selfphoneng/shared';
+import { authApi } from '../../api/client.ts';
+import { ThemeToggle } from '../../components/ThemeToggle.tsx';
+import { Button } from '../../components/ui.tsx';
+
+export const ADMIN_PAGES = [
+  { path: '', label: 'Dashboard', milestone: 'M2' },
+  { path: 'users', label: 'Users & Extensions', milestone: null },
+  { path: 'trunks', label: 'Trunks', milestone: 'M3' },
+  { path: 'numbers', label: 'Phone numbers', milestone: 'M3' },
+  { path: 'outbound', label: 'Outbound rules', milestone: 'M3' },
+  { path: 'ring-groups', label: 'Ring groups', milestone: 'M6' },
+  { path: 'queues', label: 'Queues', milestone: 'M8' },
+  { path: 'ivrs', label: 'Digital receptionist', milestone: 'M6' },
+  { path: 'hours', label: 'Office hours', milestone: 'M6' },
+  { path: 'conferences', label: 'Conferences', milestone: 'M8' },
+  { path: 'paging', label: 'Paging', milestone: 'M8' },
+  { path: 'sounds', label: 'Sounds & music', milestone: 'M6' },
+  { path: 'devices', label: 'Phones', milestone: 'M10' },
+  { path: 'contacts', label: 'Contacts', milestone: 'M10' },
+  { path: 'calls', label: 'Call history', milestone: 'M7' },
+  { path: 'recordings', label: 'Recordings', milestone: 'M7' },
+  { path: 'reports', label: 'Reports', milestone: 'M11' },
+  { path: 'sms', label: 'SMS', milestone: 'M9' },
+  { path: 'blocked', label: 'Blocked numbers', milestone: 'M6' },
+  { path: 'settings', label: 'Settings', milestone: 'M3' },
+  { path: 'system', label: 'System', milestone: 'M2' },
+] as const;
+
+export function AdminLayout({ user }: { user: AuthUser }) {
+  const [navOpen, setNavOpen] = useState(false);
+  const qc = useQueryClient();
+  const nav = useNavigate();
+
+  async function logout() {
+    await authApi.logout().catch(() => undefined);
+    qc.clear();
+    nav('/login', { replace: true });
+  }
+
+  const links = (
+    <nav aria-label="Admin" className="flex-1 overflow-y-auto px-2 pb-4">
+      <ul className="flex flex-col gap-0.5">
+        {ADMIN_PAGES.map((p) => (
+          <li key={p.path}>
+            <NavLink
+              to={`/admin${p.path ? `/${p.path}` : ''}`}
+              end={p.path === ''}
+              onClick={() => setNavOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center justify-between rounded-md px-3 py-1.5 text-sm ${isActive ? 'bg-sky-100 font-medium text-sky-900 dark:bg-sky-950 dark:text-sky-100' : 'hover:bg-zinc-200/60 dark:hover:bg-zinc-800'} ${p.milestone ? 'text-zinc-500' : ''}`
+              }
+            >
+              {p.label}
+              {p.milestone && <span className="text-[10px] text-zinc-400">{p.milestone}</span>}
+            </NavLink>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+
+  return (
+    <div className="flex min-h-dvh">
+      <aside className="sticky top-0 hidden h-dvh w-60 flex-col border-r border-zinc-200 bg-zinc-50 md:flex dark:border-zinc-800 dark:bg-zinc-900">
+        <p className="px-4 py-4 text-lg font-semibold">{APP_NAME}</p>
+        {links}
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center gap-1 border-b border-zinc-200 px-2 py-2 sm:gap-2 sm:px-4 dark:border-zinc-800">
+          <Button
+            variant="ghost"
+            className="md:hidden"
+            aria-expanded={navOpen}
+            aria-controls="mobile-nav"
+            aria-label="Menu"
+            onClick={() => setNavOpen((o) => !o)}
+          >
+            ☰
+          </Button>
+          <span className="font-semibold md:hidden">{APP_NAME}</span>
+          <div className="ml-auto flex items-center gap-1 whitespace-nowrap sm:gap-2">
+            <span className="hidden text-sm text-zinc-600 sm:inline dark:text-zinc-400">
+              {user.displayName}
+            </span>
+            <ThemeToggle />
+            {/* On phones this lives in the menu instead. */}
+            <span className="hidden sm:contents">
+              <Button variant="ghost" onClick={() => nav('/change-password')}>
+                Password
+              </Button>
+            </span>
+            <Button variant="ghost" onClick={logout}>
+              Sign out
+            </Button>
+          </div>
+        </header>
+        {navOpen && (
+          <div
+            id="mobile-nav"
+            className="border-b border-zinc-200 bg-zinc-50 pt-2 md:hidden dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            {links}
+            <div className="border-t border-zinc-200 px-2 py-2 dark:border-zinc-800">
+              <Button
+                variant="ghost"
+                className="w-full justify-start"
+                onClick={() => nav('/change-password')}
+              >
+                Change password
+              </Button>
+            </div>
+          </div>
+        )}
+        <main className="flex-1 p-4 md:p-6">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}
+
+export function ComingSoon({ label, milestone }: { label: string; milestone: string }) {
+  return (
+    <section>
+      <h1 className="mb-2 text-xl font-semibold">{label}</h1>
+      <p className="text-sm text-zinc-500">Coming in {milestone}.</p>
+    </section>
+  );
+}

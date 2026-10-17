@@ -1,39 +1,47 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { StrictMode, useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { createBrowserRouter } from 'react-router';
+import { Navigate, createBrowserRouter } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
-import { APP_NAME } from '@selfphoneng/shared';
-import { toggleTheme } from './theme.ts';
+import { RequireAuth, homeFor } from './auth/RequireAuth.tsx';
+import { ChangePasswordPage } from './pages/ChangePasswordPage.tsx';
+import { LoginPage } from './pages/LoginPage.tsx';
+import { ADMIN_PAGES, AdminLayout, ComingSoon } from './pages/admin/AdminLayout.tsx';
+import { UsersPage } from './pages/admin/UsersPage.tsx';
+import { MePage } from './pages/user/MePage.tsx';
 import './index.css';
 
-function Home() {
-  const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
-  return (
-    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col items-start gap-6 p-4 sm:p-8">
-      <header className="flex w-full items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold sm:text-3xl">{APP_NAME}</h1>
-        <button
-          type="button"
-          onClick={() => setDark(toggleTheme())}
-          aria-pressed={dark}
-          className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm hover:bg-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 dark:border-zinc-700 dark:hover:bg-zinc-800"
-        >
-          {dark ? 'Light mode' : 'Dark mode'}
-        </button>
-      </header>
-      <p className="text-zinc-600 dark:text-zinc-400">
-        Open source, self-hosted business phone system.
-      </p>
-    </main>
-  );
-}
+const router = createBrowserRouter([
+  { path: '/login', Component: LoginPage },
+  { path: '/change-password', Component: ChangePasswordPage },
+  {
+    path: '/admin',
+    element: <RequireAuth role="admin">{(user) => <AdminLayout user={user} />}</RequireAuth>,
+    children: ADMIN_PAGES.map((p) => ({
+      ...(p.path ? { path: p.path } : { index: true }),
+      element:
+        p.path === 'users' ? (
+          <RequireAuth>{(user) => <UsersPage currentUserId={user.id} />}</RequireAuth>
+        ) : (
+          <ComingSoon label={p.label} milestone={p.milestone ?? ''} />
+        ),
+    })),
+  },
+  { path: '/me/*', element: <RequireAuth>{(user) => <MePage user={user} />}</RequireAuth> },
+  {
+    path: '*',
+    element: <RequireAuth>{(user) => <Navigate to={homeFor(user)} replace />}</RequireAuth>,
+  },
+]);
 
-const router = createBrowserRouter([{ path: '*', Component: Home }]);
+const queryClient = new QueryClient();
 
 document.body.className = 'bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
   </StrictMode>,
 );

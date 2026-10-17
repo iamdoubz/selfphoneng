@@ -4,12 +4,16 @@ import { auditLog } from '../db/schema.ts';
 
 const SECRET_KEY = /pass|secret|token|pin|enc$/i;
 
-/** Deep copy with every secret-looking key replaced by "********" (02 audit_log.diff). */
+/** Deep copy with every string under a secret-looking key replaced by "********" (02 audit_log.diff).
+ *  Only strings: secrets are strings, and flags like mustChangePassword must stay readable. */
 export function redact(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(redact);
   if (value && typeof value === 'object') {
     return Object.fromEntries(
-      Object.entries(value).map(([k, v]) => [k, SECRET_KEY.test(k) ? '********' : redact(v)]),
+      Object.entries(value).map(([k, v]) => [
+        k,
+        SECRET_KEY.test(k) && typeof v === 'string' ? '********' : redact(v),
+      ]),
     );
   }
   return value;

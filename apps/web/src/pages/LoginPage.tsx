@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useNavigate, useSearchParams } from 'react-router';
+import { APP_NAME, LoginSchema } from '@selfphoneng/shared';
+import { authApi } from '../api/client.ts';
+import { homeFor } from '../auth/RequireAuth.tsx';
+import { Alert, Button, Field, inputClass } from '../components/ui.tsx';
+
+export function AuthCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <main className="flex min-h-dvh items-center justify-center p-4">
+      <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+        <p className="mb-1 text-sm font-semibold text-sky-600">{APP_NAME}</p>
+        <h1 className="mb-5 text-xl font-semibold">{title}</h1>
+        {children}
+      </div>
+    </main>
+  );
+}
+
+export function LoginPage() {
+  const nav = useNavigate();
+  const [params] = useSearchParams();
+  const qc = useQueryClient();
+  const [error, setError] = useState<string>();
+  const form = useForm({ resolver: zodResolver(LoginSchema.omit({ totp: true })) });
+  const { errors, isSubmitting } = form.formState;
+
+  const onSubmit = form.handleSubmit(async ({ email, password }) => {
+    setError(undefined);
+    try {
+      const user = await authApi.login(email, password);
+      qc.setQueryData(['me'], user);
+      const next = params.get('next');
+      // Only same-site paths: never redirect to another origin.
+      nav(next?.startsWith('/') && !next.startsWith('//') ? next : homeFor(user), {
+        replace: true,
+      });
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  });
+
+  return (
+    <AuthCard title="Sign in">
+      <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+        {error && <Alert>{error}</Alert>}
+        <Field label="Email" error={errors.email?.message}>
+          {(a) => (
+            <input
+              {...a}
+              {...form.register('email')}
+              type="email"
+              autoComplete="username"
+              className={inputClass}
+            />
+          )}
+        </Field>
+        <Field label="Password" error={errors.password?.message}>
+          {(a) => (
+            <input
+              {...a}
+              {...form.register('password')}
+              type="password"
+              autoComplete="current-password"
+              className={inputClass}
+            />
+          )}
+        </Field>
+        <Button type="submit" variant="primary" disabled={isSubmitting}>
+          {isSubmitting ? 'Signing in…' : 'Sign in'}
+        </Button>
+      </form>
+    </AuthCard>
+  );
+}
