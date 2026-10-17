@@ -7,13 +7,17 @@ import fastifyStatic from '@fastify/static';
 import { sql } from 'drizzle-orm';
 import type { Config } from './config.ts';
 import type { Db } from './db/client.ts';
+import type { Generator } from './generator/index.ts';
 import { errorHandler, forbidden, notFound, sendError } from './errors.ts';
 import { authRoutes } from './routes/auth.ts';
 import { userRoutes } from './routes/users.ts';
+import { systemRoutes } from './routes/system.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
     db: Db;
+    /** Decorated by the caller (index.ts, tests) before ready(): it needs app.log. */
+    generator: Generator;
   }
 }
 
@@ -67,6 +71,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
 
   app.register(authRoutes);
   app.register(userRoutes);
+  app.register(systemRoutes);
 
   if (existsSync(publicDir)) {
     app.register(fastifyStatic, { root: publicDir, wildcard: false });

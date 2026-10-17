@@ -12,7 +12,24 @@ import { users } from '../src/db/schema.ts';
 import { hashPassword } from '../src/auth/passwords.ts';
 import { resetLoginLimiter } from '../src/auth/login-limiter.ts';
 import { ensureInitialAdmin } from '../src/services/bootstrap.ts';
+import { createGenerator } from '../src/generator/index.ts';
 import { createTestDb } from './db.ts';
+
+/** Stand-in for AmiClient: records commands; flip `connected` to simulate Asterisk going away. */
+export function fakeAmi() {
+  const commands: string[] = [];
+  return {
+    connected: true,
+    commands,
+    isConnected() {
+      return this.connected;
+    },
+    async command(c: string) {
+      commands.push(c);
+      return '';
+    },
+  };
+}
 
 export const ADMIN = { email: 'admin@example.com', password: 'initial-admin-pw' };
 export const H = { 'x-requested-with': 'selfphoneng' };
@@ -25,12 +42,19 @@ export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) 
     DATABASE_URL: t.url,
     INITIAL_ADMIN_EMAIL: ADMIN.email,
     INITIAL_ADMIN_PASSWORD: ADMIN.password,
+    AMI_SECRET: 'ami-secret-123',
     LOG_LEVEL: 'fatal',
   });
   setSecretKey(config.APP_SECRET);
   const pub = mkdtempSync(join(tmpdir(), 'sp-public-'));
   writeFileSync(join(pub, 'index.html'), '<h1>spa</h1>');
   const app = buildApp(config, t.db, pub);
+  const ami = fakeAmi();
+  const genDir = mkdtempSync(join(tmpdir(), 'sp-gen-'));
+  app.decorate(
+    'generator',
+    createGenerator({ db: t.db, ami, dir: genDir, log: app.log, debounceMs: 20 }),
+  );
   extend?.(app);
   await ensureInitialAdmin(t.db, ADMIN.email, ADMIN.password);
   resetLoginLimiter();
@@ -65,6 +89,8 @@ export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) 
   return {
     app,
     db: t.db,
+    ami,
+    genDir,
     login,
     addUser,
     clearMustChange,

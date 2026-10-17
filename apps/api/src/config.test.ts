@@ -8,6 +8,7 @@ const env = {
   DATABASE_URL: 'postgres://u:p@127.0.0.1:5433/db',
   INITIAL_ADMIN_EMAIL: 'admin@example.com',
   INITIAL_ADMIN_PASSWORD: 'x',
+  AMI_SECRET: 'ami-secret-123',
 };
 
 describe('config', () => {

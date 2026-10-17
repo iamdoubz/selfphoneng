@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Startup order (04 §1).
+import { resolve } from 'node:path';
+import { AmiClient } from './ami/client.ts';
 import { buildApp } from './app.ts';
 import { ConfigError, loadConfig } from './config.ts';
 import { setSecretKey } from './crypto/secrets.ts';
 import { createDb, runMigrations } from './db/client.ts';
+import { createGenerator } from './generator/index.ts';
 import { ensureInitialAdmin } from './services/bootstrap.ts';
 
 let config;
@@ -18,17 +21,41 @@ setSecretKey(config.APP_SECRET);
 
 const { db, pool } = createDb(config.DATABASE_URL);
 const app = buildApp(config, db); // creates the pino logger
+const ami = new AmiClient({
+  host: config.AMI_HOST,
+  port: config.AMI_PORT,
+  username: config.AMI_USERNAME,
+  secret: config.AMI_SECRET,
+  logger: app.log,
+});
+const generator = createGenerator({
+  db,
+  ami,
+  dir: resolve(config.ASTERISK_CONFIG_DIR),
+  log: app.log,
+});
+app.decorate('generator', generator);
+
 await runMigrations(db);
 app.log.info('database migrated');
-if (
-  (await ensureInitialAdmin(db, config.INITIAL_ADMIN_EMAIL, config.INITIAL_ADMIN_PASSWORD)) ===
-  'created'
-)
+const admin = await ensureInitialAdmin(
+  db,
+  config.INITIAL_ADMIN_EMAIL,
+  config.INITIAL_ADMIN_PASSWORD,
+);
+if (admin === 'created')
   app.log.info({ email: config.INITIAL_ADMIN_EMAIL }, 'initial admin created');
 await app.listen({ host: '127.0.0.1', port: config.API_PORT });
 
+// Every (re)connect: Asterisk may have restarted, so push the full config again.
+// TODO(M2-T6): load live state; TODO(M6): sync AstDB first (04 §5.5).
+ami.on('connected', () => void generator.apply({ trigger: 'startup', force: true }));
+ami.start();
+
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {
   process.once(sig, () => {
+    generator.cancelPending();
+    ami.stop();
     void app
       .close()
       .then(() => pool.end())

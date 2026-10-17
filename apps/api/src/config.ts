@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { z } from 'zod';
 
-// ponytail: only the vars read so far; AMI vars join in M2 with the code that reads them.
 const EnvSchema = z.object({
   APP_SECRET: z
     .string()
@@ -10,6 +9,12 @@ const EnvSchema = z.object({
   DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, 'must be a postgres:// URL'),
   INITIAL_ADMIN_EMAIL: z.email(),
   INITIAL_ADMIN_PASSWORD: z.string().min(1),
+  AMI_HOST: z.string().default('127.0.0.1'),
+  AMI_PORT: z.coerce.number().int().min(1).max(65535).default(5038),
+  AMI_USERNAME: z.string().default('selfphoneng'),
+  AMI_SECRET: z.string().min(8),
+  /** Where generated Asterisk config goes (03 §3). Dev: ../../data/asterisk-generated */
+  ASTERISK_CONFIG_DIR: z.string().default('/etc/asterisk/selfphoneng'),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(8080),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   TRUST_PROXY: z.stringbool().default(true),
