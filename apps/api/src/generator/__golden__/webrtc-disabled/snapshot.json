@@ -1,0 +1,23 @@
+{
+  "settings": { "sip.tcpEnabled": false, "sip.udpPort": 5070 },
+  "extensions": [
+    {
+      "number": "102",
+      "name": "Ann Lee",
+      "sipPassword": "Zz9yXx8wVv7uTt6sRr5qPp4o",
+      "webrtcEnabled": false,
+      "voicemailEnabled": false,
+      "maxContacts": 2,
+      "outboundClass": "local",
+      "recordMode": "all"
+    },
+    {
+      "number": "99",
+      "name": "Lobby phone",
+      "sipPassword": "Lobby00000000000000000AB",
+      "webrtcEnabled": false,
+      "outboundClass": "internal",
+      "language": "fr"
+    }
+  ]
+}

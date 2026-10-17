@@ -36,9 +36,11 @@ Rules for `render()`:
 4. If nothing changed and not `force`: record a `generator_runs` row and return.
 5. Copy the current files to `/etc/asterisk/selfphoneng/.prev/` (keep one previous version).
 6. For each changed file, write `<name>.tmp` then `rename()` it over the old one (atomic).
-7. Work out reload commands from the changed files (§3). If the PJSIP
+7. Work out reload commands from the changed files (§3), or from every file when `force`. If the PJSIP
    transport sections changed, don't reload PJSIP. Set
-   `system.restartRequired = true` instead (see `01-infrastructure.md` §4.3).
+   `system.restartRequired = true` instead (see `01-infrastructure.md` §4.3). Exception: the very first
+   apply (no stored `system.transportHash`) reloads PJSIP normally, since it only adds transports to an
+   Asterisk that booted with none.
 8. Send each command as AMI `Action: Command`. If AMI is down, mark the run
    `ok=false, error='ami-disconnected'`. The AMI reconnect handler calls `apply({force:true})` later.
 9. After `queue reload`: re-send every paused queue member (`QueuePause`), because a reload resets pause state.
@@ -197,7 +199,8 @@ set_var = SP_CLASS=2               ; internal=0 local=1 national=2 international
 set_var = SP_OUTCID=13125551234    ; omit if outbound_caller_id_did_id null
 set_var = SP_E911CID=13125551234   ; omit if emergency_caller_id_did_id null
 set_var = SP_RECMODE=never
-set_var = __SP_DIRECTION=internal  ; verify inheritance prefix works in set_var (AGENTS rule 10)
+set_var = __SP_DIRECTION=internal  ; loads as variable "__SP_DIRECTION" (checked on 24.0.0-rc2); inheritance to
+                                   ; dialed channels still to be proven by a call test (M2-T6)
 
 [101-auth]
 type = auth

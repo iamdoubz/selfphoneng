@@ -74,7 +74,9 @@ describe.skipIf(!hasTestDb)('generator apply', () => {
     ]);
     const names = readdirSync(dir).sort();
     expect(names).toEqual(['.prev', ...GENERATED_FILES].sort()); // no leftover .tmp files
-    expect(readFileSync(join(dir, 'pjsip_selfphoneng.conf'), 'utf8')).toBe(HEADER);
+    expect(readFileSync(join(dir, 'pjsip_selfphoneng.conf'), 'utf8')).toBe(
+      render(await loadSnapshot(db))['pjsip_selfphoneng.conf'],
+    );
     expect(await getSetting(db, 'system.restartRequired')).toBe(false);
   });
 
@@ -193,5 +195,49 @@ describe.skipIf(!hasTestDb)('generator apply', () => {
     await db.execute(
       (await import('drizzle-orm')).sql`delete from settings where key = 'general.timezone'`,
     );
+  });
+});
+
+describe.skipIf(!hasTestDb)('loadSnapshot', () => {
+  it('decrypts SIP passwords and resolves caller ID DIDs and admin flags', async () => {
+    const { db, drop } = await createTestDb();
+    try {
+      const { setSecretKey, encrypt } = await import('../src/crypto/secrets.ts');
+      setSecretKey(Buffer.alloc(32, 3).toString('base64'));
+      const s = await import('../src/db/schema.ts');
+      const [u] = await db
+        .insert(s.users)
+        .values({ email: 'a@example.com', displayName: 'A', passwordHash: 'x', role: 'admin' })
+        .returning();
+      const [t] = await db
+        .insert(s.trunks)
+        .values({ name: 't', serverHost: 'h.example' })
+        .returning();
+      const [d] = await db
+        .insert(s.dids)
+        .values({ number: '13125551234', trunkId: t!.id, destination: { type: 'hangup' } })
+        .returning();
+      await db.insert(s.extensions).values({
+        number: '101',
+        userId: u!.id,
+        name: 'Dan',
+        sipPasswordEnc: encrypt('Ab3dEf9hIj2kLm4nOp6qRs8t'),
+        voicemailPinEnc: encrypt('482913'),
+        outboundCallerIdDidId: d!.id,
+      });
+      const snap = await loadSnapshot(db, new Date('2026-10-17T12:00:00Z'));
+      expect(snap.today).toBe('2026-10-17');
+      expect(snap.extensions).toEqual([
+        expect.objectContaining({
+          number: '101',
+          sipPassword: 'Ab3dEf9hIj2kLm4nOp6qRs8t',
+          outboundCallerId: '13125551234',
+          emergencyCallerId: null,
+          isAdmin: true,
+        }),
+      ]);
+    } finally {
+      await drop();
+    }
   });
 });

@@ -14,7 +14,8 @@
     "test": "vitest run",
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "test:asterisk": "node apps/api/test/asterisk/load-golden.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
