@@ -1,0 +1,240 @@
+# 09 — Roadmap: milestones and tasks
+
+Work strictly in order. Each task lists what to **read**, what to **build**, and
+when it's **done**. A milestone is done only when every task in it is done
+and the milestone check passes.
+
+Legend: 📖 read · 🔨 build · ✅ done when
+
+---
+
+## M0 — Skeleton that boots
+
+**M0-T1 Workspace**
+📖 00 §4, §5
+🔨 pnpm workspace with `apps/api`, `apps/web`, `packages/shared`. TypeScript strict in all three, ESLint + Prettier, vitest. Root scripts `dev`, `build`, `test`, `lint`, `typecheck`. `LICENSE` (AGPL-3.0-or-later), `.gitignore` (includes `data/`, `.env`), `README.md` (one paragraph + link to spec).
+✅ `pnpm install && pnpm lint && pnpm typecheck && pnpm test` passes on a clean clone.
+
+**M0-T2 Shared phone utils**
+📖 00 §8
+🔨 `packages/shared/src/phone.ts`: `normalizeNumber`, `formatNumber`, `isReservedNumber`. Exhaustive tests (at least 25 cases, including `+1 (312) 555-1234`, `3125551234`, `13125551234`, `+44 20 7946 0958`, `*97`, `911`, garbage).
+✅ Tests pass.
+
+**M0-T3 api hello**
+📖 01 §1.2, 04 §1 (steps 1, 2, 5, 6 only)
+🔨 `config.ts` with zod env parsing, pino logger with redaction, Fastify with `GET /healthz` → `{ok:true}`, static serving of `./public` with SPA fallback.
+✅ `pnpm --filter @selfphoneng/api dev` serves `/healthz`. A missing `APP_SECRET` exits 1 with a clear message.
+
+**M0-T4 web hello**
+🔨 Vite + React + Tailwind + react-router. One page "SelfPhoneNG" with a dark-mode toggle. In dev, Vite proxies `/api` and `/ws` to the api.
+✅ `pnpm --filter @selfphoneng/web build` outputs `dist/`. The page renders at 360 px and desktop widths.
+
+**M0-T5 Asterisk image**
+📖 01 §2, §3
+🔨 `asterisk/Dockerfile`, `entrypoint.sh`, and every static conf file from 01 §3. Pin `ASTERISK_VERSION` to the newest 24.x and write it into 01 §2.
+✅ `docker compose up -d asterisk` stays up. `docker compose exec asterisk asterisk -rx "core show version"` prints 24.x. `module show like pjsip` lists res_pjsip. The log has no `ERROR` lines.
+
+**M0-T6 Full compose**
+📖 01 §1
+🔨 `docker-compose.yml`, `.env.example`, api Dockerfile, `scripts/install.sh`.
+✅ On a fresh Ubuntu/Debian VM: `./scripts/install.sh` → `curl http://127.0.0.1:8080/healthz` returns ok, and the web page loads through the api.
+
+**M0-T7 CI**
+🔨 CI workflow (`.github/workflows/ci.yml`; it's also Gitea Actions-compatible) running lint, typecheck, test, and building both Docker images.
+✅ Green on push.
+
+---
+
+## M1 — Database, auth, admin shell
+
+**M1-T1 Schema + migrations**
+📖 02 (all)
+🔨 `db/schema.ts` matching the DDL exactly, plus the first migration. `services/settings.ts` with a zod schema and default per key (02 §3).
+✅ Migration applies to an empty DB. A test compares `information_schema.columns` for 5 key tables against the spec.
+
+**M1-T2 Secrets**
+📖 04 §3
+🔨 `crypto/secrets.ts` + tests.
+✅ Round-trip, tamper and wrong-key tests pass.
+
+**M1-T3 Auth**
+📖 04 §2
+🔨 Login/logout/me/change-password, sessions, CSRF header check, rate limits, guards, initial admin bootstrap, `must_change_password` enforcement, audit log writes for login events.
+✅ Integration tests (Fastify `inject` + a test DB): good login sets the cookie; bad password → 401 and is audited; 6th failure → 429; POST without `X-Requested-With` → 403; non-admin hitting admin route → 403.
+
+**M1-T4 Users API + admin shell UI**
+📖 04 §7.1, 05 §1, §2 (Users page, General tab only)
+🔨 `/api/users` CRUD, login page, change-password page, admin layout with sidebar (pages not built yet show "Coming in M<n>"), Users table + drawer (General tab).
+✅ An admin can log in, is forced to change the password, then creates/edits/deletes a user. Every change shows up in `audit_log`.
+
+---
+
+## M2 — Phones register and call each other
+
+**M2-T1 AMI client**
+📖 04 §4
+🔨 `ami/client.ts` + parser tests with recorded fixtures.
+✅ Against the real container: login works, `command('core show version')` returns text, killing Asterisk triggers reconnect with backoff, and pending actions reject.
+
+**M2-T2 Generator core**
+📖 03 §1, §2, §3, §11, §12.1–12.2
+🔨 `loadSnapshot`, `render` (initially: header only), `apply` with mutex, debounce, atomic writes, `.prev`, reload command mapping, `generator_runs`. Sanitizers + hostile-input tests.
+✅ `apply` writes files and sends only the needed reloads. Sanitizer tests pass.
+
+**M2-T3 PJSIP for extensions**
+📖 03 §5.1, §5.2, 01 §4.3
+🔨 Render global/system/transports/extension endpoints; transport-hash restart detection; `rtp_selfphoneng.conf`.
+✅ Golden cases `empty`, `one-user`, `webrtc-disabled`, `hostile-names` pass. Asterisk loads them without errors (`pjsip show endpoints` lists 101 and 101-web).
+
+**M2-T4 Base dialplan**
+📖 03 §6.0–6.3, §6.6 (users only), §9
+🔨 `dialplan/static.ts` (all static contexts from §6.2), the globals file, `sp-local-numbers` for users with hints. Voicemail is disabled for now (ARG3 = 0) until M4.
+✅ Golden tests updated. `dialplan show sp-local-numbers` shows users and hints.
+
+**M2-T5 Extensions API + UI**
+📖 02 (extensions, user_runtime_state), 04 §7.2, §7.3 (extensions), 05 §2 (Users page tabs General/Phone/Credentials)
+🔨 Numbering service, extensions CRUD (generates SIP password and voicemail PIN), credentials reveal (audited), regenerate password. Every change calls `requestApply`.
+✅ Creating user 101 in the UI → within 2 s `pjsip show endpoint 101` exists.
+
+**M2-T6 Live state v1 + dashboard**
+📖 04 §5.1 (extension states + contacts only), §5.2
+🔨 Live store, initial load, ExtensionStatus/ContactStatus handlers, `/api/live` WS, dashboard "extensions online", StatusDots in the Users table.
+✅ **Milestone check:** register two softphones (e.g. baresip/MicroSIP/Linphone) on the LAN as 101 and 102. 101 calls 102 → two-way audio for 30 s. The dashboard shows both online, and the dots go red during the call. Write `apps/api/test/sipp/register-and-call.xml` (or a baresip script) that automates register + call + BYE and run it in `pnpm test:asterisk`.
+
+---
+
+## M3 — Real phone number in and out (voip.ms)
+
+**M3-T1 Trunks**
+📖 03 §5.3, 06 §1, §2
+🔨 Trunks CRUD + form with the voip.ms preset and checklist; registration status in live state (`Registry`, `PJSIPShowRegistrationsOutbound`); `POST /api/trunks/:id/test`.
+✅ With a real voip.ms sub-account, the trunk shows **Registered** in the UI.
+
+**M3-T2 DIDs + inbound routing (to a user)**
+📖 03 §6.4, §6.5, 06 §3, 02 §1
+🔨 Destination zod schema + `destApp` + `findReferences`/`assertDestinationExists`; DIDs CRUD; minimal DestinationPicker (user + hangup + external); `sp-from-trunk-*`, `sp-did-exists`, `sp-inbound`.
+✅ A call from a mobile phone to the DID rings 101. **Record in 06 §3 which header carried the DID.** Golden case `voipms-basic` passes.
+
+**M3-T3 Outbound routes + caller ID**
+📖 03 §6.12, 06 §4
+🔨 Outbound routes CRUD with reorder + test box; class check; caller ID priority; trunk failover; channel limit; default routes created when the first trunk is created.
+✅ 101 dials a mobile number → it rings, and the caller ID shown is the DID. An extension with class `local` dialing a national number hears `ss-noservice`. `011…` is denied while the route is disabled. **Record in 06 §4 whether per-call caller ID is honored.**
+
+**M3-T4 Emergency**
+📖 03 §6.14, 06 §6, 04 §5.3
+🔨 Emergency contexts, `SpEmergency` handler (email, ring-out, banner, `emergency_events`), test-notification button, dashboard warnings.
+✅ Unit/golden tests show 911 bypasses class/limits. The test-notification button sends the email and rings the notify extension. **Do not dial 911.**
+
+**M3-T5 Setup wizard (steps 1–6, 9, 10)**
+📖 05 §2.1
+✅ A fresh install can be taken to "inbound and outbound calls work" using only the wizard.
+
+---
+
+## M4 — Voicemail
+
+**M4-T1** Voicemail config (03 §7), turn on ARG3 in `sp-sub-user`, `*97`/`*98`, MWI via `mailboxes`.
+✅ An unanswered call to 101 leaves a message, the desk phone MWI light turns on, and `*97` plays it.
+
+**M4-T2** Watcher + DB index + email (04 §5.6, §10), SMTP settings + test.
+✅ The voicemail email arrives within 10 s with a playable attachment.
+
+**M4-T3** User portal: Home + Voicemail page + greetings (05 §4), API operations with renumbering.
+✅ Mark read/delete in the web UI updates the phone's MWI light within 5 s. A greeting recorded in the browser plays to callers.
+
+---
+
+## M5 — Browser softphone
+
+**M5-T1** `/api/me/webrtc`, reverse-proxy `/ws` (Caddy + nginx example), engine (05 §5.2).
+✅ The browser registers (`pjsip show contacts` shows 101-web), and calls between browser and desk phone have two-way audio, both on the LAN and from a phone hotspot outside the LAN.
+
+**M5-T2** Dock UI, incoming dialog, hold/mute/DTMF, blind + attended transfer, one-tab leader election, audio device selection, notifications.
+✅ A manual test script in `apps/web/TESTING.md` (12 steps) passes in Chrome and Firefox.
+
+**M5-T3** Presence panel + click-to-call (`/api/me/click-to-call`).
+✅ Presence dots change in < 1 s. Click-to-call rings the user's desk phone first.
+
+---
+
+## M6 — Call flows
+
+**M6-T1** Sounds: upload, convert, play, delete with references (04 §6, 05 §2 Sounds).
+**M6-T2** Ring groups (03 §6.7) + UI.
+**M6-T3** IVR (03 §6.9) + keypad-grid UI.
+**M6-T4** Time conditions + holidays + override codes (03 §6.10, §6.13) + weekly grid UI + US federal holiday generator.
+**M6-T5** Announcements (03 §6.11).
+**M6-T6** Full DestinationPicker (all types) used everywhere.
+**M6-T7** Feature codes DND/CF/pickup/echo/say-ext (03 §6.13) + `SpToggle` handling + forward validation (04 §5.3) + `/me/settings` forwarding UI.
+**M6-T8** Blocked numbers (AstDB sync, 04 §5.5).
+✅ **Milestone check:** golden cases `ringgroups`, `ivr-business-hours`, `holidays` pass. Manual scenario: DID → office hours (open) → IVR "press 1 sales (ring group 500 ringall), 2 support (user 102)". Outside hours → voicemail of 101. `*311` forces open. A blocked number is rejected.
+
+---
+
+## M7 — History, recordings, live dashboard
+
+**M7-T1** CDR ingestion + aggregation (04 §5.4) with recorded fixtures for 8 scenarios.
+**M7-T2** Call history pages (admin + `/me/calls`) + CSV export.
+**M7-T3** Recording (03 `sp-sub-record`, record modes, DID record flag, announcement) + recordings page + retention job.
+**M7-T4** Full live state (calls, parking, queues placeholders) + dashboard live call list + admin hangup/transfer.
+✅ Each fixture scenario produces the expected `calls` row. A recorded call is playable from history. The live list matches `core show channels` during 3 concurrent calls.
+
+---
+
+## M8 — Queues, park, pickup, conference, paging, MOH
+
+**M8-T1** Queues (03 §6.8) + members + pause via `*45`/UI + queue live tiles + `GET /:id/stats`.
+**M8-T2** Parking (`res_parking.conf`, `sp-parkedcalls` include) + parked calls in the live UI + BLF hints for slots.
+**M8-T3** Conferences with PIN/admin PIN (03 §6.11).
+**M8-T4** Paging/intercom (`sp-page-*`, `*80`) + auto-answer test on a real Yealink or Grandstream.
+**M8-T5** MOH classes (03 §8).
+✅ Golden `queue` case passes. Scenario: 3 callers wait in a queue with 2 agents. One agent pauses with `*45550`. The caller who waits past `max_wait_seconds` goes to the timeout destination. A parked call on 701 can be picked up from another phone.
+
+---
+
+## M9 — SMS
+
+**M9-T1** voip.ms API client (06 §5.1) + DID import + server list.
+**M9-T2** Inbound hook (06 §5.2) with a captured real fixture.
+**M9-T3** SMS UI (admin + `/me/sms`), unread badges, `did_sms_users`.
+✅ Two-way SMS with a mobile phone works. Messages show in < 2 s.
+
+---
+
+## M10 — Provisioning and phone apps
+
+**M10-T1** Devices CRUD + `/prov` endpoints + auth/rate-limit (07 §2).
+**M10-T2** Yealink + Grandstream templates + phonebook XML + timezone table (07 §3).
+**M10-T3** Linphone QR provisioning (07 §5) + "Set up a phone app" page.
+**M10-T4** Spy/whisper/barge (04 §7.3).
+✅ A factory-reset Yealink pointed at the URL registers with the right name and BLF keys. Linphone on a phone registers by scanning the QR.
+
+---
+
+## M11 — Hardening, ops, docs
+
+**M11-T1** Security headers, phone ACL setting (08 §2.2), TOTP for admins, PIN rules.
+**M11-T2** TLS SIP transport (cert path, compose volume, trunk TLS + SRTP option for voip.ms).
+**M11-T3** Backups + restore script (04 §8.1). Test restore on a second VM.
+**M11-T4** Jobs: publicIpWatch, trunkWatch, diskWatch, retention (04 §8).
+**M11-T5** Webhooks + API tokens (04 §9, §2.3).
+**M11-T6** Reports page (05 §2).
+**M11-T7** `docs/admin-guide/`: install, voip.ms setup with screenshots, NAT/SIP ALG, firewall + fail2ban/CrowdSec, E911 duties, recording law notice, troubleshooting (08 §3.3), updating, backup/restore.
+**M11-T8** Security review: run through 08 §1 line by line, and get a review from a separate agent that didn't write the code. Fix findings.
+✅ An outside tester follows only the admin guide and gets inbound/outbound calls working on a fresh VM.
+
+---
+
+## M12 — Nice to have (after v1.0)
+- Piper TTS for prompts (04 §6).
+- Record prompts by phone.
+- Wallboard page for queues.
+- Push gateway for mobile apps.
+- Polycom provisioning (07 §3.3).
+- Multi-tenant (big redesign; needs a decision record).
+
+---
+
+## Definition of done for v1.0
+All of M0–M11 done, plus: 7 days running on the owner's server handling real calls with
+no crash/restart of the api or Asterisk, and nightly backups restoring cleanly.

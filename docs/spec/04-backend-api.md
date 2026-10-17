@@ -1,0 +1,417 @@
+# 04 — Backend (apps/api)
+
+## 1. Startup order (`src/index.ts`)
+
+1. `config.ts`: parse env with zod. Exit 1 with a readable message on error.
+2. Create the pino logger (with redaction, §11).
+3. Connect PostgreSQL. Run migrations from `./migrations`.
+4. Bootstrap: if no `admin` user exists, create one from `INITIAL_ADMIN_EMAIL` /
+   `INITIAL_ADMIN_PASSWORD` with `must_change_password = true`.
+5. Build Fastify: plugins (cookie, rate-limit, multipart, websocket, static for
+   `./public` with SPA fallback to `index.html` for non-`/api`, non-`/prov`, non-`/hooks` paths), then routes.
+6. Listen on `127.0.0.1:${API_PORT}`.
+7. Start the AMI client (§4). On every successful login: sync AstDB (§5.5), load
+   live state (§5.1), `generator.apply({ trigger: 'startup', force: true })`.
+8. Start the voicemail watcher (§5.6) and the jobs (§8).
+9. On SIGTERM: stop jobs, close WS clients, close AMI, close DB, exit 0.
+
+## 2. Auth
+
+### 2.1 Passwords
+- argon2id via `@node-rs/argon2` with library defaults.
+- Minimum 10 characters. Reject the 1,000 most common passwords (bundle a list in `auth/common-passwords.txt`).
+
+### 2.2 Sessions (browser)
+- `POST /api/auth/login {email, password, totp?}` → on success, create a 32-byte random
+  token. Store `sha256(token)` in `sessions.id` and set the cookie
+  `sp_session=<token>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=1209600` (14 days).
+- Sliding expiry: if a session has less than 7 days left when used, extend it to 14 days.
+- `POST /api/auth/logout` deletes the session row and clears the cookie.
+- **CSRF:** every non-GET `/api/*` request with cookie auth must carry the header
+  `X-Requested-With: selfphoneng`. The web client always sends it. Browsers can't send
+  it cross-site without CORS, and CORS is off.
+- Login rate limit: 5 failures per IP per 15 min and 10 per email per hour → HTTP 429.
+  Write `login_failed` to the audit log with the IP.
+- If `must_change_password`, every route except `/api/auth/*` returns 403 `{code:'password_change_required'}`.
+
+### 2.3 API tokens (integrations)
+- Header `Authorization: Bearer sp_<40 random base62 chars>`. Stored as sha256.
+  Tokens act as the admin who created them. Shown once on creation.
+
+### 2.4 Guards
+Fastify `preHandler` hooks in `auth/guards.ts`:
+- `requireAuth`: sets `req.user`.
+- `requireAdmin`.
+- `requireSelfOrAdmin(paramName)`: for `/api/me/*` and per-user resources.
+
+## 3. Secrets (`crypto/secrets.ts`)
+
+```ts
+encrypt(plain: string): string   // AES-256-GCM, random 12-byte IV, key = base64decode(APP_SECRET)
+decrypt(blob: string): string
+generateSipPassword(): string    // 24 chars from [A-Za-z0-9], crypto.randomInt
+generatePin(len = 6): string
+```
+Unit test: round-trip, tamper detection (flip one byte → throws), wrong key → throws.
+
+## 4. AMI client (`ami/client.ts`)
+
+Write it ourselves. Protocol summary:
+- TCP to `AMI_HOST:AMI_PORT`. Server sends one banner line: `Asterisk Call Manager/X.Y.Z\r\n`.
+- Each message is lines `Key: Value\r\n` ending with an empty line `\r\n`.
+- A message with `Response:` answers an action (matched by `ActionID`).
+  A message with `Event:` is an event.
+- Keys can repeat (e.g. `Output:` lines of a `Command`, `ChanVariable:`). Parse each
+  message as `Record<string, string | string[]>`, so a repeated key becomes an array.
+- List actions (e.g. `PJSIPShowContacts`, `CoreShowChannels`) reply
+  `Response: Success` + `EventList: start`, then events with the same `ActionID`,
+  then an event whose name ends in `Complete` with `EventList: Complete`.
+
+API:
+```ts
+class AmiClient extends EventEmitter {
+  constructor(opts: { host; port; username; secret; logger });
+  start(): void;                       // connects, logs in, reconnects forever
+  isConnected(): boolean;
+  action(fields: Record<string,string>, opts?: { timeoutMs?: number }): Promise<AmiMessage>;
+  actionList(fields: Record<string,string>): Promise<AmiMessage[]>;   // collects an EventList
+  command(cmd: string): Promise<string>;                               // Action: Command, returns joined Output
+  // events: 'connected', 'disconnected', 'event' (msg), and `event:<Name>` (msg)
+}
+```
+Details:
+- `ActionID` = incrementing integer as a string, prefixed `sp-`.
+- Login: `Action: Login`, `Username`, `Secret`, `Events: on`.
+- Send `Action: Ping` every 20 s. If no reply in 10 s, destroy the socket and reconnect.
+- Reconnect backoff: 1, 2, 4, 8, 16, 30, 30, … seconds.
+- Pending actions reject with `AmiDisconnectedError` when the socket closes.
+- Default action timeout: 10 s.
+- **Never log the Login action fields.**
+
+Tests: run the parser against recorded raw byte streams in `test/fixtures/ami/`,
+including messages split across TCP chunks and several messages in one chunk.
+
+## 5. Live state, events and Asterisk-driven services
+
+### 5.1 Live state (`live/state.ts`)
+
+In memory only. Rebuilt from Asterisk on every AMI connect.
+
+```ts
+type ExtensionLive = {
+  number: string;
+  state: 'idle' | 'inuse' | 'busy' | 'unavailable' | 'ringing' | 'onhold' | 'ringinuse';
+  contacts: { endpoint: string; uri: string; userAgent?: string; status: 'reachable'|'unreachable'|'unknown'; rttMs?: number }[];
+  dnd: boolean;
+};
+type TrunkLive = { trunkId: string; registration: 'registered' | 'rejected' | 'unregistered' | 'unknown'; lastChange: string; reachable: boolean };
+type ActiveCall = {
+  linkedid: string; startedAt: string; answeredAt?: string;
+  direction: 'inbound'|'outbound'|'internal';
+  from: { number: string; name?: string }; to: { number: string; name?: string };
+  did?: string; state: 'ringing' | 'talking' | 'hold' | 'queued' | 'ivr' | 'voicemail' | 'parked';
+  extensions: string[];          // internal numbers involved
+  channels: string[];            // channel names
+  recording: boolean;
+};
+type QueueLive = { number: string; waiting: { linkedid; callerNumber; since }[]; members: { ext; paused; state; callsTaken; lastCall? }[] };
+type ParkedLive = { slot: string; linkedid: string; callerNumber: string; since: string; parkedBy?: string };
+type MwiLive = Record<string /*ext*/, { new: number; old: number }>;
+```
+
+Initial load on connect (use `actionList`):
+
+| Data | AMI action | Fields used |
+|---|---|---|
+| Extension states | `ExtensionStateList` | `Exten`, `Context` (= `sp-local-numbers`), `Status` |
+| Contacts | `PJSIPShowContacts` | `Endpoint`/`EndpointName`, `Uri`, `UserAgent`, `Status`, `RoundtripUsec` |
+| Trunk registrations | `PJSIPShowRegistrationsOutbound` | `ObjectName` (`trunk-{id}-reg`), `Status` |
+| Channels | `CoreShowChannels` | `Channel`, `Uniqueid`, `Linkedid`, `ChannelStateDesc`, `CallerIDNum`, `ConnectedLineNum`, `Application`, `Exten`, `Context` |
+| Queues | `QueueStatus` | `QueueParams`, `QueueMember`, `QueueEntry` events |
+| Parking | `ParkedCalls` | `ParkingSpace`, `ParkeeLinkedid`, `ParkeeCallerIDNum` |
+| MWI | `MailboxCount` per mailbox | `NewMessages`, `OldMessages` |
+
+Events to handle (`live/handlers.ts`):
+
+| Event | Effect |
+|---|---|
+| `ExtensionStatus` | update `ExtensionLive.state` (Status: 0 idle, 1 inuse, 2 busy, 4 unavailable, 8 ringing, 9 ringinuse, 16 onhold) |
+| `ContactStatus` | add/update/remove contact (ContactStatus: Created, Reachable, Unreachable, Removed, Updated) |
+| `Registry` | trunk registration status (match `Username` + `Domain` to a trunk) |
+| `Newchannel`, `Newstate`, `NewCallerid`, `NewConnectedLine`, `DialBegin`, `DialEnd`, `BridgeEnter`, `BridgeLeave`, `Hold`, `Unhold`, `Hangup` | maintain `ActiveCall` grouped by `Linkedid`. When the last channel of a linkedid hangs up, drop the call and schedule CDR aggregation (§5.4) for 5 s later |
+| `VarSet` with `Variable` in (`SP_DID`, `SP_DIRECTION`, `SP_REC`, `SP_TARGET`) | enrich `ActiveCall` (needs `eventfilter` or `read=all`; fine on localhost) |
+| `QueueCallerJoin` / `QueueCallerLeave` / `QueueCallerAbandon` / `QueueMemberStatus` / `QueueMemberPause` / `AgentConnect` / `AgentComplete` | `QueueLive` |
+| `ParkedCall` / `UnParkedCall` / `ParkedCallTimeOut` / `ParkedCallGiveUp` | `ParkedLive` |
+| `MessageWaiting` | `MwiLive` (Mailbox `101@default`) |
+| `UserEvent` `SpToggle` | §5.3 |
+| `UserEvent` `SpEmergency` | §5.3 |
+| `Cdr` | §5.4 |
+
+Mapping channel name → extension: regex `^PJSIP/(\d+)(?:-web)?-[0-9a-f]+$`. Local
+channels `Local/101@sp-rg-member-...` also count as 101.
+Trunk channel: `^PJSIP/trunk-([0-9a-f-]{36})-`.
+
+### 5.2 Live WebSocket (`GET /api/live`)
+
+- Auth: session cookie (the browser sends it automatically). Close code 4401 when unauthenticated.
+- Server → client messages are JSON `{ "type": string, "data": any }`.
+- On connect: one `snapshot` message containing the live state the user may see, then deltas.
+- Visibility:
+  - **admin**: everything.
+  - **user**: all `ExtensionLive` without `contacts` (presence/BLF for the whole company),
+    active calls where their extension is in `extensions`, MWI for their own mailbox,
+    queues they are a member of, all parked calls.
+- Delta types: `extension.updated`, `trunk.updated`, `call.updated`, `call.ended`,
+  `queue.updated`, `parked.updated`, `mwi.updated`, `voicemail.new`, `sms.received`,
+  `emergency.call` (admins + emergency notify users), `system.configApplied`,
+  `system.restartRequired`, `ami.status` (`{connected: boolean}`).
+- Batch deltas: send at most once every 250 ms per client (merge `*.updated` for the same key).
+- Ping every 30 s and drop clients that don't pong.
+
+### 5.3 Dialplan → api events
+
+`SpToggle` fields: `Key` (DND | CFU | CFB | CFNA | QPAUSE | TCOVR), `Ext`, `Queue`, `Id`, `Value`.
+- DND / CFU / CFB / CFNA: update `user_runtime_state` for that extension.
+  For CFU/CFB/CFNA with an external number, run `canDial(ext.outbound_class, number)`
+  (uses the outbound routes' patterns and required classes). If not allowed:
+  `DBDel` the key over AMI, keep the DB value null, write an audit entry
+  `forward_rejected`, and push a `toast` to that user's WS clients.
+- QPAUSE: update `queue_member_state`.
+- TCOVR: update `time_conditions.override_state` (`auto` → null).
+- Always broadcast the matching live delta.
+
+`SpEmergency` fields: `Ext`, `CallerId`, `Dialed`.
+1. Insert `emergency_events` with `location` from `extensions.emergency_location`.
+2. Email every address in `emergency.notifyEmails`: subject
+   `EMERGENCY: 911 dialed from ext {ext} ({name})`, body with time, extension,
+   name, location, caller ID sent. Send immediately; don't wait for a queue.
+3. For each `emergency.notifyExtensionIds`: AMI `Originate` with
+   `Channel: PJSIP/<notifyExt>`, `Context: sp-emergency-alert`, `Exten: <ext>`,
+   `Priority: 1`, `CallerID: "EMERGENCY 911" <<ext>>`, `Async: true`.
+4. Broadcast `emergency.call`. Fire webhook `emergency.call`.
+5. Record the outcome of every notification in `emergency_events.notified`.
+
+### 5.4 CDR ingestion and call aggregation (`services/cdr.ts`)
+
+- On each `Cdr` event: insert the raw row into `cdr` (fields map 1:1, `raw` = whole message).
+  Variables from `cdr_manager.conf` `[mappings]` arrive as lowercase keys `sp_did`, `sp_direction`, `sp_recording`.
+- `aggregateCall(linkedid)` runs 5 s after the last hangup (and again from the
+  nightly job for any linkedid in `cdr` without a `calls` row):
+  - `rows` = all cdr rows for the linkedid, ordered by `start_at`.
+  - **direction**: first non-empty `sp_direction`; else `inbound` if any `channel`
+    is a trunk channel; else `outbound` if any `dstchannel` is a trunk channel; else `internal`.
+  - **from**: `src` + name parsed from `clid` of the first row.
+  - **to**: inbound → the DID (`sp_did`); otherwise `dst` of the first row.
+  - **rang**: every extension parsed from any `dstchannel`.
+  - **answered_by**: the extension in `dstchannel` of the first row with `disposition = 'ANSWERED'` and an extension dstchannel.
+    For outbound: answered if the trunk leg is ANSWERED.
+  - **status**, checked in this order: `answered` if answered_by is set (or the outbound trunk leg was answered);
+    `voicemail` if any row has `lastapp = 'VoiceMail'` and `billsec > 0`;
+    `abandoned` if any row has `lastapp = 'Queue'`; `busy` if any row's disposition is `BUSY`;
+    `failed` if any row's disposition is `FAILED` or `CONGESTION`; otherwise `missed`.
+  - **talk_seconds**: max `billsec` of answered extension/trunk rows.
+  - **recording**: if any `sp_recording` is set and the file exists → create
+    `recordings` (size via `fs.stat`, duration via `ffprobe`) and link it.
+  - Insert `calls` + `call_extensions`, then fire webhook `call.ended`.
+- This is a heuristic. In M7, record real AMI Cdr events from test calls
+  (inbound to user, inbound to ring group, IVR → voicemail, queue abandon,
+  outbound, transfer, park) into `test/fixtures/cdr/*.json` and write a test per scenario.
+
+### 5.5 AstDB sync (`services/astdb.ts`)
+
+On every AMI connect, PostgreSQL wins:
+1. `DBDelTree Family: SP` (wipes our keys).
+2. For each extension: `DBPut SP DND/<ext> 1` if dnd; CFU/CFB/CFNA if set.
+3. For each blocked number: `DBPut SP BLOCK/<number> 1`.
+4. For each paused queue member: `DBPut SP QPAUSE/<queue>/<ext> 1`.
+5. For each time condition with `override_state`: `DBPut SP TCOVR/<id> <state>`.
+
+Keep one function per key type (`setDnd(ext, on)`, etc.). Routes call these after writing PostgreSQL.
+
+### 5.6 Voicemail watcher (`services/voicemail.ts`)
+
+- Watch `/var/spool/asterisk/voicemail/default/*/{INBOX,Old,Urgent}/msg*.txt` with chokidar (`awaitWriteFinish: { stabilityThreshold: 2000 }`).
+- Parse the `.txt` file: INI-like, section `[message]`, keys `callerid`, `origtime` (epoch),
+  `duration`, `msg_id`, `flag`. `callerid` looks like `"Name" <13125551234>`.
+- **add**: upsert `voicemail_messages` by `msg_id` (update `folder`, `file_path`).
+  If it's new and in INBOX: fire `voicemail.new` (WS + webhook) and, if the user has
+  `voicemail_email` and SMTP is configured, send an email (§10) with the `.wav` attached
+  if `voicemail_attach_audio`. Then set `emailed_at`. If `voicemail_delete_after_email`, delete it (below).
+- **unlink**: if no file with that `msg_id` is left anywhere in the mailbox, set `deleted_at`.
+- **API operations** (`markRead` = move INBOX→Old, `delete`, `move`): Asterisk expects
+  files in each folder numbered `msg0000…msgNNNN` with no gaps. So every
+  operation must, under a per-mailbox lock: move/delete the `.txt` and `.wav`
+  together, renumber the remaining files in that folder to close gaps, then
+  send AMI `VoicemailRefresh Context: default Mailbox: <ext>` so MWI lights update.
+  First check `manager show commands` on the installed Asterisk for `VoicemailRemove`/`VoicemailMove`
+  actions. If they exist, use them instead and delete the renumbering code.
+- Greetings: `PUT /api/me/greetings/:kind` (kind: `unavail` | `busy` | `greet` (name) | `temp`)
+  converts the upload to `/var/spool/asterisk/voicemail/default/<ext>/<kind>.wav`
+  (8 kHz mono PCM). `DELETE` removes it.
+
+## 6. Media (`media/audio.ts`)
+
+- Accept uploads: wav, mp3, ogg, opus, m4a, flac. Max 20 MB. Max 15 minutes.
+- Convert with ffmpeg (spawn, no shell):
+  - `ffmpeg -nostdin -y -i <in> -ac 1 -ar 8000 -c:a pcm_s16le <out>.wav`
+  - `ffmpeg -nostdin -y -i <in> -ac 1 -ar 16000 -c:a g722 <out>.g722` (HD copy that Asterisk picks for G.722 calls)
+  - Loudness normalize with `-af loudnorm=I=-16:TP=-1.5:LRA=11` on both.
+- Duration: `ffprobe -v error -show_entries format=duration -of csv=p=0 <out>.wav`.
+- Prompts: `/var/lib/asterisk/sounds/custom/<id>.{wav,g722}` → `asterisk_name = custom/<id>`.
+- MOH: `/var/lib/asterisk/moh/<className>/<id>.wav` (wav only). After any MOH change, call `generator.requestApply`.
+- Deleting a sound referenced by an IVR/announcement/settings → 409 with references.
+- Optional TTS (M12): `POST /api/sounds/tts {name, text, voice}` runs Piper (binary
+  and voice models in the api image under `/opt/piper`), then the same conversion.
+
+## 7. REST API
+
+### 7.1 Conventions
+- Base path `/api`. JSON in, JSON out. Dates are ISO 8601 UTC strings.
+- Every request body and query is validated with zod schemas from `packages/shared`.
+- Errors: HTTP status + `{ "error": { "code": "snake_case", "message": "Human text", "details": {} } }`.
+  Codes: `validation_failed` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404),
+  `conflict` (409, e.g. number taken, in use), `rate_limited` (429), `internal` (500).
+- Lists: `?limit=50&cursor=<opaque>` → `{ items: [], nextCursor: string | null }`.
+- Every create/update/delete of config objects: (1) writes PostgreSQL in a transaction, (2) writes `audit_log`
+  with a secret-redacted diff, (3) calls `generator.requestApply('api-change')`.
+- Secrets never come back in responses. Use `hasPassword: true`. Separate explicit endpoints reveal them.
+
+### 7.2 Number allocation (`services/numbering.ts`)
+`assertNumberAvailable(number, kind, excludeId?)`:
+1. Digits only, 3–6 chars.
+2. Not in the reserved list (00 §7).
+3. Inside the configured range for `kind`.
+4. Not used by any of: extensions, ring_groups, queues, ivrs, conferences, paging_groups, parking 700–720.
+Throw `conflict` naming the current owner. `GET /api/numbering/next?kind=user` returns the lowest free number.
+
+### 7.3 Endpoints
+
+Auth & self:
+| Method | Path | Who | Notes |
+|---|---|---|---|
+| POST | `/api/auth/login` | public | §2.2 |
+| POST | `/api/auth/logout` | auth | |
+| GET | `/api/auth/me` | auth | user + extension summary |
+| POST | `/api/auth/change-password` | auth | `{currentPassword, newPassword}` |
+| GET | `/api/me` | user | extension settings, runtime state |
+| PATCH | `/api/me` | user | `{dnd?, cfu?, cfb?, cfna?, voicemailEmail?, voicemailAttachAudio?, voicemailDeleteAfterEmail?, voicemailPin?}` → DB, then AstDB |
+| GET | `/api/me/webrtc` | user | `{ wsUrl: "wss://<host>/ws", sipUri: "sip:101-web@<host>", authUser: "101-web", password, displayName, iceServers: [...] }` |
+| GET | `/api/me/calls` | user | own call history (via `call_extensions`) |
+| GET | `/api/me/voicemail` | user | list |
+| GET | `/api/me/voicemail/:id/audio` | user | streams the wav (`Content-Type: audio/wav`, supports Range) |
+| PATCH | `/api/me/voicemail/:id` | user | `{folder: 'Old'|'INBOX'}` |
+| DELETE | `/api/me/voicemail/:id` | user | |
+| PUT/DELETE | `/api/me/greetings/:kind` | user | multipart upload |
+| GET/POST/PATCH/DELETE | `/api/me/contacts[/:id]` | user | personal contacts |
+| POST | `/api/me/click-to-call` | user | `{number}` → AMI `Originate Channel: PJSIP/<ext>, Context: sp-from-ext, Exten: <normalized>, Priority: 1, CallerID: "<number>" <<ext>>, Async: true`. The user's phone rings first, then the call goes out |
+
+Admin resources (all `requireAdmin`; standard CRUD = `GET /x`, `POST /x`, `GET /x/:id`, `PATCH /x/:id`, `DELETE /x/:id`):
+| Resource | Extra endpoints |
+|---|---|
+| `/api/users` | `POST /:id/reset-password` (sets a temp password, `must_change_password`) |
+| `/api/extensions` | `POST /:id/regenerate-sip-password`, `GET /:id/sip-credentials` (audited), `GET /:id/softphone-qr` (07 §5) |
+| `/api/trunks` | `POST /:id/test` (live registration status + OPTIONS RTT), `POST /:id/import-dids` (voip.ms API, 06 §5) |
+| `/api/dids` | |
+| `/api/outbound-routes` | `POST /reorder {ids: []}`, `POST /test {extensionId, number}` → which route/trunk would be used, or why it's denied |
+| `/api/ring-groups` | members are set via `members: [{extensionId}]` in POST/PATCH |
+| `/api/queues` | `GET /:id/stats?from&to`, `POST /:id/members/:extId/pause`, `.../unpause` |
+| `/api/ivrs` | options sent as `options: [{digit, destination}]` |
+| `/api/time-conditions` | `POST /:id/override {state: 'open'|'closed'|'auto'}`, `GET /:id/status` (open/closed now) |
+| `/api/holidays` | `POST /import-us-federal {year}` (generates the list in code, no network) |
+| `/api/announcements` | |
+| `/api/conferences` | |
+| `/api/paging-groups` | |
+| `/api/sounds` | upload is multipart `POST /api/sounds`, `GET /:id/audio`, `POST /tts` (M12) |
+| `/api/moh-classes` | |
+| `/api/devices` | `GET /:id/config-preview` (rendered provisioning file, passwords masked) |
+| `/api/blocked-numbers` | |
+| `/api/contacts` | company phonebook; `POST /import` CSV (`name,company,email,label1,number1,...`) |
+| `/api/webhooks` | `POST /:id/test`, `GET /:id/deliveries` |
+| `/api/api-tokens` | POST returns the token once |
+
+Reports, history, system:
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/api/calls` | filters: `from`, `to`, `direction`, `status`, `extensionId`, `didId`, `q` (number search) |
+| GET | `/api/calls/export.csv` | same filters |
+| GET | `/api/recordings`, `/api/recordings/:id/audio`, DELETE `/api/recordings/:id` | |
+| GET | `/api/reports/summary?from&to` | totals per day, per direction, missed count, average talk time |
+| GET | `/api/reports/queues?from&to` | per queue: offered, answered, abandoned, avg wait, % within SLA |
+| GET | `/api/audit-log` | |
+| GET/PATCH | `/api/settings` | whole settings object; PATCH merges known keys only |
+| POST | `/api/settings/smtp/test` | `{to}` sends a test email |
+| POST | `/api/settings/network/detect-public-ip` | |
+| GET | `/api/system/status` | `{ db: ok, ami: connected, asteriskVersion, uptime, trunks: [...], disk: {free, total}, restartRequired, lastGeneratorRun }` |
+| GET | `/api/system/generated-files` | names + contents of generated files, **passwords masked** (debug view) |
+| POST | `/api/system/config/apply` | force regenerate |
+| POST | `/api/system/config/rollback` | |
+| POST | `/api/system/asterisk/restart?now=false` | |
+| GET | `/api/system/asterisk/cli?cmd=` | **allowlist only**: `pjsip show endpoints`, `pjsip show registrations`, `pjsip show contacts`, `core show channels`, `queue show`, `dialplan show <sp-context>`. Never pass arbitrary commands |
+| POST | `/api/system/backups` | create one now |
+| GET | `/api/system/backups`, `/api/system/backups/:name/download` | |
+| GET/POST | `/api/setup/status`, `/api/setup/complete` | first-run wizard (05 §2.1) |
+| GET | `/api/live` | WebSocket (§5.2) |
+| POST | `/api/live/calls/:linkedid/hangup` | admin |
+| POST | `/api/live/calls/:linkedid/transfer` | admin `{target}` → AMI `Redirect` of the external party's channel to `sp-local-numbers,<target>,1` |
+| POST | `/api/live/calls/:linkedid/spy` | admin `{mode: 'listen'|'whisper'|'barge'}` → Originate to admin's ext running `ChanSpy(<channel>,q{''|w|B})` (M10) |
+| GET | `/healthz` | unauthenticated; 200 if DB ok, AMI connected, else 503 with JSON reasons |
+
+SMS (06 §5): `GET /api/sms/threads`, `GET /api/sms/threads/:didId/:remoteNumber`,
+`POST /api/sms/send {didId, to, body}`, `POST /api/sms/threads/:didId/:remote/read`.
+Users only see DIDs they're assigned in `did_sms_users`. Admins see all.
+
+Provisioning and inbound hooks (outside `/api`, no session):
+- `GET /prov/...`: see `07-provisioning.md`.
+- `GET|POST /hooks/voipms/sms/:token`: see `06-voipms.md` §5.
+
+## 8. Background jobs (`jobs/`, using croner, times in `general.timezone`)
+
+| Job | Schedule | Does |
+|---|---|---|
+| `nightlyRegenerate` | 00:05 daily | `generator.apply({trigger:'nightly', force:true})` (holidays roll over), aggregate orphan CDRs |
+| `retentionCleanup` | 02:00 daily | delete recordings older than `recordings.retentionDays` (file + row), voicemail older than `voicemail.retentionDays` if > 0, sessions past expiry, webhook_deliveries older than 30 days |
+| `backup` | `backup.time` daily if enabled | §8.1 |
+| `publicIpWatch` | every 5 min if enabled | detect IP; if changed: update settings, apply, set restartRequired, email admins |
+| `webhookDelivery` | every 10 s | send pending deliveries (§9) |
+| `trunkWatch` | every 60 s | if a trunk is unregistered for more than 5 min → email admins once per outage |
+| `diskWatch` | hourly | if free disk < 10% → email admins once a day |
+
+Jobs must never overlap with themselves (use a running flag).
+
+### 8.1 Backups
+Folder `/var/lib/selfphoneng/backups/selfphoneng-YYYYMMDD-HHMM.tar.gz` containing:
+`db.sql` (`pg_dump --no-owner`), `voicemail/`, `sounds-custom/`, `moh/`,
+`manifest.json`. Do **not** include `asterisk-generated/`: it holds plaintext SIP passwords and is rebuilt from the DB on start.
+`manifest.json` is `{version, createdAt, includesRecordings}`. The backup file mode is 0600. Recordings are optional
+(setting `backup.includeRecordings`, default false, because they get large). Keep the newest `backup.keep` backups.
+Restore is a CLI script only: `scripts/restore.sh <file>`. It stops api+asterisk, restores the DB and files, and starts them again.
+`APP_SECRET` must be the same as when the backup was made. The script warns about this.
+
+## 9. Webhooks
+
+Events: `call.started`, `call.answered`, `call.ended`, `voicemail.new`, `sms.received`,
+`sms.sent`, `emergency.call`, `trunk.registration_changed`, `extension.registration_changed`.
+
+- Payload: `{ "id": "<uuid>", "event": "call.ended", "createdAt": "...", "data": {...} }`.
+  `data` uses the same shapes as the REST API.
+- Headers: `Content-Type: application/json`, `X-SelfPhoneNG-Event`,
+  `X-SelfPhoneNG-Timestamp` (unix seconds),
+  `X-SelfPhoneNG-Signature: sha256=<hex HMAC-SHA256(secret, timestamp + "." + rawBody)>`.
+- Delivery: POST with 10 s timeout. A 2xx response means done. Otherwise retry after 1 m, 5 m, 30 m, 2 h, 12 h, then mark `failed`.
+- Block private/loopback target IPs unless setting `webhooks.allowPrivate = true` (SSRF protection; homelab users can turn it on).
+
+## 10. Email (`services/mail.ts`)
+
+nodemailer transport from `settings.smtp`. Templates are plain TypeScript functions returning `{subject, text, html}`:
+- **voicemail**: subject `New voicemail from {callerName or number} ({m:ss})`. Body: caller, number,
+  received time in company timezone, duration, link `https://<host>/me/voicemail`.
+  Attachment `voicemail-<date>.wav`.
+- **emergency**: §5.3.
+- **trunkDown**, **diskLow**, **publicIpChanged**, **passwordReset**.
+If SMTP isn't configured, the UI shows a warning wherever email features are used.
+
+## 11. Logging
+
+pino JSON to stdout. `redact: ['*.password', '*.secret', '*.token', '*.pin', '*.Secret', 'req.headers.authorization', 'req.headers.cookie']`.
+Log every apply (files changed, duration), AMI connect/disconnect, auth events, and outgoing webhook failures.
+Never log SIP passwords, voicemail PINs, AMI login or the raw text of SMS messages (log ids and lengths only).
