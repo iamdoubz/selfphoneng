@@ -5,7 +5,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
 export default tseslint.config(
-  { ignores: ['**/dist/', 'data/', '**/node_modules/'] },
+  { ignores: ['**/dist/', 'data/', '**/node_modules/', '.pnpm-store/'] },
   js.configs.recommended,
   tseslint.configs.recommended,
   { languageOptions: { globals: globals.node } },
