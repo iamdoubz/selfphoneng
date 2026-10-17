@@ -1,0 +1,15 @@
+{
+  "name": "@selfphoneng/api",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch --conditions=development src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@selfphoneng/shared": "workspace:*"
+  }
+}

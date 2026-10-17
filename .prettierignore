@@ -1,0 +1,7 @@
+pnpm-lock.yaml
+LICENSE
+docs/
+data/
+dist/
+AGENTS.md
+CLAUDE.md

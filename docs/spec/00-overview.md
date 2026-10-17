@@ -146,11 +146,11 @@ AstDB keys (family/key). This list is complete; do not add keys without updating
 | Area | Choice | Version |
 |---|---|---|
 | Telephony engine | Asterisk, built from source, PJSIP channel driver only (no chan_sip) | 24 LTS (latest 24.x; see 01 §2 while only release candidates exist) |
-| Language | TypeScript (strict mode) | 5.x |
+| Language | TypeScript (strict mode) | 7.x (see decisions/0001) |
 | Runtime | Node.js | 24 LTS |
 | Package manager | pnpm workspaces | 9.x or newer |
 | API framework | Fastify | 5.x |
-| Validation | zod | 3.x |
+| Validation | zod | 4.x |
 | ORM / migrations | drizzle-orm + drizzle-kit | latest |
 | Database | PostgreSQL | 18 |
 | Password hashing | `@node-rs/argon2` (argon2id) | latest |
@@ -164,7 +164,7 @@ AstDB keys (family/key). This list is complete; do not add keys without updating
 | Logging | pino | latest |
 | Tests | vitest | latest |
 | Frontend | React 19 + Vite + TypeScript | latest |
-| Routing (web) | react-router | 7.x |
+| Routing (web) | react-router | 8.x |
 | Data fetching (web) | @tanstack/react-query | 5.x |
 | Styling | Tailwind CSS | 4.x |
 | Forms (web) | react-hook-form + @hookform/resolvers | latest |
