@@ -5,3 +5,4 @@ data/
 dist/
 AGENTS.md
 CLAUDE.md
+apps/api/src/db/migrations/

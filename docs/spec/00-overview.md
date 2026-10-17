@@ -160,6 +160,8 @@ AstDB keys (family/key). This list is complete; do not add keys without updating
 | WebSocket (api) | @fastify/websocket | latest |
 | Multipart uploads | @fastify/multipart | latest |
 | Rate limiting | @fastify/rate-limit | latest |
+| Cookies | @fastify/cookie | latest (decisions/0002) |
+| PostgreSQL driver | pg | latest (decisions/0002) |
 | QR codes | qrcode | latest |
 | Logging | pino | latest |
 | Tests | vitest | latest |

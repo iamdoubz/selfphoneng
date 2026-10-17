@@ -639,7 +639,8 @@ COPY --from=build /out/package.json ./package.json
 COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /src/apps/api/dist ./dist
 COPY --from=build /src/apps/web/dist ./public
-# ponytail: migrations (M1) and provisioning templates (M10) get their COPY lines when they exist.
+COPY --from=build /src/apps/api/src/db/migrations ./dist/db/migrations
+# ponytail: provisioning templates (M10) get their COPY line when they exist.
 ENV NODE_ENV=production
 ENTRYPOINT ["/usr/bin/tini","--"]
 CMD ["node","dist/index.js"]
