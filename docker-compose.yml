@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: selfphoneng
+
+x-shared-volumes: &shared-volumes
+  - ./data/asterisk-generated:/etc/asterisk/selfphoneng
+  - ./data/voicemail:/var/spool/asterisk/voicemail
+  - ./data/recordings:/var/spool/asterisk/monitor
+  - ./data/sounds-custom:/var/lib/asterisk/sounds/custom
+  - ./data/moh:/var/lib/asterisk/moh
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: selfphoneng
+      POSTGRES_USER: selfphoneng
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql # PG 18 images keep data in /var/lib/postgresql/18/docker; mount the parent, NOT .../data
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5433}:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U selfphoneng -d selfphoneng']
+      interval: 5s
+      retries: 20
+
+  asterisk:
+    build:
+      context: ./asterisk
+      args:
+        ASTERISK_UID: ${APP_UID:-1000}
+        ASTERISK_GID: ${APP_GID:-1000}
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      AMI_SECRET: ${AMI_SECRET:?set in .env}
+      TZ: ${TZ:-America/Chicago}
+    volumes:
+      - ./data/asterisk-generated:/etc/asterisk/selfphoneng
+      - ./data/voicemail:/var/spool/asterisk/voicemail
+      - ./data/recordings:/var/spool/asterisk/monitor
+      - ./data/sounds-custom:/var/lib/asterisk/sounds/custom
+      - ./data/moh:/var/lib/asterisk/moh
+      - ./data/astdb:/var/lib/asterisk/db
+      - ./data/asterisk-logs:/var/log/asterisk
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    user: '${APP_UID:-1000}:${APP_GID:-1000}'
+    depends_on:
+      postgres: { condition: service_healthy }
+      asterisk: { condition: service_started }
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://selfphoneng:${POSTGRES_PASSWORD}@127.0.0.1:${POSTGRES_PORT:-5433}/selfphoneng
+      AMI_HOST: 127.0.0.1
+      AMI_PORT: '5038'
+      AMI_USERNAME: selfphoneng
+    volumes:
+      - ./data/asterisk-generated:/etc/asterisk/selfphoneng
+      - ./data/voicemail:/var/spool/asterisk/voicemail
+      - ./data/recordings:/var/spool/asterisk/monitor
+      - ./data/sounds-custom:/var/lib/asterisk/sounds/custom
+      - ./data/moh:/var/lib/asterisk/moh
+      - ./data/backups:/var/lib/selfphoneng/backups
+      - ./data/tls:/var/lib/selfphoneng/tls
+
+  caddy:
+    image: caddy:2
+    profiles: ['caddy']
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:?set in .env}
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./data/caddy:/data

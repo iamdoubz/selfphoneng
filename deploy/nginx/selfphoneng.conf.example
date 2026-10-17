@@ -1,0 +1,47 @@
+# SelfPhoneNG behind your own nginx. Replace pbx.example.com and the certificate paths.
+#
+# If port 443 is handled by an nginx `stream {}` block that forwards with
+# `proxy_protocol`, this server must instead:
+#     listen 127.0.0.1:<port> ssl proxy_protocol;
+#     set_real_ip_from 127.0.0.1;
+#     real_ip_header proxy_protocol;
+# Otherwise the api sees every client as 127.0.0.1, which breaks login rate
+# limiting and audit logs.
+
+map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name pbx.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/pbx.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/pbx.example.com/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    client_max_body_size 50m;     # audio uploads
+
+    # SIP over WebSocket -> Asterisk
+    location = /ws {
+        proxy_pass http://127.0.0.1:8088/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # Everything else (UI, API, live WebSocket /api/live, provisioning) -> api
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 3600s;
+    }
+}

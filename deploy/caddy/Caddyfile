@@ -1,0 +1,10 @@
+{$PUBLIC_HOSTNAME} {
+	encode zstd gzip
+	@sipws path /ws
+	handle @sipws {
+		reverse_proxy 127.0.0.1:8088
+	}
+	handle {
+		reverse_proxy 127.0.0.1:8080
+	}
+}

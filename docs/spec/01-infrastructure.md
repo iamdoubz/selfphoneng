@@ -613,14 +613,18 @@ will see every client as 127.0.0.1, which breaks login rate limiting and audit l
 ## 6. api image (`apps/api/Dockerfile`)
 
 ```dockerfile
-FROM node:24-bookworm-slim AS build
-RUN corepack enable
+# SPDX-License-Identifier: AGPL-3.0-or-later
+FROM node:24-trixie-slim AS build
+RUN npm install -g corepack@latest && corepack enable
 WORKDIR /src
 COPY . .
-RUN pnpm install --frozen-lockfile && pnpm --filter @selfphoneng/shared build \
- && pnpm --filter @selfphoneng/web build && pnpm --filter @selfphoneng/api build
+RUN pnpm install --frozen-lockfile \
+ && pnpm --filter @selfphoneng/shared build \
+ && pnpm --filter @selfphoneng/web build \
+ && pnpm --filter @selfphoneng/api build \
+ && pnpm --filter @selfphoneng/api deploy --legacy --prod /out
 
-FROM node:24-bookworm-slim
+FROM node:24-trixie-slim
 # pg_dump must be the same major version as the server (18). Debian's own
 # postgresql-client is older, so use the official PostgreSQL apt repo (PGDG).
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg tini ca-certificates curl gnupg \
@@ -631,16 +635,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg tini ca-
  && apt-get update && apt-get install -y --no-install-recommends postgresql-client-18 \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
+COPY --from=build /out/package.json ./package.json
+COPY --from=build /out/node_modules ./node_modules
 COPY --from=build /src/apps/api/dist ./dist
-COPY --from=build /src/apps/api/node_modules ./node_modules
-COPY --from=build /src/apps/api/src/db/migrations ./migrations
-COPY --from=build /src/apps/api/src/provisioning/templates ./provisioning-templates
 COPY --from=build /src/apps/web/dist ./public
+# ponytail: migrations (M1) and provisioning templates (M10) get their COPY lines when they exist.
 ENV NODE_ENV=production
 ENTRYPOINT ["/usr/bin/tini","--"]
 CMD ["node","dist/index.js"]
 ```
-(If pnpm's symlinked `node_modules` doesn't survive `COPY`, use `pnpm deploy --filter @selfphoneng/api --prod /out` and copy `/out` instead.)
+`pnpm deploy --legacy` copies the api with real (non-symlinked) production `node_modules`; `@selfphoneng/shared` ships its built `dist/` (`"files": ["dist"]`). Debian trixie matches the Asterisk image.
 
 On start, `index.ts` does, in order: validate env → connect DB → run
 migrations → create the initial admin if none exists → start Fastify → connect AMI →
