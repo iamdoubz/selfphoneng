@@ -1,0 +1,14 @@
+[general]
+enabled = yes
+port = 5038
+bindaddr = 127.0.0.1
+displayconnects = no
+timestampevents = yes
+
+[selfphoneng]
+secret = ${AMI_SECRET}
+deny = 0.0.0.0/0.0.0.0
+permit = 127.0.0.1/255.255.255.255
+read = all
+write = all
+writetimeout = 5000

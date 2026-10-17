@@ -129,8 +129,9 @@ missing or invalid, it logs a clear message and exits with code 1.
 ### 1.3 `scripts/install.sh`
 
 1. Check `docker` and `docker compose` exist. Otherwise print how to install them and exit.
-2. If `.env` is missing, copy `.env.example` and fill `POSTGRES_PASSWORD`,
-   `AMI_SECRET`, `APP_SECRET` with `openssl rand -base64 32`. Prompt for
+2. If `.env` is missing, copy `.env.example` and fill `POSTGRES_PASSWORD` and
+   `AMI_SECRET` with `openssl rand -hex 32` (hex, because the Postgres password is embedded in
+   `DATABASE_URL` and base64 can contain `/`), and `APP_SECRET` with `openssl rand -base64 32`. Prompt for
    `PUBLIC_HOSTNAME` and the admin email and password.
 3. `mkdir -p` every `./data/*` folder and `chown` it to `APP_UID:APP_GID`.
 4. Ask "Use bundled Caddy for HTTPS? [y/N]". If yes, run `docker compose --profile caddy up -d --build`. Otherwise run `docker compose up -d --build` and print the path of `deploy/nginx/selfphoneng.conf.example`.
@@ -138,9 +139,8 @@ missing or invalid, it logs a clear message and exits with code 1.
 
 ## 2. Asterisk image (`asterisk/Dockerfile`)
 
-Build Asterisk **24 LTS from source**. Pin an exact version: replace `24.X.Y`
-with the newest 24.x release on the day you write it, and record it here in
-the same commit.
+Build Asterisk **24 LTS from source**. Pin an exact version: the newest 24.x release on the day you write it, recorded here in
+the same commit. **Pinned: `24.0.0-rc2` (2026-10-17).** The file in the repo is the source of truth; this copy is kept in sync.
 
 > **Asterisk 24 status (checked 2026-10-17):** Asterisk 24 is the LTS line, but
 > only release candidates are published so far (24.0.0-rc2). Until 24.0.0 is final,
@@ -153,7 +153,7 @@ the same commit.
 ```dockerfile
 # SPDX-License-Identifier: AGPL-3.0-or-later
 FROM debian:trixie-slim AS build
-ARG ASTERISK_VERSION=24.X.Y
+ARG ASTERISK_VERSION=24.0.0-rc2
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential ca-certificates curl wget pkg-config autoconf automake libtool \
@@ -166,6 +166,8 @@ RUN curl -fsSLO https://downloads.asterisk.org/pub/telephony/asterisk/releases/a
  && sha256sum -c asterisk-${ASTERISK_VERSION}.sha256 \
  && tar xzf asterisk-${ASTERISK_VERSION}.tar.gz
 WORKDIR /usr/src/asterisk-${ASTERISK_VERSION}
+# The mp3 decoder source (LGPL) must be fetched before configure so menuselect can enable format_mp3.
+RUN contrib/scripts/get_mp3_source.sh || echo "mp3 source unavailable, format_mp3 skipped"
 RUN ./configure --with-pjproject-bundled --with-jansson-bundled \
  && make menuselect.makeopts \
  && menuselect/menuselect \
@@ -174,24 +176,29 @@ RUN ./configure --with-pjproject-bundled --with-jansson-bundled \
       --enable CORE-SOUNDS-EN-WAV --enable CORE-SOUNDS-EN-G722 \
       --enable EXTRA-SOUNDS-EN-WAV --enable EXTRA-SOUNDS-EN-G722 \
       --enable MOH-OPSOUND-WAV \
-      --disable chan_mgcp --disable chan_skinny --disable chan_unistim \
       menuselect.makeopts \
- && contrib/scripts/get_mp3_source.sh || true \
- && make -j"$(nproc)" && make install DESTDIR=/out
+ && make -j"$(nproc)" && make install DESTDIR=/out \
+ && mkdir -p /out/usr/share/selfphoneng \
+ && mv /out/var/lib/asterisk/moh /out/usr/share/selfphoneng/moh-opsound
+# Debian's /var/run is a symlink to /run; a real directory here breaks the COPY below.
+RUN rm -rf /out/var/run \
+ && mkdir -p /out/etc/asterisk \
+ && cp configs/samples/indications.conf.sample /out/etc/asterisk/indications.conf
 
 FROM debian:trixie-slim
 ARG ASTERISK_UID=1000
 ARG ASTERISK_GID=1000
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      libedit2 libjansson4 libxml2 libuuid1 libsqlite3-0 libssl3 libsrtp2-1 \
-      libcurl4 libspeexdsp1 libogg0 libvorbis0a libopus0 gettext-base ca-certificates tzdata \
+      libedit2 libjansson4 libxml2 libuuid1 libsqlite3-0 libssl3t64 libsrtp2-1 \
+      libcurl4t64 libspeexdsp1 libogg0 libvorbis0a libvorbisenc2 libvorbisfile3 libopus0 \
+      gettext-base ca-certificates tzdata \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd -g ${ASTERISK_GID} asterisk && useradd -u ${ASTERISK_UID} -g asterisk -d /var/lib/asterisk -s /usr/sbin/nologin asterisk
 COPY --from=build /out/ /
 COPY conf/ /etc/asterisk/
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh && mkdir -p /etc/asterisk/selfphoneng /var/lib/asterisk/db /var/run/asterisk \
+RUN chmod +x /entrypoint.sh && mkdir -p /etc/asterisk/selfphoneng /var/lib/asterisk/db /var/lib/asterisk/moh /var/run/asterisk \
  && chown -R asterisk:asterisk /etc/asterisk /var/lib/asterisk /var/spool/asterisk /var/log/asterisk /var/run/asterisk
 ENTRYPOINT ["/entrypoint.sh"]
 ```
@@ -199,8 +206,8 @@ ENTRYPOINT ["/entrypoint.sh"]
 Notes for the implementer:
 - Debian package names change between releases. If an `apt-get install` fails
   on `trixie`, find the right name with `apt-cache search`. Do not switch base image.
-- `format_mp3` downloads mp3 decoder source (LGPL). That is allowed. If it
-  fails, delete that line. Uploaded MP3s are converted by ffmpeg in the api anyway.
+- `format_mp3` downloads mp3 decoder source (LGPL) with `get_mp3_source.sh`, which must run before
+  `configure`. That is allowed. If it fails, the build continues without it. Uploaded MP3s are converted by ffmpeg in the api anyway.
 - **Do not** enable `codec_opus` or `codec_g729` from menuselect. Those are
   closed-source binary downloads. Browsers and phones get G.722 / µ-law instead.
 - The `.sha256` file name pattern on downloads.asterisk.org may differ. Check
@@ -210,9 +217,11 @@ Notes for the implementer:
 
 ```bash
 #!/bin/sh
+# SPDX-License-Identifier: AGPL-3.0-or-later
 set -eu
 # 1. Render templates that need secrets from env.
 envsubst '${AMI_SECRET}' < /etc/asterisk/manager.conf.template > /etc/asterisk/manager.conf
+chown asterisk:asterisk /etc/asterisk/manager.conf
 chmod 600 /etc/asterisk/manager.conf
 # 2. Make sure every generated include file exists so Asterisk can boot
 #    before the api has generated anything.
@@ -221,8 +230,17 @@ for f in pjsip_selfphoneng.conf extensions_selfphoneng.conf extensions_globals_s
          confbridge_selfphoneng.conf; do
   [ -f "/etc/asterisk/selfphoneng/$f" ] || : > "/etc/asterisk/selfphoneng/$f"
 done
-chown -R asterisk:asterisk /etc/asterisk/selfphoneng /var/lib/asterisk/db || true
-# 3. Run in foreground as the asterisk user.
+# 3. First start: seed the default music-on-hold class with the stock opsound files (CC-BY-SA).
+if [ -z "$(ls -A /var/lib/asterisk/moh/default 2>/dev/null)" ]; then
+  mkdir -p /var/lib/asterisk/moh/default
+  cp /usr/share/selfphoneng/moh-opsound/*.wav /var/lib/asterisk/moh/default/
+fi
+# Bind-mounted volumes arrive owned by the host; Asterisk runs as the asterisk user.
+for d in /etc/asterisk/selfphoneng /var/lib/asterisk/db /var/lib/asterisk/moh /var/log/asterisk \
+         /var/spool/asterisk/voicemail /var/spool/asterisk/monitor /var/lib/asterisk/sounds/custom; do
+  mkdir -p "$d" && chown -R asterisk:asterisk "$d"
+done
+# 4. Run in foreground as the asterisk user.
 exec /usr/sbin/asterisk -f -U asterisk -G asterisk -vvv
 ```
 
@@ -282,7 +300,39 @@ noload = pbx_lua.so
 noload = pbx_ael.so
 noload = res_config_ldap.so
 noload = res_snmp.so
+; unused features that only log errors about missing config files
+noload = res_config_sqlite3.so
+noload = res_statsd.so
+noload = app_statsd.so
+noload = res_pjsip_config_wizard.so
+noload = res_pjsip_notify.so
+noload = res_phoneprov.so
+noload = res_pjsip_phoneprov_provider.so
+noload = app_agent_pool.so
+noload = res_calendar.so
+noload = res_calendar_caldav.so
+noload = res_calendar_ews.so
+noload = res_calendar_exchange.so
+noload = res_calendar_icalendar.so
+noload = res_http_media_cache.so
+noload = app_amd.so
+noload = res_clialiases.so
+noload = res_prometheus.so
+noload = app_alarmreceiver.so
+noload = app_festival.so
+noload = app_followme.so
+noload = app_minivm.so
+noload = cel_manager.so
+noload = res_stun_monitor.so
+noload = chan_websocket.so
+noload = res_adsi.so
+noload = app_getcpeid.so
+noload = app_adsiprog.so
 ```
+
+Besides the files below, `asterisk/conf/` holds near-empty `cel.conf` (CEL off), `acl.conf`, `udptl.conf`,
+`pjproject.conf`, `ari.conf` (ARI off), `websocket_client.conf` and `aeap.conf`. Without them core modules log
+`ERROR` about missing files. The image also installs Asterisk's stock `indications.conf` (needed for `tone_zone = us`).
 
 ### 3.3 `logger.conf`
 ```ini
@@ -378,7 +428,9 @@ directory = /var/lib/asterisk/moh/default
 sort = random
 #include selfphoneng/musiconhold_selfphoneng.conf
 ```
-`install.sh` copies the stock opsound MOH files (CC-BY-SA, open) into `./data/moh/default/` on first install.
+The Asterisk image keeps the stock opsound MOH files (CC-BY-SA, open) in `/usr/share/selfphoneng/moh-opsound/`,
+and `entrypoint.sh` copies them into `/var/lib/asterisk/moh/default/` (`./data/moh/default/`) when that folder is empty.
+(Earlier drafts had `install.sh` do this; the entrypoint also covers installs that skip the script.)
 
 ### 3.12 `features.conf`
 ```ini

@@ -26,7 +26,7 @@ Legend: 📖 read · 🔨 build · ✅ done when
 ✅ `pnpm --filter @selfphoneng/api dev` serves `/healthz`. A missing `APP_SECRET` exits 1 with a clear message.
 
 **M0-T4 web hello**
-🔨 Vite + React + Tailwind + react-router. One page "SelfPhoneNG" with a dark-mode toggle. In dev, Vite proxies `/api` and `/ws` to the api.
+🔨 Vite + React + Tailwind + react-router. One page "SelfPhoneNG" with a dark-mode toggle. In dev, Vite proxies `/api` to the api and `/ws` to Asterisk (127.0.0.1:8088), the same split as the reverse proxy.
 ✅ `pnpm --filter @selfphoneng/web build` outputs `dist/`. The page renders at 360 px and desktop widths.
 
 **M0-T5 Asterisk image**
