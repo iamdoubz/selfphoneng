@@ -10,6 +10,9 @@ import { generatorRuns } from '../db/schema.ts';
 import { getSetting, setSetting } from '../services/settings.ts';
 import { loadSnapshot, type Snapshot } from './load.ts';
 import { renderPjsip, renderRtp, renderTransports } from './pjsip.ts';
+import { STATIC_DIALPLAN } from './dialplan/static.ts';
+import { renderGlobals, renderLocalNumbers } from './dialplan/local.ts';
+import { PENDING_CONTEXTS } from './dialplan/pending.ts';
 
 export { renderTransports };
 
@@ -35,6 +38,9 @@ export type RenderedFiles = Record<GeneratedFileName, string>;
 const BODIES: Partial<Record<GeneratedFileName, (snap: Snapshot) => string>> = {
   'pjsip_selfphoneng.conf': renderPjsip,
   'rtp_selfphoneng.conf': renderRtp,
+  'extensions_globals_selfphoneng.conf': renderGlobals,
+  'extensions_selfphoneng.conf': (snap) =>
+    `${STATIC_DIALPLAN}\n${renderLocalNumbers(snap)}\n${PENDING_CONTEXTS}`,
 };
 
 /** PURE: no I/O, no clock, no randomness. Same snapshot → byte-identical files. */

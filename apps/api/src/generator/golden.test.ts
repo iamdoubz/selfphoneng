@@ -18,6 +18,7 @@ export function loadCase(name: string): Snapshot {
     today?: string;
     settings?: Record<string, unknown>;
     extensions?: Partial<Snapshot['extensions'][number]>[];
+    dids?: Snapshot['dids'];
   };
   const settings = Object.fromEntries(
     (Object.keys(SettingsSchemas) as SettingKey[])
@@ -27,6 +28,7 @@ export function loadCase(name: string): Snapshot {
   return {
     today: raw.today ?? '2026-10-17',
     settings,
+    dids: raw.dids ?? [],
     extensions: (raw.extensions ?? []).map((e, i) => ({
       id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
       number: '101',

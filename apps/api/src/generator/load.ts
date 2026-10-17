@@ -26,11 +26,14 @@ export type SnapExtension = {
   isAdmin: boolean; // the extension's user is an admin (time-condition override codes)
 };
 
+export type SnapDid = { id: string; number: string };
+
 export type Snapshot = {
   /** "YYYY-MM-DD" in general.timezone; render() never reads the clock. */
   today: string;
   settings: Awaited<ReturnType<typeof getAllSettings>>;
   extensions: SnapExtension[];
+  dids: SnapDid[]; // M3 adds routing fields
 };
 
 export function todayIn(timezone: string, now = new Date()): string {
@@ -54,9 +57,11 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
     .leftJoin(outDid, eq(outDid.id, extensions.outboundCallerIdDidId))
     .leftJoin(e911Did, eq(e911Did.id, extensions.emergencyCallerIdDidId));
 
+  const didRows = await db.select({ id: dids.id, number: dids.number }).from(dids);
   return {
     today: todayIn(settings['general.timezone'], now),
     settings,
+    dids: didRows,
     extensions: rows.map(({ ext, role, outCid, e911Cid }) => ({
       id: ext.id,
       number: ext.number,
