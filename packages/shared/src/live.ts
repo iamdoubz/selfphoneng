@@ -62,6 +62,8 @@ export type LiveMessage =
   | { type: 'emergency.call'; data: EmergencyCall }
   /** Only to the mailbox owner. */
   | { type: 'voicemail.new'; data: VoicemailDto & { userId: string } }
+  /** A short message for one user (e.g. "forwarding refused"). */
+  | { type: 'toast'; data: { userId: string; message: string } }
   | { type: 'ami.status'; data: { connected: boolean } }
   | {
       type: 'system.configApplied';

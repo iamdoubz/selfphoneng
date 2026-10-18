@@ -88,13 +88,48 @@ exten => _X!,1,Answer()                ; X! also matches "0" (caller unknown)
  same => n,SayDigits(\${EXTEN})
  same => n,Hangup()
 
-; ─── Feature codes (03 §6.13). M4: voicemail; M6-T4: office hours overrides; M6-T7 adds the rest.
+; ─── Feature codes (03 §6.13). Queue login *45 and intercom *80 arrive with M8.
 [sp-featurecodes]
 exten => *97,1,Answer()                                     ; my voicemail
  same => n,VoiceMailMain(\${SP_EXT}@default)
  same => n,Hangup()
 exten => *98,1,Answer()                                     ; any voicemail (asks mailbox)
  same => n,VoiceMailMain(@default)
+ same => n,Hangup()
+exten => *78,1,Answer()                                     ; DND on
+ same => n,Set(DB(SP/DND/\${SP_EXT})=1)
+ same => n,UserEvent(SpToggle,Key: DND,Ext: \${SP_EXT},Value: 1)
+ same => n,Playback(do-not-disturb&activated)
+ same => n,Hangup()
+exten => *79,1,Answer()                                     ; DND off
+ same => n,Set(X=\${DB_DELETE(SP/DND/\${SP_EXT})})
+ same => n,UserEvent(SpToggle,Key: DND,Ext: \${SP_EXT},Value: 0)
+ same => n,Playback(do-not-disturb&de-activated)
+ same => n,Hangup()
+exten => _*72X.,1,Answer()                                  ; *72<number> forward always
+ same => n,Gosub(sp-sub-normalize,s,1(\${EXTEN:3}))
+ same => n,Set(DB(SP/CFU/\${SP_EXT})=\${GOSUB_RETVAL})
+ same => n,UserEvent(SpToggle,Key: CFU,Ext: \${SP_EXT},Value: \${GOSUB_RETVAL})
+ same => n,Playback(call-fwd-unconditional&activated)
+ same => n,Hangup()
+exten => *73,1,Answer()                                     ; cancel forward always
+ same => n,Set(X=\${DB_DELETE(SP/CFU/\${SP_EXT})})
+ same => n,UserEvent(SpToggle,Key: CFU,Ext: \${SP_EXT},Value: )
+ same => n,Playback(call-fwd-unconditional&de-activated)
+ same => n,Hangup()
+exten => _**X.,1,PickupChan(PJSIP/\${EXTEN:2}-&PJSIP/\${EXTEN:2}-web-)   ; directed pickup **101
+ same => n,Hangup()
+; *8 group pickup: features.conf pickupexten catches it straight from a phone's INVITE; this
+; line covers calls that reach *8 through the dialplan. Uses named_pickup_group.
+exten => *8,1,Pickup()
+ same => n,Hangup()
+exten => *43,1,Answer()                                     ; echo test
+ same => n,Playback(demo-echotest)
+ same => n,Echo()
+ same => n,Playback(demo-echodone)
+ same => n,Hangup()
+exten => *65,1,Answer()                                     ; say my extension
+ same => n,SayDigits(\${SP_EXT})
  same => n,Hangup()
 ; time condition overrides *31N open, *32N closed, *33N auto (admins only)
 exten => _*3[123]X,1,Answer()

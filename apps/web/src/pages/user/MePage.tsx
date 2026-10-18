@@ -12,6 +12,7 @@ import { subscribeLive, useLive } from '../../live/store.ts';
 import { SoftphoneDock } from '../../softphone/SoftphoneDock.tsx';
 import { PresencePanel } from '../../softphone/PresencePanel.tsx';
 import { VoicemailPage, callerOf, isNew, mmss } from './VoicemailPage.tsx';
+import { DndSwitch, MeSettingsPage, showTarget, useMe } from './MeSettingsPage.tsx';
 
 const link = 'text-sky-700 underline dark:text-sky-400';
 
@@ -24,6 +25,12 @@ export function MePage({ user }: { user: AuthUser }) {
   useEffect(() => {
     if (voicemailSeq) void qc.invalidateQueries({ queryKey: ['me', 'voicemail'] });
   }, [voicemailSeq, qc]);
+  // *78/*79 or *72 from the desk phone: refresh my settings when my presence changes.
+  const myDnd = useLive((s) => (me ? s.extensions[me]?.dnd : undefined));
+  useEffect(() => {
+    void qc.invalidateQueries({ queryKey: ['me', 'settings'] });
+  }, [myDnd, qc]);
+  const toasts = useLive((s) => s.toasts);
 
   const tab = ({ isActive }: { isActive: boolean }) =>
     `rounded-md px-3 py-2 text-sm font-medium ${isActive ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'}`;
@@ -60,16 +67,39 @@ export function MePage({ user }: { user: AuthUser }) {
         <NavLink to="/me/voicemail" className={tab}>
           Voicemail
         </NavLink>
+        <NavLink to="/me/settings" className={tab}>
+          Settings
+        </NavLink>
         {/* People is a right-hand column on wide screens, a tab on small ones (05 §4.1). */}
         <NavLink to="/me/people" className={(s) => `${tab(s)} lg:hidden`}>
           People
         </NavLink>
       </nav>
+      {toasts.map((t) => (
+        <div
+          key={t.id}
+          role="alert"
+          className="flex items-start gap-2 rounded-md bg-amber-100 p-3 text-sm text-amber-900 dark:bg-amber-900 dark:text-amber-100"
+        >
+          <span className="flex-1">{t.message}</span>
+          <Button
+            variant="ghost"
+            className="px-2 py-0"
+            aria-label="Dismiss"
+            onClick={() =>
+              useLive.setState((s) => ({ toasts: s.toasts.filter((x) => x.id !== t.id) }))
+            }
+          >
+            ✕
+          </Button>
+        </div>
+      ))}
       <div className="grid flex-1 gap-8 lg:grid-cols-[1fr_20rem]">
         <div className="flex min-w-0 flex-col gap-6">
           <Routes>
             <Route index element={<Home user={user} />} />
             <Route path="voicemail" element={<VoicemailPage />} />
+            <Route path="settings" element={<MeSettingsPage />} />
             <Route path="people" element={<PresencePanel me={me} />} />
           </Routes>
           <SoftphoneDock />
@@ -88,6 +118,7 @@ function Home({ user }: { user: AuthUser }) {
   return (
     <div className="flex flex-col gap-6">
       <p>Hi {user.displayName}.</p>
+      {user.extension && <StatusCard />}
       <section aria-labelledby="new-vm" className="flex flex-col gap-2">
         <h2 id="new-vm" className="text-lg font-semibold">
           New voicemails
@@ -116,5 +147,30 @@ function Home({ user }: { user: AuthUser }) {
         </Link>
       </p>
     </div>
+  );
+}
+
+/** Do not disturb and forwarding at a glance (05 §4 Home). */
+function StatusCard() {
+  const me = useMe();
+  if (!me.data) return null;
+  const fwd = [
+    me.data.cfu && `all calls go to ${showTarget(me.data.cfu)}`,
+    me.data.cfb && `busy → ${showTarget(me.data.cfb)}`,
+    me.data.cfna && `no answer → ${showTarget(me.data.cfna)}`,
+  ].filter(Boolean);
+  return (
+    <section
+      aria-label="My status"
+      className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+    >
+      <DndSwitch me={me.data} />
+      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        {fwd.length ? `Forwarding: ${fwd.join(', ')}.` : 'Not forwarding.'}{' '}
+        <Link className={link} to="/me/settings">
+          Change
+        </Link>
+      </p>
+    </section>
   );
 }

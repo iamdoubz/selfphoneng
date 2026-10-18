@@ -857,6 +857,10 @@ target against the user's outbound class (04 §5.3). If it isn't allowed, the ap
 deletes the AstDB key, stores nothing, and logs an audit entry. Dialplan also
 limits forwards via `SP_CLASS_<ext>` in `sp-sub-forward`.
 
+As built (M6-T7): everything above except `*45` (queues) and `*80` (intercom), which come with M8.
+`*8` also has a dialplan line (`Pickup()`): `pickupexten` only catches it straight from a phone's
+INVITE. All the sounds used exist in the image (checked).
+
 Sound names like `do-not-disturb`, `call-fwd-unconditional`, `agent-loginok`
 come from the Asterisk core/extra sound packs. If one is missing, swap in
 `beep` and note it in the spec.

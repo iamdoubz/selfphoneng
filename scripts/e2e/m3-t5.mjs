@@ -105,13 +105,6 @@ const fill = async (label, value) => {
   await p.fill(label, value);
 };
 const clickNext = () => p.click('Next');
-const choose = (ariaLabel, value) =>
-  p.evaluate(`(() => {
-    const el = document.querySelector('select[aria-label="${ariaLabel}"]');
-    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(el, ${JSON.stringify(value)});
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  })()`);
 try {
   // 1. Password (forced change on first sign-in)
   await p.goto(`${base}/login`);

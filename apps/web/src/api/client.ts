@@ -18,6 +18,8 @@ import type {
   IvrDto,
   IvrUpdate,
   ListResponse,
+  MeDto,
+  MeUpdate,
   NumberKind,
   OutboundRouteCreate,
   OutboundRouteDto,
@@ -181,6 +183,8 @@ export const systemApi = {
 };
 
 export const meApi = {
+  get: () => api<MeDto>('GET', '/api/me'),
+  update: (m: MeUpdate) => api<MeDto>('PATCH', '/api/me', m),
   webrtc: () => api<WebRtcCreds>('GET', '/api/me/webrtc'),
   clickToCall: (number: string) => api<{ ok: true }>('POST', '/api/me/click-to-call', { number }),
   voicemail: () => api<ListResponse<VoicemailDto>>('GET', '/api/me/voicemail').then((r) => r.items),

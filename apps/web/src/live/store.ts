@@ -14,6 +14,8 @@ type LiveStore = {
   emergencies: EmergencyCall[];
   /** Bumped on every voicemail.new, so the voicemail list knows to refetch. */
   voicemailSeq: number;
+  /** Short messages for this user (e.g. forwarding refused); dismissed ones are removed. */
+  toasts: { id: number; message: string }[];
 };
 
 export const useLive = create<LiveStore>(() => ({
@@ -23,6 +25,7 @@ export const useLive = create<LiveStore>(() => ({
   trunks: {},
   emergencies: [],
   voicemailSeq: 0,
+  toasts: [],
 }));
 
 function apply(m: LiveMessage) {
@@ -49,6 +52,8 @@ function apply(m: LiveMessage) {
       }
       case 'emergency.call':
         return { emergencies: [...s.emergencies, m.data] };
+      case 'toast':
+        return { toasts: [...s.toasts, { id: Date.now(), message: m.data.message }] };
       case 'voicemail.new':
         return { voicemailSeq: s.voicemailSeq + 1 };
       case 'ami.status':

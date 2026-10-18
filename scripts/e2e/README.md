@@ -94,3 +94,14 @@ Force closed / Force open route a call to 196 / 195 and set or clear AstDB `SP/T
 and `*331` from the admin's own phone (197) must reach the database and the page, `*311` from a
 non-admin phone must get "no service", and the 2026 US federal holiday import must reach the
 dialplan.
+
+`m6-t7.mjs` (after `m1-t4.mjs`) checks the feature codes from a real phone (198, belonging to user
+`fwd@example.com`):
+
+- `*78`/`*79` set DND (the database, AstDB and the page follow, and calls meanwhile go to
+  voicemail).
+- `*72199`/`*73` forward everything to 199. A `*72` to an outside number this user may not call is
+  refused, removed from AstDB, and shown as a toast.
+- `/me/settings` saves a no-answer forward.
+- `*43` echo test and `*65` say my extension.
+- `**200` and `*8` pick up a call ringing at 200.

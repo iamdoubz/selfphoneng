@@ -8,14 +8,19 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
   GREETINGS,
+  MeUpdateSchema,
   type ListResponse,
+  type MeDto,
   type VoicemailDto,
   type WebRtcCreds,
 } from '@selfphoneng/shared';
-import { decrypt } from '../crypto/secrets.ts';
+import { decrypt, encrypt, isTrivialPin } from '../crypto/secrets.ts';
+import { setDnd, setForward } from '../services/astdb.ts';
+import { audit } from '../services/audit.ts';
+import { checkForward, FORWARD_KINDS, type ForwardKind } from '../services/forwards.ts';
 import { getSetting } from '../services/settings.ts';
 import { requireAuth } from '../auth/guards.ts';
-import { extensions, voicemailMessages } from '../db/schema.ts';
+import { extensions, userRuntimeState, voicemailMessages } from '../db/schema.ts';
 import { badRequest, conflict, HttpError, notFound } from '../errors.ts';
 import { AudioError, MAX_UPLOAD_BYTES, toPcmWav } from '../media/audio.ts';
 import { toVoicemailDto, type watchVoicemail } from '../services/voicemail.ts';
@@ -79,6 +84,75 @@ export async function meRoutes(app: FastifyInstance) {
   }
 
   /** The browser softphone's identity: <ext>-web, same SIP password as the desk phone (03 §5.2). */
+  async function myState(userId: string): Promise<MeDto> {
+    const [row] = await db
+      .select({ e: extensions, s: userRuntimeState })
+      .from(extensions)
+      .leftJoin(userRuntimeState, eq(userRuntimeState.extensionId, extensions.id))
+      .where(eq(extensions.userId, userId));
+    if (!row) throw notFound("You don't have an extension yet. Ask your admin.");
+    const { e, s } = row;
+    return {
+      extension: { number: e.number, name: e.name },
+      dnd: s?.dnd ?? false,
+      cfu: s?.cfu ?? null,
+      cfb: s?.cfb ?? null,
+      cfna: s?.cfna ?? null,
+      voicemailEnabled: e.voicemailEnabled,
+      voicemailEmail: e.voicemailEmail,
+      voicemailAttachAudio: e.voicemailAttachAudio,
+      voicemailDeleteAfterEmail: e.voicemailDeleteAfterEmail,
+    };
+  }
+
+  app.get('/api/me', async (req) => myState(req.user!.id));
+
+  /** DND, forwards and voicemail options: PostgreSQL first, then AstDB (04 §5.5). */
+  app.patch('/api/me', async (req) => {
+    const body = MeUpdateSchema.parse(req.body);
+    const ext = await myExtension(req.user!.id);
+    const runtime: { dnd?: boolean } & Partial<Record<ForwardKind, string | null>> = {};
+    if (body.dnd !== undefined) runtime.dnd = body.dnd;
+    for (const k of FORWARD_KINDS) {
+      const v = body[k];
+      if (v !== undefined) runtime[k] = v ? await checkForward(db, ext, v) : null;
+    }
+    if (body.voicemailPin && isTrivialPin(body.voicemailPin, ext.number))
+      throw badRequest('That PIN is too easy to guess (repeated, sequential or your extension)');
+    const { dnd: _d, cfu: _u, cfb: _b, cfna: _n, voicemailPin, ...vm } = body;
+    await db.transaction(async (tx) => {
+      if (Object.keys(runtime).length)
+        await tx
+          .insert(userRuntimeState)
+          .values({ extensionId: ext.id, ...runtime })
+          .onConflictDoUpdate({ target: userRuntimeState.extensionId, set: runtime });
+      if (Object.keys(vm).length || voicemailPin)
+        await tx
+          .update(extensions)
+          .set({ ...vm, ...(voicemailPin ? { voicemailPinEnc: encrypt(voicemailPin) } : {}) })
+          .where(eq(extensions.id, ext.id));
+    });
+    // Offline Asterisk catches up from PostgreSQL on its next connect.
+    if (app.ami.isConnected()) {
+      if (runtime.dnd !== undefined) await setDnd(app.ami, ext.number, runtime.dnd);
+      for (const k of FORWARD_KINDS)
+        if (runtime[k] !== undefined) await setForward(app.ami, k, ext.number, runtime[k]);
+    }
+    if (runtime.dnd !== undefined) await app.live.loadFromDb();
+    if (voicemailPin) app.generator.requestApply('api-change');
+    const changed = Object.keys(body).map((k) => (k === 'voicemailPin' ? 'voicemail PIN' : k));
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'update',
+      entityType: 'extension',
+      entityId: ext.id,
+      summary: `${ext.number} changed their own ${changed.join(', ')}`,
+      diff: { after: { ...runtime, ...vm } },
+    });
+    return myState(req.user!.id);
+  });
+
   app.get('/api/me/webrtc', async (req): Promise<WebRtcCreds> => {
     const [ext] = await db.select().from(extensions).where(eq(extensions.userId, req.user!.id));
     if (!ext) throw notFound("You don't have an extension yet. Ask your admin.");

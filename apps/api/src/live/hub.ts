@@ -36,10 +36,12 @@ export async function liveRoutes(app: FastifyInstance) {
           ? `emergency:${m.data.at}:${m.data.ext}` // never merge two 911 calls
           : m.type === 'voicemail.new'
             ? `voicemail:${m.data.id}`
-            : m.type;
+            : m.type === 'toast'
+              ? `toast:${m.data.message}`
+              : m.type;
 
   const maySee = (c: Client, m: LiveMessage) =>
-    m.type === 'voicemail.new'
+    m.type === 'voicemail.new' || m.type === 'toast'
       ? m.data.userId === c.userId // private, even from admins
       : c.admin ||
         (m.type === 'emergency.call'

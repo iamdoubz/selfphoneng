@@ -55,7 +55,7 @@ app.decorate('ami', ami);
 const sendMail = smtpMailer(db);
 app.decorate('sendMail', sendMail);
 watchEmergencies({ db, ami, live, send: sendMail, log: app.log }, ami);
-watchToggles({ db, log: app.log }, ami);
+watchToggles({ db, ami, live, log: app.log }, ami);
 const voicemail = watchVoicemail(
   {
     db,

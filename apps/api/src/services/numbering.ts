@@ -28,7 +28,7 @@ const OWNERS = [
 const PARKING = { from: 700, to: 720 }; // res_parking.conf: 700 + slots 701–720
 
 /** Who holds `number` right now (ignoring row `excludeId`), or null. */
-async function ownerOf(db: Db, number: string, excludeId?: string): Promise<string | null> {
+export async function ownerOf(db: Db, number: string, excludeId?: string): Promise<string | null> {
   const n = Number(number);
   if (n >= PARKING.from && n <= PARKING.to) return 'parking';
   for (const { table, label } of OWNERS) {

@@ -16,3 +16,4 @@ export * from './ringgroups.ts';
 export * from './ivrs.ts';
 export * from './timeconditions.ts';
 export * from './announcements.ts';
+export * from './me.ts';

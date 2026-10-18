@@ -98,13 +98,13 @@ describe.skipIf(!hasTestDb)('office hours and holidays', () => {
 
   it('*311 from a phone (SpToggle TCOVR) updates the database', async () => {
     await handleToggle(
-      { db: t.db, log: t.app.log },
+      { db: t.db, ami: t.ami, live: t.live, log: t.app.log },
       { Event: 'UserEvent', UserEvent: 'SpToggle', Key: 'TCOVR', Id: id, Value: 'open' },
     );
     const [row] = await t.db.select().from(timeConditions).where(eq(timeConditions.id, id));
     expect(row!.overrideState).toBe('open');
     await handleToggle(
-      { db: t.db, log: t.app.log },
+      { db: t.db, ami: t.ami, live: t.live, log: t.app.log },
       { Event: 'UserEvent', UserEvent: 'SpToggle', Key: 'TCOVR', Id: id, Value: 'auto' },
     );
     expect((await req('GET', `/api/time-conditions/${id}`)).json().overrideState).toBeNull();
