@@ -160,7 +160,14 @@ describe.skipIf(!hasTestDb)('/api/live WebSocket', () => {
     await until(() => admin.msgs.length === 1 && user.msgs.length === 1);
     expect(admin.msgs[0]).toEqual({
       type: 'snapshot',
-      data: { extensions: [], trunks: [], ami: { connected: false } },
+      data: {
+        extensions: [],
+        trunks: [],
+        calls: [],
+        queues: [],
+        parked: [],
+        ami: { connected: false },
+      },
     });
 
     // A config change adds an extension: one extension.updated per client, contacts only for admins.

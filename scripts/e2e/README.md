@@ -123,3 +123,8 @@ expanded legs, CSV export), and as user `hist@example.com` (230): the missed cal
 Settings → Recording and ticks "Record every call" on a phone number in the UI. A caller then
 reaches 240 (AMI Originate into the trunk entry, `ami.mjs`): the notice plays, MixMonitor records,
 and the call's player in Call history serves the wav. The recording is also on the Recordings page.
+
+`m7-t4.mjs`: seven auto-answer phones (260-266) and three concurrent calls (`channel originate`).
+The dashboard's "Calls now" list must show exactly the channels in `core show channels concise`.
+Then the admin hangs up one call (confirm dialog) and transfers another's caller to 266; the list
+matches Asterisk after each step.

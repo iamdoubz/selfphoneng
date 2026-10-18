@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Live data from /api/live (05 §1): one WebSocket per tab, reconnecting with backoff.
 import { create } from 'zustand';
-import type { EmergencyCall, ExtensionLive, LiveMessage, TrunkLive } from '@selfphoneng/shared';
+import type {
+  ActiveCall,
+  EmergencyCall,
+  ExtensionLive,
+  LiveMessage,
+  TrunkLive,
+} from '@selfphoneng/shared';
 
 type LiveStore = {
   /** WebSocket state: 'connecting' before the first snapshot. */
@@ -10,6 +16,8 @@ type LiveStore = {
   extensions: Record<string, ExtensionLive>;
   /** Admins only (empty for users). */
   trunks: Record<string, TrunkLive>;
+  /** Admins only: calls in progress by linkedid. */
+  calls: Record<string, ActiveCall>;
   /** 911 alerts received while this tab was open, newest last; dismissed ones are removed. */
   emergencies: EmergencyCall[];
   /** Bumped on every voicemail.new, so the voicemail list knows to refetch. */
@@ -23,6 +31,7 @@ export const useLive = create<LiveStore>(() => ({
   amiConnected: false,
   extensions: {},
   trunks: {},
+  calls: {},
   emergencies: [],
   voicemailSeq: 0,
   toasts: [],
@@ -37,6 +46,7 @@ function apply(m: LiveMessage) {
           amiConnected: m.data.ami.connected,
           extensions: Object.fromEntries(m.data.extensions.map((e) => [e.number, e])),
           trunks: Object.fromEntries((m.data.trunks ?? []).map((t) => [t.trunkId, t])),
+          calls: Object.fromEntries((m.data.calls ?? []).map((c) => [c.linkedid, c])),
         };
       case 'extension.updated':
         return { extensions: { ...s.extensions, [m.data.number]: m.data } };
@@ -49,6 +59,12 @@ function apply(m: LiveMessage) {
       case 'trunk.removed': {
         const { [m.data.trunkId]: _gone, ...rest } = s.trunks;
         return { trunks: rest };
+      }
+      case 'call.updated':
+        return { calls: { ...s.calls, [m.data.linkedid]: m.data } };
+      case 'call.removed': {
+        const { [m.data.linkedid]: _gone, ...rest } = s.calls;
+        return { calls: rest };
       }
       case 'emergency.call':
         return { emergencies: [...s.emergencies, m.data] };

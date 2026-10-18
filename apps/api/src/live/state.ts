@@ -15,6 +15,7 @@ import type { AmiClient } from '../ami/client.ts';
 import { field, type AmiMessage } from '../ami/events.ts';
 import type { Db } from '../db/client.ts';
 import { extensions, trunks, userRuntimeState } from '../db/schema.ts';
+import { CallTracker } from './calls.ts';
 
 /** ExtensionStatus/ExtensionStateList Status is a bit mask (04 §5.1). */
 export function stateFromStatus(status: number): ExtensionState {
@@ -61,6 +62,13 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
   private readonly exts = new Map<string, ExtensionLive & { contacts: ContactLive[] }>();
   private readonly trunks = new Map<string, TrunkLive>();
   amiConnected = false;
+  /** Calls in progress (admins see them on the dashboard). */
+  readonly calls = new CallTracker((linkedid, call) =>
+    this.emit(
+      'message',
+      call ? { type: 'call.updated', data: call } : { type: 'call.removed', data: { linkedid } },
+    ),
+  );
   private readonly db: Db;
   private readonly ami: Ami;
 
@@ -75,7 +83,14 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
   snapshot(admin: boolean): LiveSnapshot {
     return {
       extensions: [...this.exts.values()].map((e) => this.view(e, admin)),
-      ...(admin ? { trunks: [...this.trunks.values()].map((t) => ({ ...t })) } : {}),
+      ...(admin
+        ? {
+            trunks: [...this.trunks.values()].map((t) => ({ ...t })),
+            calls: this.calls.list(),
+            queues: [],
+            parked: [],
+          }
+        : {}),
       ami: { connected: this.amiConnected },
     };
   }
@@ -221,10 +236,12 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
     await this.refreshRegistrations();
     await Promise.all([...this.trunks.keys()].map((id) => this.refreshReachable(id)));
     for (const e of this.exts.values()) e.contacts = [];
-    const [states, contacts] = await Promise.all([
+    const [states, contacts, channels] = await Promise.all([
       this.ami.actionList({ Action: 'ExtensionStateList' }),
       this.ami.actionList({ Action: 'PJSIPShowContacts' }),
+      this.ami.actionList({ Action: 'CoreShowChannels' }),
     ]);
+    this.calls.load(channels);
     for (const m of states) this.onExtensionStatus(m, false);
     for (const m of contacts) {
       const endpoint = field(m, 'Endpoint') ?? field(m, 'EndpointName') ?? '';
@@ -245,6 +262,7 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
   }
 
   handleEvent(m: AmiMessage): void {
+    this.calls.handle(m);
     switch (field(m, 'Event')) {
       case 'ExtensionStatus':
         return this.onExtensionStatus(m, true);

@@ -290,3 +290,9 @@ export const recordingsApi = {
     `/api/recordings/${id}/audio${download ? '?download=1' : ''}`,
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/recordings/${id}`),
 };
+
+export const liveApi = {
+  hangup: (linkedid: string) => api<{ ok: true }>('POST', `/api/live/calls/${linkedid}/hangup`, {}),
+  transfer: (linkedid: string, target: string) =>
+    api<{ ok: true }>('POST', `/api/live/calls/${linkedid}/transfer`, { target }),
+};

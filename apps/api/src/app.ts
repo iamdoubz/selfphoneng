@@ -29,6 +29,7 @@ import { announcementRoutes } from './routes/announcements.ts';
 import { blockedRoutes } from './routes/blocked.ts';
 import { callRoutes } from './routes/calls.ts';
 import { recordingRoutes } from './routes/recordings.ts';
+import { liveCallRoutes } from './routes/livecalls.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -109,6 +110,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.register(blockedRoutes);
   app.register(callRoutes);
   app.register(recordingRoutes);
+  app.register(liveCallRoutes);
 
   // Always registered: reply.sendFile also streams voicemail audio (with Range) from the spool.
   app.register(fastifyStatic, {

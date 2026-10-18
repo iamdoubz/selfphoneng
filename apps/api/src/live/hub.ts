@@ -38,7 +38,9 @@ export async function liveRoutes(app: FastifyInstance) {
             ? `voicemail:${m.data.id}`
             : m.type === 'toast'
               ? `toast:${m.data.message}`
-              : m.type;
+              : m.type === 'call.updated' || m.type === 'call.removed'
+                ? `call:${m.data.linkedid}` // a removal replaces a pending update
+                : m.type;
 
   const maySee = (c: Client, m: LiveMessage) =>
     m.type === 'voicemail.new' || m.type === 'toast'
@@ -46,7 +48,7 @@ export async function liveRoutes(app: FastifyInstance) {
       : c.admin ||
         (m.type === 'emergency.call'
           ? m.data.audienceUserIds.includes(c.userId)
-          : !m.type.startsWith('trunk.'));
+          : !m.type.startsWith('trunk.') && !m.type.startsWith('call.'));
 
   app.live.on('message', (m) => {
     for (const c of clients) if (maySee(c, m)) c.pending.set(keyOf(m), m);

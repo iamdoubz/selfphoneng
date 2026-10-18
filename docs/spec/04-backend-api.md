@@ -157,6 +157,14 @@ Mapping channel name → extension: regex `^PJSIP/(\d+)(?:-web)?-[0-9a-f]+$`. Lo
 channels `Local/101@sp-rg-member-...` also count as 101.
 Trunk channel: `^PJSIP/trunk-([0-9a-f-]{36})-`.
 
+As built (M7-T4): calls live in `live/calls.ts` (`CallTracker`). DialBegin/DialEnd aren't needed:
+the channel events carry everything. A call's channels are ordered by creation (Uniqueid seq),
+so `channels[0]` is the caller. State, first match wins: hold, voicemail (app `VoiceMail`), ivr
+(`BackGround`/`WaitExten`/`Read`), queued, parked, talking (2+ channels bridged and Up), else
+ringing. `answeredAt` is the first time 2 channels are bridged; on a reload, `startedAt` is
+`now - Duration`. Snapshots carry `queues: []` and `parked: []` until M8. Calls go to admins
+only for now; a user's own calls are added when a user page shows them.
+
 ### 5.2 Live WebSocket (`GET /api/live`)
 
 - Auth: session cookie (the browser sends it automatically). Close code 4401 when unauthenticated.
@@ -167,7 +175,7 @@ Trunk channel: `^PJSIP/trunk-([0-9a-f-]{36})-`.
   - **user**: all `ExtensionLive` without `contacts` (presence/BLF for the whole company),
     active calls where their extension is in `extensions`, MWI for their own mailbox,
     queues they are a member of, all parked calls.
-- Delta types: `extension.updated`, `trunk.updated`, `call.updated`, `call.ended`,
+- Delta types: `extension.updated`, `trunk.updated`, `call.updated`, `call.removed` (`{linkedid}`),
   `queue.updated`, `parked.updated`, `mwi.updated`, `voicemail.new`, `sms.received`,
   `emergency.call` (admins + emergency notify users), `system.configApplied`,
   `system.restartRequired`, `ami.status` (`{connected: boolean}`).

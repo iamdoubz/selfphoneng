@@ -45,10 +45,32 @@ export type EmergencyCall = {
   audienceUserIds: string[];
 };
 
+/** A call in progress (04 §5.1): every channel with the same Asterisk linkedid. */
+export type ActiveCall = {
+  linkedid: string;
+  startedAt: string;
+  answeredAt?: string;
+  direction: 'inbound' | 'outbound' | 'internal';
+  from: { number: string; name?: string };
+  to: { number: string; name?: string };
+  did?: string;
+  state: 'ringing' | 'talking' | 'hold' | 'queued' | 'ivr' | 'voicemail' | 'parked';
+  /** Internal numbers involved. */
+  extensions: string[];
+  /** Asterisk channel names (what `core show channels` lists). */
+  channels: string[];
+  recording: boolean;
+};
+
 export type LiveSnapshot = {
   extensions: ExtensionLive[];
   /** Admins only. */
   trunks?: TrunkLive[];
+  /** Admins only. */
+  calls?: ActiveCall[];
+  /** Queues and parked calls arrive with M8. */
+  queues?: never[];
+  parked?: never[];
   ami: { connected: boolean };
 };
 
@@ -60,6 +82,9 @@ export type LiveMessage =
   | { type: 'trunk.updated'; data: TrunkLive }
   | { type: 'trunk.removed'; data: { trunkId: string } }
   | { type: 'emergency.call'; data: EmergencyCall }
+  /** Admins only. */
+  | { type: 'call.updated'; data: ActiveCall }
+  | { type: 'call.removed'; data: { linkedid: string } }
   /** Only to the mailbox owner. */
   | { type: 'voicemail.new'; data: VoicemailDto & { userId: string } }
   /** A short message for one user (e.g. "forwarding refused"). */
