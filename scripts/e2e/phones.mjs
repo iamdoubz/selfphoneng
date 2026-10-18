@@ -63,6 +63,21 @@ export function startPhones({ name, net, ast, phones }) {
       const f = join(dir, ext, 'log');
       return existsSync(f) ? readFileSync(f, 'utf8') : '';
     },
-    stop: () => docker('rm', '-f', name),
+    /**
+     * baresip unregisters on SIGTERM; killing the container would leave stale "Avail" contacts
+     * behind (Asterisk keeps them until they expire) that a later script's phones then share.
+     */
+    stop: () => {
+      // No procps in the image: find baresip through /proc.
+      docker(
+        'exec',
+        name,
+        'sh',
+        '-c',
+        'for p in /proc/[0-9]*; do [ "$(cat $p/comm 2>/dev/null)" = baresip ] && kill -TERM ${p#/proc/}; done; true',
+      );
+      spawnSync('sleep', ['2']);
+      docker('rm', '-f', name);
+    },
   };
 }
