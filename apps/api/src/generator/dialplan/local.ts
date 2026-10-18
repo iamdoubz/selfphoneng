@@ -21,7 +21,10 @@ export function renderLocalNumbers(snap: Snapshot): string {
       `exten => ${num},hint,PJSIP/${num}${e.webrtcEnabled ? `&PJSIP/${num}-web` : ''}`,
     );
   }
-  // M6/M8: ring groups, queues, IVRs, conferences and paging groups add one line each here.
+  if (snap.ringGroups.length) lines.push('', '; ring groups');
+  for (const g of [...snap.ringGroups].sort(byNumber))
+    lines.push(`exten => ${s.digits(g.number)},1,Goto(sp-rg-${s.ident(g.id)},s,1)`);
+  // M6/M8: queues, IVRs, conferences and paging groups add one line each here.
   return lines.join('\n') + '\n';
 }
 

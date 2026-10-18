@@ -100,6 +100,7 @@ function snapshot(): Snapshot {
       },
     ],
     trunks: [trunk(GOOD, 'voip.ms', SUB.pass), trunk(BAD, 'wrong password', 'NotThePassword1')],
+    ringGroups: [],
     routes: [
       {
         id: 'aaaaaaaa-0000-4000-8000-000000000001',

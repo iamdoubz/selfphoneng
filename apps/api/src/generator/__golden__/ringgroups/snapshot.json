@@ -1,0 +1,57 @@
+{
+  "extensions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000101",
+      "number": "101",
+      "name": "Dan Doe",
+      "sipPassword": "Ab3dEf9hIj2kLm4nOp6qRs8t"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000102",
+      "number": "102",
+      "name": "Sue Smith",
+      "sipPassword": "Bb3dEf9hIj2kLm4nOp6qRs8t"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000103",
+      "number": "103",
+      "name": "Ann Lee",
+      "sipPassword": "Cb3dEf9hIj2kLm4nOp6qRs8t",
+      "webrtcEnabled": false
+    }
+  ],
+  "ringGroups": [
+    {
+      "id": "22222222-2222-4222-8222-222222222500",
+      "number": "500",
+      "name": "Sales",
+      "members": ["101", "102", "103"],
+      "callerIdNamePrefix": "Sales:",
+      "musicInsteadOfRing": true,
+      "noAnswerDestination": { "type": "voicemail", "id": "00000000-0000-4000-8000-000000000101" }
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222501",
+      "number": "501",
+      "name": "Support line",
+      "strategy": "hunt",
+      "ringSeconds": 15,
+      "members": ["102", "101"],
+      "noAnswerDestination": { "type": "ring_group", "id": "22222222-2222-4222-8222-222222222500" }
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222502",
+      "number": "502",
+      "name": "Empty \"group\"; test",
+      "noAnswerDestination": { "type": "external", "number": "13125550000" }
+    }
+  ],
+  "dids": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "number": "13125551234",
+      "destination": { "type": "ring_group", "id": "22222222-2222-4222-8222-222222222500" }
+    }
+  ],
+  "trunks": [{ "id": "7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37" }]
+}

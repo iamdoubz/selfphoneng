@@ -17,8 +17,12 @@ export function destApp(d: Destination, snap: Snapshot): string {
       return `Goto(sp-ext-forward,${s.dialable(d.number)},1)`;
     case 'hangup':
       return 'Hangup()';
+    case 'ring_group':
+      return snap.ringGroups.some((g) => g.id === d.id)
+        ? `Goto(sp-rg-${s.ident(d.id)},s,1)`
+        : 'Hangup()';
     default:
-      // TODO(M6, M8): ring groups, queues, IVRs, time conditions, conferences, announcements.
+      // TODO(M6, M8): queues, IVRs, time conditions, conferences, announcements.
       return 'Hangup()';
   }
 }
@@ -69,7 +73,7 @@ export function renderDids(snap: Snapshot): string {
     inbound.push(
       `; DID ${num}${d.label ? ` "${s.name(d.label)}"` : ''}`,
       `exten => ${num},1,Set(__SP_DID=${num})`,
-      ...(prefix ? [` same => n,Set(CALLERID(name)=${prefix}\${CALLERID(name)})`] : []),
+      ...(prefix ? [` same => n,Set(CALLERID(name)=${prefix} \${CALLERID(name)})`] : []),
       // TODO(M7): record_inbound (announcement + sp-sub-record).
       ` same => n,${destApp(d.destination, snap)}`,
     );

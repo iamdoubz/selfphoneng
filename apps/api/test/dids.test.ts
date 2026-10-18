@@ -144,7 +144,7 @@ describe.skipIf(!hasTestDb)('DIDs API', () => {
     expect(bad.statusCode).toBe(400);
     await req('PATCH', `/api/dids/${didId}`, { callerIdNamePrefix: 'SALES:' });
     await settle();
-    expect(dialplan()).toContain(' same => n,Set(CALLERID(name)=SALES:${CALLERID(name)})');
+    expect(dialplan()).toContain(' same => n,Set(CALLERID(name)=SALES: ${CALLERID(name)})');
   });
 
   it('a number that is the emergency caller ID cannot be removed', async () => {

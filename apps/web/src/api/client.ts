@@ -14,6 +14,9 @@ import type {
   OutboundRouteCreate,
   OutboundRouteDto,
   OutboundRouteUpdate,
+  RingGroupCreate,
+  RingGroupDto,
+  RingGroupUpdate,
   RouteTestResult,
   SettingsDto,
   SipCredentials,
@@ -193,4 +196,12 @@ export const soundsApi = {
     ),
   rename: (id: string, name: string) => api<SoundDto>('PATCH', `/api/sounds/${id}`, { name }),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/sounds/${id}`),
+};
+
+export const ringGroupsApi = {
+  list: () => api<ListResponse<RingGroupDto>>('GET', '/api/ring-groups').then((r) => r.items),
+  create: (g: RingGroupCreate) => api<RingGroupDto>('POST', '/api/ring-groups', g),
+  update: (id: string, g: RingGroupUpdate) =>
+    api<RingGroupDto>('PATCH', `/api/ring-groups/${id}`, g),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/ring-groups/${id}`),
 };

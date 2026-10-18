@@ -12,3 +12,4 @@ export * from './dids.ts';
 export * from './outbound.ts';
 export * from './voicemail.ts';
 export * from './sounds.ts';
+export * from './ringgroups.ts';

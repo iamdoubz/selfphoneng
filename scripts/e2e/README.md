@@ -79,3 +79,7 @@ Then a second browser, as a new user with desk phone 174 and the softphone off, 
 and the api with `SOUNDS_DIR=<soundsDir>`. It drops a generated wav on **Sounds & music**, uploads it,
 checks that Asterisk can play `custom/<id>`, renames it, and deletes it, which is refused while it's
 the recording notice. `cdp.mjs` `fill()`/`click()` take an optional selector to search within.
+
+`m6-t2.mjs` (after `m1-t4.mjs`) creates ring group 500 in the UI with members 190 (never answers)
+and 191 (auto-answer), and checks that a call from 192 rings both and is answered by 191. It then
+switches the group to "one at a time" with 5 s each and checks that 190 rings alone before 191.

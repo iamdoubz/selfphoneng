@@ -17,6 +17,7 @@ export function loadCase(name: string): Snapshot {
     dids?: Partial<Snapshot['dids'][number]>[];
     trunks?: Partial<Snapshot['trunks'][number]>[];
     routes?: Partial<Snapshot['routes'][number]>[];
+    ringGroups?: Partial<Snapshot['ringGroups'][number]>[];
   };
   const settings = Object.fromEntries(
     (Object.keys(SettingsSchemas) as SettingKey[])
@@ -34,6 +35,18 @@ export function loadCase(name: string): Snapshot {
       ...d,
       id: d.id!,
       number: d.number!,
+    })),
+    ringGroups: (raw.ringGroups ?? []).map((g, i) => ({
+      name: `Group ${i + 1}`,
+      strategy: 'ringall',
+      ringSeconds: 25,
+      callerIdNamePrefix: null,
+      musicInsteadOfRing: false,
+      members: [],
+      noAnswerDestination: { type: 'hangup' as const },
+      ...g,
+      id: g.id!,
+      number: g.number!,
     })),
     routes: (raw.routes ?? []).map((r, i) => ({
       name: `Route ${i + 1}`,

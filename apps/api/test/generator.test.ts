@@ -4,7 +4,7 @@ import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { asc } from 'drizzle-orm';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Db } from '../src/db/client.ts';
 import { generatorRuns } from '../src/db/schema.ts';
 import {
@@ -154,6 +154,8 @@ describe.skipIf(!hasTestDb)('generator apply', () => {
 
     applied.length = 0;
     for (let i = 0; i < 5; i++) gen.requestApply('api-change');
+    // Wait for the apply (slow under a full parallel run), then make sure no second one follows.
+    await vi.waitFor(() => expect(applied.length).toBeGreaterThan(0), { timeout: 5000 });
     await new Promise((r) => setTimeout(r, 150));
     expect(applied).toHaveLength(1);
   });

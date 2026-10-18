@@ -21,6 +21,7 @@ describe('golden', () => {
         'webrtc-disabled',
         'hostile-names',
         'voipms-basic',
+        'ringgroups',
       ]),
     );
   });

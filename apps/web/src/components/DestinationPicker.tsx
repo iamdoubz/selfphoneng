@@ -1,38 +1,60 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// "Where should the call go?" (05 §3). M3: a user, an outside number, or hang up. Voicemail (M4),
-// ring groups, queues, IVRs, office hours, conferences and announcements join later (M6-T6).
+// "Where should the call go?" (05 §3): a type, then the target (or a number).
+// Types join as their features land; M6-T6 finishes the list.
 import { useQuery } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { normalizeNumber, type Destination } from '@selfphoneng/shared';
-import { extensionsApi } from '../api/client.ts';
+import { extensionsApi, ringGroupsApi } from '../api/client.ts';
 import { inputClass } from './ui.tsx';
 
-type Kind = 'user' | 'voicemail' | 'external' | 'hangup';
+type IdKind = 'user' | 'voicemail' | 'ring_group';
+type Kind = IdKind | 'external' | 'hangup';
+
+const KINDS: { kind: Kind; label: string }[] = [
+  { kind: 'user', label: 'Ring a user' },
+  { kind: 'voicemail', label: 'Voicemail of a user' },
+  { kind: 'ring_group', label: 'Ring group' },
+  { kind: 'external', label: 'Forward to an outside number' },
+  { kind: 'hangup', label: 'Hang up' },
+];
+const isIdKind = (k: Kind): k is IdKind => k !== 'external' && k !== 'hangup';
+/** Kinds whose targets are the same rows: switching between them keeps the pick. */
+const family = (k: Kind) => (k === 'voicemail' ? 'user' : k);
 
 export function DestinationPicker({
   label,
   value,
   onChange,
   error,
+  exclude,
 }: {
   label: string;
   value: Destination;
   onChange: (d: Destination | null) => void; // null = incomplete (e.g. half-typed number)
   error?: string;
+  /** The id of the thing being edited, so it can't send calls to itself. */
+  exclude?: string;
 }) {
   const id = useId();
   const exts = useQuery({ queryKey: ['extensions'], queryFn: extensionsApi.list });
+  const groups = useQuery({ queryKey: ['ring-groups'], queryFn: ringGroupsApi.list });
   const [kind, setKind] = useState<Kind>(value.type as Kind);
   const [number, setNumber] = useState(value.type === 'external' ? value.number : '');
   const [numberError, setNumberError] = useState<string>();
-  const extId = value.type === 'user' || value.type === 'voicemail' ? value.id : '';
+  const targetId = 'id' in value ? value.id : '';
+
+  const targets = (k: IdKind) =>
+    (k === 'ring_group'
+      ? (groups.data ?? []).map((g) => ({ id: g.id, label: `${g.number} ${g.name}` }))
+      : (exts.data ?? []).map((x) => ({ id: x.id, label: `${x.number} ${x.name}` }))
+    ).filter((t) => t.id !== exclude);
 
   function pickKind(k: Kind) {
     setKind(k);
     if (k === 'hangup') onChange({ type: 'hangup' });
     else if (k === 'external') typed(number);
-    else if (extId) onChange({ type: k, id: extId });
-    else onChange(null); // the admin picks the user: never guess
+    else if (targetId && family(k) === family(kind)) onChange({ type: k, id: targetId });
+    else onChange(null); // the admin picks the target: never guess
   }
 
   function typed(v: string) {
@@ -46,6 +68,7 @@ export function DestinationPicker({
     }
   }
 
+  const what = KINDS.find((k) => k.kind === kind)?.label.toLowerCase() ?? '';
   return (
     <fieldset className="flex flex-col gap-2" aria-describedby={error ? `${id}-err` : undefined}>
       <legend className="mb-1 text-sm font-medium">{label}</legend>
@@ -55,21 +78,23 @@ export function DestinationPicker({
         onChange={(e) => pickKind(e.target.value as Kind)}
         className={inputClass}
       >
-        <option value="user">Ring a user</option>
-        <option value="external">Forward to an outside number</option>
-        <option value="hangup">Hang up</option>
+        {KINDS.map((k) => (
+          <option key={k.kind} value={k.kind}>
+            {k.label}
+          </option>
+        ))}
       </select>
-      {(kind === 'user' || kind === 'voicemail') && (
+      {isIdKind(kind) && (
         <select
-          aria-label={`${label}: user`}
-          value={extId}
+          aria-label={`${label}: ${kind === 'ring_group' ? 'ring group' : 'user'}`}
+          value={targetId}
           onChange={(e) => onChange({ type: kind, id: e.target.value })}
           className={inputClass}
         >
-          {!extId && <option value="">Pick a user…</option>}
-          {exts.data?.map((x) => (
-            <option key={x.id} value={x.id}>
-              {x.number} {x.name}
+          {!targetId && <option value="">Pick one…</option>}
+          {targets(kind).map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.label}
             </option>
           ))}
         </select>
@@ -90,9 +115,11 @@ export function DestinationPicker({
           {numberError ?? error}
         </p>
       )}
-      {exts.data?.length === 0 && (kind === 'user' || kind === 'voicemail') && (
-        <p className="text-xs text-zinc-500">No users with an extension yet.</p>
-      )}
+      {isIdKind(kind) &&
+        (kind === 'ring_group' ? groups : exts).data &&
+        targets(kind).length === 0 && (
+          <p className="text-xs text-zinc-500">Nothing to pick yet ({what}).</p>
+        )}
     </fieldset>
   );
 }

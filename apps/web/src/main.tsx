@@ -15,6 +15,7 @@ import { NumbersPage } from './pages/admin/NumbersPage.tsx';
 import { OutboundPage } from './pages/admin/OutboundPage.tsx';
 import { SettingsPage } from './pages/admin/SettingsPage.tsx';
 import { SoundsPage } from './pages/admin/SoundsPage.tsx';
+import { RingGroupsPage } from './pages/admin/RingGroupsPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
 import { SetupPage } from './pages/SetupPage.tsx';
 import './index.css';
@@ -44,6 +45,8 @@ const router = createBrowserRouter([
             <TrunksPage />
           ) : p.path === 'sounds' ? (
             <SoundsPage />
+          ) : p.path === 'ring-groups' ? (
+            <RingGroupsPage />
           ) : (
             <ComingSoon label={p.label} milestone={p.milestone ?? ''} />
           ),

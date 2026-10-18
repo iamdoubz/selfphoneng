@@ -64,6 +64,7 @@ function snapshot(): Snapshot {
     dids: [],
     trunks: [],
     routes: [],
+    ringGroups: [],
     extensions: [ext('101', 'Alice'), ext('102', 'Bob')],
   };
 }

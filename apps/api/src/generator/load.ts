@@ -1,9 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Everything render() needs, loaded in one go (03 §1). render() itself does no I/O.
-import { eq } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Db } from '../db/client.ts';
-import { dids, extensions, outboundRoutes, trunks, users } from '../db/schema.ts';
+import {
+  dids,
+  extensions,
+  outboundRoutes,
+  ringGroupMembers,
+  ringGroups,
+  trunks,
+  users,
+} from '../db/schema.ts';
 import { decrypt } from '../crypto/secrets.ts';
 import { getAllSettings } from '../services/settings.ts';
 import type { Destination, OutboundClass, RoutePattern } from '@selfphoneng/shared';
@@ -65,6 +73,19 @@ export type SnapTrunk = {
   maxChannels: number | null;
 };
 
+export type SnapRingGroup = {
+  id: string;
+  number: string;
+  name: string;
+  strategy: 'ringall' | 'hunt';
+  ringSeconds: number;
+  callerIdNamePrefix: string | null;
+  musicInsteadOfRing: boolean;
+  /** Extension numbers in ring order. */
+  members: string[];
+  noAnswerDestination: Destination;
+};
+
 export type Snapshot = {
   /** "YYYY-MM-DD" in general.timezone; render() never reads the clock. */
   today: string;
@@ -73,6 +94,7 @@ export type Snapshot = {
   dids: SnapDid[];
   trunks: SnapTrunk[];
   routes: SnapRoute[];
+  ringGroups: SnapRingGroup[];
 };
 
 export function todayIn(timezone: string, now = new Date()): string {
@@ -108,11 +130,28 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
     .from(dids);
   const trunkRows = await db.select().from(trunks);
   const routeRows = await db.select().from(outboundRoutes);
+  const groupRows = await db.select().from(ringGroups);
+  const memberRows = await db
+    .select({ groupId: ringGroupMembers.ringGroupId, number: extensions.number })
+    .from(ringGroupMembers)
+    .innerJoin(extensions, eq(extensions.id, ringGroupMembers.extensionId))
+    .orderBy(asc(ringGroupMembers.position));
   const didNumber = new Map(didRows.map((d) => [d.id, d.number]));
   return {
     today: todayIn(settings['general.timezone'], now),
     settings,
     dids: didRows.map((d) => ({ ...d, destination: d.destination as Destination })),
+    ringGroups: groupRows.map((g) => ({
+      id: g.id,
+      number: g.number,
+      name: g.name,
+      strategy: g.strategy,
+      ringSeconds: g.ringSeconds,
+      callerIdNamePrefix: g.callerIdNamePrefix,
+      musicInsteadOfRing: g.musicInsteadOfRing,
+      members: memberRows.filter((m) => m.groupId === g.id).map((m) => m.number),
+      noAnswerDestination: g.noAnswerDestination as Destination,
+    })),
     routes: routeRows.map((r) => ({
       id: r.id,
       name: r.name,

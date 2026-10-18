@@ -569,6 +569,9 @@ exten => s,1,Set(__SP_TARGET=500)
 ```
 With zero members, leave out the Dial lines.
 Ring groups deliberately **ignore** members' call forwarding and send nobody to voicemail.
+The caller-name prefix (here and on DIDs) goes through `name()`, which trims, so one space is
+always put between it and the caller's name: `Set(CALLERID(name)={prefix} ${CALLERID(name)})`.
+Golden case `ringgroups`; `scripts/e2e/m6-t2.mjs` checks ring-all and hunt with real calls (M6-T2).
 
 ### 6.8 Queues
 
