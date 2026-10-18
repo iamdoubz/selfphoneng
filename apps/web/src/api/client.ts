@@ -8,6 +8,10 @@ import type {
   ListResponse,
   NumberKind,
   SipCredentials,
+  TrunkCreate,
+  TrunkDto,
+  TrunkTestResult,
+  TrunkUpdate,
   UserCreate,
   UserDto,
   UserUpdate,
@@ -73,4 +77,12 @@ export const extensionsApi = {
     api<{ ok: true }>('POST', `/api/extensions/${id}/regenerate-sip-password`),
   nextNumber: (kind: NumberKind) =>
     api<{ number: string | null }>('GET', `/api/numbering/next?kind=${kind}`).then((r) => r.number),
+};
+
+export const trunksApi = {
+  list: () => api<ListResponse<TrunkDto>>('GET', '/api/trunks').then((r) => r.items),
+  create: (t: TrunkCreate) => api<TrunkDto>('POST', '/api/trunks', t),
+  update: (id: string, t: TrunkUpdate) => api<TrunkDto>('PATCH', `/api/trunks/${id}`, t),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/trunks/${id}`),
+  test: (id: string) => api<TrunkTestResult>('POST', `/api/trunks/${id}/test`),
 };

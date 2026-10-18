@@ -40,7 +40,7 @@ const generator = createGenerator({
       type: 'system.configApplied',
       data: { ok: r.ok, error: r.error, restartRequired: r.restartRequired },
     });
-    void live.loadExtensions().catch((err) => app.log.error({ err }, 'live reload failed'));
+    void live.loadFromDb().catch((err) => app.log.error({ err }, 'live reload failed'));
   },
 });
 app.decorate('generator', generator);
@@ -57,7 +57,7 @@ if (admin === 'created')
   app.log.info({ email: config.INITIAL_ADMIN_EMAIL }, 'initial admin created');
 await app.listen({ host: '127.0.0.1', port: config.API_PORT });
 
-await live.loadExtensions();
+await live.loadFromDb();
 // Every (re)connect: Asterisk may have restarted, so push the full config again, then read its
 // state (after the apply, so hints for new extensions exist). TODO(M6): sync AstDB first (04 §5.5).
 ami.on('connected', () => {

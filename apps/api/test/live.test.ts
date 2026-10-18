@@ -67,6 +67,7 @@ describe.skipIf(!hasTestDb)('LiveState with a recorded session', () => {
     const events = new EventEmitter();
     const ami = {
       on: events.on.bind(events),
+      action: async () => ({}),
       actionList: async (f: Record<string, string>): Promise<AmiMessage[]> =>
         f.Action === 'PJSIPShowContacts'
           ? listOf('rec-2', 'ContactList')
@@ -112,8 +113,12 @@ describe.skipIf(!hasTestDb)('LiveState with a recorded session', () => {
   });
 
   it('users see presence but not devices', async () => {
-    const live = new LiveState(db, { on() {}, actionList: async () => [] });
-    await live.loadExtensions();
+    const live = new LiveState(db, {
+      on() {},
+      action: async () => ({}),
+      actionList: async () => [],
+    });
+    await live.loadFromDb();
     const u = live.snapshot(false).extensions[0]!;
     expect(u.contacts).toBeUndefined();
     expect(u).toHaveProperty('online');
@@ -155,7 +160,7 @@ describe.skipIf(!hasTestDb)('/api/live WebSocket', () => {
     await until(() => admin.msgs.length === 1 && user.msgs.length === 1);
     expect(admin.msgs[0]).toEqual({
       type: 'snapshot',
-      data: { extensions: [], ami: { connected: false } },
+      data: { extensions: [], trunks: [], ami: { connected: false } },
     });
 
     // A config change adds an extension: one extension.updated per client, contacts only for admins.
@@ -165,8 +170,8 @@ describe.skipIf(!hasTestDb)('/api/live WebSocket', () => {
       sipPasswordEnc: encrypt('x'),
       voicemailPinEnc: encrypt('1234'),
     });
-    await t.live.loadExtensions();
-    await t.live.loadExtensions(); // no change → no duplicate message
+    await t.live.loadFromDb();
+    await t.live.loadFromDb(); // no change → no duplicate message
     await until(() => admin.msgs.length === 2 && user.msgs.length === 2);
     await new Promise((r) => setTimeout(r, 300));
     expect(admin.msgs).toHaveLength(2);

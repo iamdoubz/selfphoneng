@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // pjsip_selfphoneng.conf (03 §5) and rtp_selfphoneng.conf (03 §4).
-import { byNumber, type SnapExtension, type Snapshot } from './load.ts';
+import { byNumber, type SnapExtension, type SnapTrunk, type Snapshot } from './load.ts';
 import * as s from './sanitize.ts';
 
 const CLASS_NUMBER = { internal: 0, local: 1, national: 2, international: 3 } as const;
@@ -154,9 +154,83 @@ function extensionSections(e: SnapExtension): string {
   return out.join('\n\n');
 }
 
+/** One trunk (03 §5.3). Sections are named by id so a rename never touches Asterisk objects. */
+function trunkSections(t: SnapTrunk, snap: Snapshot): string {
+  const id = s.ident(t.id);
+  const name = s.name(t.name);
+  const on = { tcp: snap.settings['sip.tcpEnabled'], tls: snap.settings['sip.tlsEnabled'] };
+  if (t.transport !== 'udp' && !on[t.transport])
+    throw new s.SanitizeError(`trunk ${name}: transport ${t.transport} is turned off`);
+  const transport = `transport-${t.transport}`;
+  const host = s.host(t.serverHost);
+  const target = `${host}:${s.digits(String(t.serverPort))}${t.transport === 'udp' ? '' : `;transport=${t.transport}`}`;
+  const reg = t.authMode === 'registration';
+  const user = t.username ? s.sipUser(t.username) : null;
+  if (reg && (!user || !t.password))
+    throw new s.SanitizeError(`trunk ${name}: registration needs a username and password`);
+  const fromUser = t.fromUser ? s.sipUser(t.fromUser) : user;
+  const out = [`; ── trunk "${name}" ──`];
+  if (reg)
+    out.push(
+      section(`trunk-${id}-auth`, [
+        'type = auth',
+        'auth_type = userpass',
+        `username = ${user}`,
+        `password = ${s.typedSecret(t.password!)}`,
+      ]),
+      section(`trunk-${id}-reg`, [
+        'type = registration',
+        `transport = ${transport}`,
+        `outbound_auth = trunk-${id}-auth`,
+        `server_uri = sip:${target}`,
+        `client_uri = sip:${user}@${target}`,
+        `contact_user = ${user}`,
+        'retry_interval = 60',
+        'forbidden_retry_interval = 600',
+        'fatal_retry_interval = 600',
+        'max_retries = 10000',
+        'expiration = 300',
+        'line = yes',
+        `endpoint = trunk-${id}`,
+      ]),
+    );
+  out.push(
+    section(`trunk-${id}`, ['type = aor', `contact = sip:${target}`, 'qualify_frequency = 60']),
+    section(`trunk-${id}`, [
+      'type = endpoint',
+      `transport = ${transport}`,
+      `context = sp-from-trunk-${id}`,
+      'disallow = all',
+      `allow = ${t.codecs.map(s.codec).join(',')}`,
+      reg && `outbound_auth = trunk-${id}-auth`,
+      `aors = trunk-${id}`,
+      fromUser && `from_user = ${fromUser}`,
+      `from_domain = ${t.fromDomain ? s.host(t.fromDomain) : host}`,
+      'direct_media = no',
+      'rtp_symmetric = yes',
+      'force_rport = yes',
+      'rewrite_contact = yes',
+      'send_rpid = yes', // carries our caller ID to the provider
+      'trust_id_inbound = yes',
+      'dtmf_mode = rfc4733',
+      t.srtp && t.transport === 'tls' && 'media_encryption = sdes',
+    ]),
+    section(`trunk-${id}-identify`, [
+      'type = identify',
+      `endpoint = trunk-${id}`,
+      `match = ${host}`,
+    ]),
+  );
+  return out[0] + '\n' + out.slice(1).join('\n\n');
+}
+
 export function renderPjsip(snap: Snapshot): string {
   const exts = [...snap.extensions].sort(byNumber).map(extensionSections);
-  return [renderTransports(snap), ...exts].join('\n\n') + '\n';
+  const trunks = snap.trunks
+    .filter((t) => t.enabled)
+    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))
+    .map((t) => trunkSections(t, snap));
+  return [renderTransports(snap), ...exts, ...trunks].join('\n\n') + '\n';
 }
 
 export function renderRtp(snap: Snapshot): string {

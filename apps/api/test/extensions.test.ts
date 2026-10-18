@@ -20,7 +20,11 @@ describe.skipIf(!hasTestDb)('extensions API', () => {
     cookie?: string,
   ) => Promise<LightMyRequestResponse>;
   const pjsip = () => readFileSync(join(t.genDir, 'pjsip_selfphoneng.conf'), 'utf8');
-  const settle = () => new Promise((r) => setTimeout(r, 150)); // debounce is 20 ms in tests
+  // Past the 20 ms test debounce, then wait for that apply (applies run one at a time).
+  const settle = async () => {
+    await new Promise((r) => setTimeout(r, 60));
+    await t.app.generator.apply({ trigger: 'test' });
+  };
   let userId: string;
   let extId: string;
 

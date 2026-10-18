@@ -3,7 +3,7 @@
 import { eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Db } from '../db/client.ts';
-import { dids, extensions, users } from '../db/schema.ts';
+import { dids, extensions, trunks, users } from '../db/schema.ts';
 import { decrypt } from '../crypto/secrets.ts';
 import { getAllSettings } from '../services/settings.ts';
 
@@ -28,12 +28,30 @@ export type SnapExtension = {
 
 export type SnapDid = { id: string; number: string };
 
+export type SnapTrunk = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  serverHost: string;
+  serverPort: number;
+  transport: 'udp' | 'tcp' | 'tls';
+  authMode: 'registration' | 'ip';
+  username: string | null;
+  password: string | null; // decrypted
+  fromUser: string | null;
+  fromDomain: string | null;
+  codecs: string[];
+  srtp: boolean;
+  maxChannels: number | null;
+};
+
 export type Snapshot = {
   /** "YYYY-MM-DD" in general.timezone; render() never reads the clock. */
   today: string;
   settings: Awaited<ReturnType<typeof getAllSettings>>;
   extensions: SnapExtension[];
   dids: SnapDid[]; // M3 adds routing fields
+  trunks: SnapTrunk[];
 };
 
 export function todayIn(timezone: string, now = new Date()): string {
@@ -58,10 +76,27 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
     .leftJoin(e911Did, eq(e911Did.id, extensions.emergencyCallerIdDidId));
 
   const didRows = await db.select({ id: dids.id, number: dids.number }).from(dids);
+  const trunkRows = await db.select().from(trunks);
   return {
     today: todayIn(settings['general.timezone'], now),
     settings,
     dids: didRows,
+    trunks: trunkRows.map((t) => ({
+      id: t.id,
+      name: t.name,
+      enabled: t.enabled,
+      serverHost: t.serverHost,
+      serverPort: t.serverPort,
+      transport: t.transport,
+      authMode: t.authMode,
+      username: t.username,
+      password: t.passwordEnc ? decrypt(t.passwordEnc) : null,
+      fromUser: t.fromUser,
+      fromDomain: t.fromDomain,
+      codecs: t.codecs,
+      srtp: t.srtp,
+      maxChannels: t.maxChannels,
+    })),
     extensions: rows.map(({ ext, role, outCid, e911Cid }) => ({
       id: ext.id,
       number: ext.number,

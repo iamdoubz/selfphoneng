@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Dashboard (05 §2). M2: telephony link and extensions online. Trunks, calls, queues and the
-// warnings banner arrive with their features (M3, M7, M8).
+// Dashboard (05 §2). Telephony link, trunks and extensions online. Calls, queues and the
+// warnings banner arrive with their features (M3-T4, M7, M8).
 import type { ReactNode } from 'react';
 import { StatusDot, statusLabel } from '../../components/StatusDot.tsx';
 import { useLive } from '../../live/store.ts';
@@ -15,7 +15,9 @@ function Card({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export function DashboardPage() {
-  const { status, amiConnected, extensions } = useLive();
+  const { status, amiConnected, extensions, trunks } = useLive();
+  const trunkList = Object.values(trunks);
+  const trunksUp = trunkList.filter((t) => t.registration === 'registered' || t.reachable).length;
   const list = Object.values(extensions).sort((a, b) => Number(a.number) - Number(b.number));
   const online = list.filter((e) => e.online).length;
   const onCall = list.filter((e) =>
@@ -25,9 +27,16 @@ export function DashboardPage() {
   return (
     <section className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold">Dashboard</h1>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card title="Extensions online">
           {status === 'connecting' ? '…' : `${online} / ${list.length}`}
+        </Card>
+        <Card title="Trunks up">
+          {status === 'connecting'
+            ? '…'
+            : trunkList.length
+              ? `${trunksUp} / ${trunkList.length}`
+              : 'None'}
         </Card>
         <Card title="On a call">{status === 'connecting' ? '…' : onCall}</Card>
         <Card title="Telephony engine">

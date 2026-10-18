@@ -307,8 +307,13 @@ type = identify
 endpoint = trunk-{id}
 match = chicago1.voip.ms
 ```
-For `auth_mode = 'ip'`, leave out the `-auth` and `-reg` sections and the `outbound_auth` line.
+For `auth_mode = 'ip'`, leave out the `-auth` and `-reg` sections and the `outbound_auth` line
+(and `from_user` when there is no username).
 Skip disabled trunks entirely.
+For TCP/TLS trunks, `server_uri`, `client_uri` and the AOR `contact` get `;transport=tcp|tls`.
+`identify` resolves `match` when the config loads, and an unresolvable name is an ERROR that drops the
+trunk's identify (verified), so the API refuses a server name that doesn't resolve, and a transport
+that isn't turned on in Settings → SIP.
 
 ## 6. Dialplan: `extensions_selfphoneng.conf`
 

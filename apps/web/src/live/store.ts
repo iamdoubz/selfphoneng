@@ -1,19 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Live data from /api/live (05 §1): one WebSocket per tab, reconnecting with backoff.
 import { create } from 'zustand';
-import type { ExtensionLive, LiveMessage } from '@selfphoneng/shared';
+import type { ExtensionLive, LiveMessage, TrunkLive } from '@selfphoneng/shared';
 
 type LiveStore = {
   /** WebSocket state: 'connecting' before the first snapshot. */
   status: 'connecting' | 'open' | 'reconnecting';
   amiConnected: boolean;
   extensions: Record<string, ExtensionLive>;
+  /** Admins only (empty for users). */
+  trunks: Record<string, TrunkLive>;
 };
 
 export const useLive = create<LiveStore>(() => ({
   status: 'connecting',
   amiConnected: false,
   extensions: {},
+  trunks: {},
 }));
 
 function apply(m: LiveMessage) {
@@ -24,12 +27,19 @@ function apply(m: LiveMessage) {
           status: 'open',
           amiConnected: m.data.ami.connected,
           extensions: Object.fromEntries(m.data.extensions.map((e) => [e.number, e])),
+          trunks: Object.fromEntries((m.data.trunks ?? []).map((t) => [t.trunkId, t])),
         };
       case 'extension.updated':
         return { extensions: { ...s.extensions, [m.data.number]: m.data } };
       case 'extension.removed': {
         const { [m.data.number]: _gone, ...rest } = s.extensions;
         return { extensions: rest };
+      }
+      case 'trunk.updated':
+        return { trunks: { ...s.trunks, [m.data.trunkId]: m.data } };
+      case 'trunk.removed': {
+        const { [m.data.trunkId]: _gone, ...rest } = s.trunks;
+        return { trunks: rest };
       }
       case 'ami.status':
         return { amiConnected: m.data.connected };

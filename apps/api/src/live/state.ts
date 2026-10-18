@@ -9,11 +9,12 @@ import type {
   ExtensionState,
   LiveMessage,
   LiveSnapshot,
+  TrunkLive,
 } from '@selfphoneng/shared';
 import type { AmiClient } from '../ami/client.ts';
 import { field, type AmiMessage } from '../ami/events.ts';
 import type { Db } from '../db/client.ts';
-import { extensions, userRuntimeState } from '../db/schema.ts';
+import { extensions, trunks, userRuntimeState } from '../db/schema.ts';
 
 /** ExtensionStatus/ExtensionStateList Status is a bit mask (04 §5.1). */
 export function stateFromStatus(status: number): ExtensionState {
@@ -35,15 +36,31 @@ function contactStatus(s: string | undefined): ContactLive['status'] {
 export const extOfEndpoint = (endpoint: string): string | null =>
   /^(\d{3,6})(?:-web)?$/.exec(endpoint)?.[1] ?? null;
 
+/** "trunk-<uuid>", "trunk-<uuid>-reg" → the trunk id. */
+export const trunkOfObject = (name: string): string | null =>
+  /^trunk-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(?:-reg)?$/.exec(
+    name,
+  )?.[1] ?? null;
+
+/** OutboundRegistrationDetail Status: Registered, Rejected, Unregistered, Stopped, … */
+function registrationFrom(s: string | undefined): TrunkLive['registration'] {
+  if (s === 'Registered') return 'registered';
+  if (s === 'Rejected') return 'rejected';
+  if (s === 'Unregistered' || s === 'Stopped') return 'unregistered';
+  return 'unknown';
+}
+
 /** What LiveState needs from AmiClient (tests pass a fake). */
 type Ami = {
   actionList: AmiClient['actionList'];
+  action(fields: Record<string, string>): Promise<unknown>;
   on(event: string, fn: (m: AmiMessage) => void): unknown;
 };
 
 export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
   private readonly exts = new Map<string, ExtensionLive & { contacts: ContactLive[] }>();
-  private amiConnected = false;
+  private readonly trunks = new Map<string, TrunkLive>();
+  amiConnected = false;
   private readonly db: Db;
   private readonly ami: Ami;
 
@@ -58,6 +75,7 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
   snapshot(admin: boolean): LiveSnapshot {
     return {
       extensions: [...this.exts.values()].map((e) => this.view(e, admin)),
+      ...(admin ? { trunks: [...this.trunks.values()].map((t) => ({ ...t })) } : {}),
       ami: { connected: this.amiConnected },
     };
   }
@@ -81,8 +99,87 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
     this.emit('message', { type: 'extension.updated', data: e });
   }
 
-  /** Extensions from the DB (call after config changes too, so new users appear). */
-  async loadExtensions(): Promise<void> {
+  /** Extensions and trunks from the DB (call after config changes too, so new ones appear). */
+  async loadFromDb(): Promise<void> {
+    await this.loadExtensions();
+    await this.loadTrunks();
+  }
+
+  private async loadTrunks(): Promise<void> {
+    const rows = await this.db
+      .select({ id: trunks.id })
+      .from(trunks)
+      .where(eq(trunks.enabled, true));
+    const seen = new Set(rows.map((r) => r.id));
+    for (const { id } of rows)
+      if (!this.trunks.has(id)) {
+        this.trunks.set(id, {
+          trunkId: id,
+          registration: 'unknown',
+          reachable: false,
+          lastChange: new Date().toISOString(),
+        });
+        this.trunkChanged(id);
+      }
+    for (const id of [...this.trunks.keys()])
+      if (!seen.has(id)) {
+        this.trunks.delete(id);
+        this.emit('message', { type: 'trunk.removed', data: { trunkId: id } });
+      }
+  }
+
+  private trunkChanged(id: string, patch: Partial<TrunkLive> = {}) {
+    const t = this.trunks.get(id);
+    if (!t) return;
+    const changed = Object.entries(patch).some(([k, v]) => t[k as keyof TrunkLive] !== v);
+    if (changed) Object.assign(t, patch, { lastChange: new Date().toISOString() });
+    if (changed || !Object.keys(patch).length)
+      this.emit('message', { type: 'trunk.updated', data: { ...t } });
+  }
+
+  /**
+   * Registration status of every trunk. Registry events can't tell two sub-accounts on the
+   * same server apart (same Username and Domain), so any Registry event re-reads the list.
+   * The response carries the auth sections too, password included: never log it.
+   */
+  async refreshRegistrations(): Promise<void> {
+    const list = await this.ami.actionList({ Action: 'PJSIPShowRegistrationsOutbound' });
+    const status = new Map<string, TrunkLive['registration']>();
+    for (const m of list) {
+      if (field(m, 'Event') !== 'OutboundRegistrationDetail') continue;
+      const id = trunkOfObject(field(m, 'ObjectName') ?? '');
+      if (id) status.set(id, registrationFrom(field(m, 'Status')));
+    }
+    for (const id of this.trunks.keys())
+      this.trunkChanged(id, { registration: status.get(id) ?? 'unknown' });
+  }
+
+  /** Static trunk contacts aren't in PJSIPShowContacts; the endpoint detail has their status. */
+  private async refreshReachable(id: string): Promise<number | null> {
+    const list = await this.ami.actionList({
+      Action: 'PJSIPShowEndpoint',
+      Endpoint: `trunk-${id}`,
+    });
+    const c = list.find((m) => field(m, 'Event') === 'ContactStatusDetail');
+    const reachable = field(c ?? {}, 'Status') === 'Reachable';
+    this.trunkChanged(id, { reachable });
+    const rtt = Number(field(c ?? {}, 'RoundtripUsec'));
+    return reachable && rtt > 0 ? Math.round(rtt / 1000) : null;
+  }
+
+  /** POST /api/trunks/:id/test: qualify now, then read registration and reachability. */
+  async testTrunk(id: string, waitMs = 1500): Promise<{ live: TrunkLive; rttMs: number | null }> {
+    await this.ami.action({ Action: 'PJSIPQualify', Endpoint: `trunk-${id}` }).catch(() => {});
+    await new Promise((r) => setTimeout(r, waitMs)); // the OPTIONS answer arrives asynchronously
+    await this.refreshRegistrations();
+    const rttMs = await this.refreshReachable(id);
+    const live = this.trunks.get(id);
+    if (!live) throw new Error('trunk is not loaded (disabled?)');
+    return { live: { ...live }, rttMs };
+  }
+
+  /** Extensions from the DB. */
+  private async loadExtensions(): Promise<void> {
     const rows = await this.db
       .select({ number: extensions.number, name: extensions.name, dnd: userRuntimeState.dnd })
       .from(extensions)
@@ -111,7 +208,9 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
 
   /** Initial load on every AMI connect (04 §5.1). */
   async loadFromAsterisk(): Promise<void> {
-    await this.loadExtensions();
+    await this.loadFromDb();
+    await this.refreshRegistrations();
+    await Promise.all([...this.trunks.keys()].map((id) => this.refreshReachable(id)));
     for (const e of this.exts.values()) e.contacts = [];
     const [states, contacts] = await Promise.all([
       this.ami.actionList({ Action: 'ExtensionStateList' }),
@@ -142,6 +241,9 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
         return this.onExtensionStatus(m, true);
       case 'ContactStatus':
         return this.onContactStatus(m);
+      case 'Registry':
+        if (field(m, 'ChannelType') === 'PJSIP')
+          void this.refreshRegistrations().catch(() => undefined); // AMI dropped: reconnect reloads
     }
   }
 
@@ -155,6 +257,13 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
 
   private onContactStatus(m: AmiMessage) {
     const endpoint = field(m, 'EndpointName') ?? field(m, 'AOR') ?? '';
+    const trunk = trunkOfObject(endpoint);
+    if (trunk) {
+      const s = field(m, 'ContactStatus');
+      if (s === 'Reachable' || s === 'Unreachable' || s === 'Removed')
+        this.trunkChanged(trunk, { reachable: s === 'Reachable' });
+      return;
+    }
     const e = this.exts.get(extOfEndpoint(endpoint) ?? '');
     if (!e) return;
     const uri = field(m, 'URI') ?? '';

@@ -19,6 +19,7 @@ export function loadCase(name: string): Snapshot {
     settings?: Record<string, unknown>;
     extensions?: Partial<Snapshot['extensions'][number]>[];
     dids?: Snapshot['dids'];
+    trunks?: Partial<Snapshot['trunks'][number]>[];
   };
   const settings = Object.fromEntries(
     (Object.keys(SettingsSchemas) as SettingKey[])
@@ -29,6 +30,23 @@ export function loadCase(name: string): Snapshot {
     today: raw.today ?? '2026-10-17',
     settings,
     dids: raw.dids ?? [],
+    trunks: (raw.trunks ?? []).map((t) => ({
+      name: 'voip.ms',
+      enabled: true,
+      serverHost: 'chicago1.voip.ms',
+      serverPort: 5060,
+      transport: 'udp',
+      authMode: 'registration',
+      username: '123456_pbx',
+      password: 'TrunkPassw0rd',
+      fromUser: null,
+      fromDomain: null,
+      codecs: ['ulaw'],
+      srtp: false,
+      maxChannels: null,
+      ...t,
+      id: t.id!,
+    })),
     extensions: (raw.extensions ?? []).map((e, i) => ({
       id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
       number: '101',

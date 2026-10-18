@@ -1,0 +1,440 @@
+Asterisk Call Manager/13.0.0
+Response: Success
+ActionID: rec-1
+Message: Authentication accepted
+
+Event: FullyBooted
+Privilege: system,all
+Uptime: 0
+LastReload: 0
+Status: Fully Booted
+
+Event: SuccessfulAuth
+Privilege: security,all
+EventTV: 2026-10-18T00:29:21.485+0000
+Severity: Informational
+Service: AMI
+EventVersion: 1
+AccountID: selfphoneng
+SessionID: 0x7f13f4000e10
+LocalAddress: IPV4/TCP/0.0.0.0/5038
+RemoteAddress: IPV4/TCP/172.21.0.1/47102
+UsingPassword: 0
+SessionTV: 2026-10-18T00:29:21.485+0000
+
+Event: PeerStatus
+Privilege: system,all
+ChannelType: PJSIP
+Peer: PJSIP/trunk-0b9f6c21-8e4d-4a7b-b3c5-d1e2f3a4b5c6
+PeerStatus: Reachable
+
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/trunk-0b9f6c21-8e4d-4a7b-b3c5-d1e2f3a4b5c6
+State: NOT_INUSE
+
+Event: ContactStatus
+Privilege: system,all
+URI: sip:sp-trunk-provider:5060
+ContactStatus: Reachable
+AOR: trunk-0b9f6c21-8e4d-4a7b-b3c5-d1e2f3a4b5c6
+EndpointName: trunk-0b9f6c21-8e4d-4a7b-b3c5-d1e2f3a4b5c6
+RoundtripUsec: 2798
+
+Event: PeerStatus
+Privilege: system,all
+ChannelType: PJSIP
+Peer: PJSIP/trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+PeerStatus: Reachable
+
+Event: DeviceStateChange
+Privilege: call,all
+Device: PJSIP/trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+State: NOT_INUSE
+
+Event: ContactStatus
+Privilege: system,all
+URI: sip:sp-trunk-provider:5060
+ContactStatus: Reachable
+AOR: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+EndpointName: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+RoundtripUsec: 1448
+
+Event: Registry
+Privilege: system,all
+ChannelType: PJSIP
+Username: sip:123456_pbx@sp-trunk-provider:5060
+Domain: sip:sp-trunk-provider:5060
+Status: Rejected
+
+Event: Registry
+Privilege: system,all
+ChannelType: PJSIP
+Username: sip:123456_pbx@sp-trunk-provider:5060
+Domain: sip:sp-trunk-provider:5060
+Status: Registered
+
+Response: Success
+ActionID: rec-2
+EventList: start
+Message: Following are Events for each Outbound registration
+
+Event: OutboundRegistrationDetail
+ActionID: rec-2
+ObjectType: registration
+ObjectName: trunk-0b9f6c21-8e4d-4a7b-b3c5-d1e2f3a4b5c6-reg
+MaxRetries: 10000
+ClientUri: sip:123456_pbx@sp-trunk-provider:5060
+SecurityNegotiation: no
+AuthRejectionPermanent: true
+ServerUri: sip:sp-trunk-provider:5060
+MaxRandomInitialDelay: 10
+SupportPath: false
+RetryInterval: 60
+ContactHeaderParams: 
+Expiration: 300
+Transport: transport-udp
+Line: true
+ContactUser: 123456_pbx
+Endpoint: trunk-0b9f6c21-8e4d-4a7b-b3c5-d1e2f3a4b5c6
+UserAgent: 
+ForbiddenRetryInterval: 600
+OutboundAuth: trunk-0b9f6c21-8e4d-4a7b-b3c5-d1e2f3a4b5c6-auth
+OutboundProxy: 
+FatalRetryInterval: 600
+SupportOutbound: no
+Status: Rejected
+NextReg: 0
+
+Event: AuthDetail
+ActionID: rec-2
+ObjectType: auth
+ObjectName: trunk-0b9f6c21-8e4d-4a7b-b3c5-d1e2f3a4b5c6-auth
+OauthSecret: 
+PasswordDigest: 
+SupportedAlgorithmsUas: MD5
+RefreshToken: 
+Username: 123456_pbx
+Md5Cred: 
+Realm: 
+AuthType: userpass
+Password: NotThePassword1
+SupportedAlgorithmsUac: MD5
+NonceLifetime: 32
+OauthClientid: 
+
+Event: OutboundRegistrationDetail
+ActionID: rec-2
+ObjectType: registration
+ObjectName: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37-reg
+MaxRetries: 10000
+ClientUri: sip:123456_pbx@sp-trunk-provider:5060
+SecurityNegotiation: no
+AuthRejectionPermanent: true
+ServerUri: sip:sp-trunk-provider:5060
+MaxRandomInitialDelay: 10
+SupportPath: false
+RetryInterval: 60
+ContactHeaderParams: 
+Expiration: 300
+Transport: transport-udp
+Line: true
+ContactUser: 123456_pbx
+Endpoint: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+UserAgent: 
+ForbiddenRetryInterval: 600
+OutboundAuth: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37-auth
+OutboundProxy: 
+FatalRetryInterval: 600
+SupportOutbound: no
+Status: Registered
+NextReg: 0
+
+Event: AuthDetail
+ActionID: rec-2
+ObjectType: auth
+ObjectName: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37-auth
+OauthSecret: 
+PasswordDigest: 
+SupportedAlgorithmsUas: MD5
+RefreshToken: 
+Username: 123456_pbx
+Md5Cred: 
+Realm: 
+AuthType: userpass
+Password: ProviderSecret42
+SupportedAlgorithmsUac: MD5
+NonceLifetime: 32
+OauthClientid: 
+
+Event: OutboundRegistrationDetailComplete
+ActionID: rec-2
+EventList: Complete
+ListItems: 2
+Registered: 1
+NotRegistered: 1
+
+Response: Error
+ActionID: rec-3
+Message: No Contacts found
+
+
+Response: Success
+ActionID: rec-4
+EventList: start
+Message: Following are Events for each object associated with the Endpoint
+
+Event: EndpointDetail
+ActionID: rec-4
+ObjectType: endpoint
+ObjectName: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+RpidImmediate: false
+Webrtc: no
+Ignore183WithoutSdp: false
+SendAoc: false
+DeviceStateBusyAt: 0
+T38UdptlMaxdatagram: 0
+CodecPrefsIncomingAnswer: prefer:pending, operation:intersect, keep:all, transcode:allow
+SecurityNegotiation: no
+DtlsRekey: 0
+RtpPortEnd: 0
+NamedPickupGroup: 
+DirectMediaMethod: invite
+SendRpid: true
+PickupGroup: 
+SdpSession: Asterisk
+DtlsVerify: No
+MessageContext: 
+Tenantid: 
+Mailboxes: 
+RecordOnFeature: automixmon
+DtlsPrivateKey: 
+DtlsFingerprint: SHA-256
+OverlapContext: 
+OutgoingCallOfferPref: remote_merge
+RtpPortStart: 0
+FromDomain: sp-trunk-provider
+TimersSessExpires: 1800
+NamedCallGroup: 
+DtlsCipher: 
+MediaEncryptionOptimistic: false
+SuppressQ850ReasonHeaders: false
+Aors: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+IdentifyBy: username,ip
+CalleridPrivacy: allowed_not_screened
+MwiSubscribeReplacesUnsolicited: no
+CosAudio: 0
+FollowEarlyMediaFork: true
+Context: sp-from-trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+RtpSymmetric: true
+Transport: transport-udp
+MohSuggest: default
+T38Udptl: false
+FaxDetect: false
+T38BindUdptlToMediaAddress: false
+TosVideo: 0
+SrtpTag32: false
+ReferBlindProgress: true
+MaxAudioStreams: 1
+Bundle: false
+UseAvpf: false
+CallGroup: 
+SendConnectedLine: yes
+FaxDetectTimeout: 0
+SdpOwner: -
+ForceRport: true
+CalleridTag: 
+RtpTimeoutHold: 0
+SuppressMohOnSendonly: false
+UsePtime: false
+MediaAddress: 
+VoicemailExtension: 
+RtpTimeout: 0
+StirShaken: no
+SetVar: 
+ContactAcl: 
+PreferredCodecOnly: false
+GeolocOutgoingCallProfile: 
+ForceAvp: false
+RecordOffFeature: automixmon
+FromUser: 123456_pbx
+SendDiversion: true
+SendHistoryInfo: false
+T38UdptlIpv6: false
+ToneZone: 
+Language: 
+AllowSubscribe: true
+RtpIpv6: false
+Callerid: <unknown>
+MohPassthrough: false
+CosVideo: 0
+DtlsAutoGenerateCert: No
+AsymmetricRtpCodec: false
+GeolocIncomingCallProfile: 
+IceSupport: false
+AggregateMwi: true
+OneTouchRecording: false
+MwiFromUser: 
+RedirectMethod: user
+Accountcode: 
+CodecPrefsOutgoingAnswer: prefer:pending, operation:intersect, keep:all, transcode:allow
+Allow: (ulaw)
+RewriteContact: true
+UserEqPhone: false
+RtpEngine: asterisk
+FollowRedirectMethods: 
+SubscribeContext: 
+NotifyEarlyInuseRinging: false
+IncomingMwiMailbox: 
+IncomingCallOfferPref: local
+AllowUnauthenticatedOptions: false
+Auth: 
+DirectMediaGlareMitigation: none
+TrustIdInbound: true
+StirShakenProfile: 
+BindRtpToMediaAddress: false
+DisableDirectMediaOnNat: false
+MediaEncryption: no
+MediaUseReceivedTransport: false
+AllowOverlap: true
+DtmfMode: rfc4733
+OutboundAuth: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37-auth
+TosAudio: 0
+DtlsCertFile: 
+DtlsCaPath: 
+DtlsSetup: active
+ConnectedLineMethod: invite
+G726NonStandard: false
+100rel: yes
+Timers: yes
+DirectMedia: false
+Acl: 
+TimersMinSe: 90
+TrustIdOutbound: false
+SubMinExpiry: 0
+RtcpMux: false
+MaxVideoStreams: 1
+AcceptMultipleSdpAnswers: false
+CodecPrefsIncomingOffer: prefer:pending, operation:intersect, keep:all, transcode:allow
+CodecPrefsOutgoingOffer: prefer:pending, operation:union, keep:all, transcode:allow
+TrustConnectedLine: yes
+SendPai: false
+RtpKeepalive: 0
+T38UdptlEc: none
+T38UdptlNat: false
+AllowTransfer: true
+DtlsCaFile: 
+OutboundProxy: 
+InbandProgress: false
+DeviceState: Not in use
+ActiveChannels: 0
+
+Event: AuthDetail
+ActionID: rec-4
+ObjectType: auth
+ObjectName: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37-auth
+OauthSecret: 
+PasswordDigest: 
+SupportedAlgorithmsUas: MD5
+RefreshToken: 
+Username: 123456_pbx
+Md5Cred: 
+Realm: 
+AuthType: userpass
+Password: ProviderSecret42
+SupportedAlgorithmsUac: MD5
+NonceLifetime: 32
+OauthClientid: 
+EndpointName: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+
+Event: TransportDetail
+ActionID: rec-4
+ObjectType: transport
+ObjectName: transport-udp
+ExternalSignalingHostname: 
+WebsocketWriteTimeout: 100
+Cos: 0
+TcpKeepaliveEnable: false
+Protocol: udp
+SymmetricTransport: false
+Domain: 
+VerifyServer: No
+LocalNet: 
+Bind: 0.0.0.0:5060
+AllowWildcardCerts: No
+TcpKeepaliveIntervalTime: 1
+AsyncOperations: 1
+ExternalMediaAddress: 
+Method: unspecified
+ExternalSignalingAddress: 
+RequireClientCert: No
+TcpKeepaliveIdleTime: 30
+Tos: 0
+CaListPath: 
+Cipher: 
+CertFile: 
+ExternalSignalingPort: 0
+Password: 
+AllowReload: false
+VerifyClient: No
+TcpKeepaliveProbeCount: 5
+PrivKeyFile: 
+CaListFile: 
+EndpointName: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+
+Event: AorDetail
+ActionID: rec-4
+ObjectType: aor
+ObjectName: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+MinimumExpiration: 60
+DefaultExpiration: 3600
+QualifyTimeout: 3.000000
+Qualify2xxOnly: false
+Mailboxes: 
+SupportPath: false
+RemoveUnavailable: false
+VoicemailExtension: 
+MaxContacts: 0
+AuthenticateQualify: false
+Contacts: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37/sip:sp-trunk-provider:5060
+MaximumExpiration: 7200
+QualifyFrequency: 60
+RemoveExisting: false
+OutboundProxy: 
+TotalContacts: 1
+ContactsRegistered: 0
+EndpointName: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+
+Event: ContactStatusDetail
+ActionID: rec-4
+AOR: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+URI: sip:sp-trunk-provider:5060
+UserAgent: 
+RegExpire: 0
+Status: Reachable
+RoundtripUsec: 1448
+EndpointName: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+ID: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37@@8c01e6e618612f18f75f0f070ce7a9a9
+AuthenticateQualify: 0
+OutboundProxy: 
+Path: 
+QualifyFrequency: 0
+QualifyTimeout: 3.000
+Qualify2xxOnly: 0
+
+Event: IdentifyDetail
+ActionID: rec-4
+ObjectType: identify
+ObjectName: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37-identify
+Match: 172.21.0.2/255.255.255.255
+MatchRequestUri: 
+SrvLookups: true
+Endpoint: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+MatchHeader: 
+EndpointName: trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37
+
+Event: EndpointDetailComplete
+ActionID: rec-4
+EventList: Complete
+ListItems: 6
+

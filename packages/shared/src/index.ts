@@ -7,3 +7,4 @@ export * from './auth.ts';
 export * from './users.ts';
 export * from './extensions.ts';
 export * from './live.ts';
+export * from './trunks.ts';

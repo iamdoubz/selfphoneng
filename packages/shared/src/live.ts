@@ -23,8 +23,19 @@ export type ExtensionLive = {
   dnd: boolean;
 };
 
+export type TrunkLive = {
+  trunkId: string;
+  /** Always 'unknown' for IP-auth trunks: they don't register. */
+  registration: 'registered' | 'rejected' | 'unregistered' | 'unknown';
+  /** The server answers OPTIONS (qualify). */
+  reachable: boolean;
+  lastChange: string;
+};
+
 export type LiveSnapshot = {
   extensions: ExtensionLive[];
+  /** Admins only. */
+  trunks?: TrunkLive[];
   ami: { connected: boolean };
 };
 
@@ -33,6 +44,8 @@ export type LiveMessage =
   | { type: 'snapshot'; data: LiveSnapshot }
   | { type: 'extension.updated'; data: ExtensionLive }
   | { type: 'extension.removed'; data: { number: string } }
+  | { type: 'trunk.updated'; data: TrunkLive }
+  | { type: 'trunk.removed'; data: { trunkId: string } }
   | { type: 'ami.status'; data: { connected: boolean } }
   | {
       type: 'system.configApplied';

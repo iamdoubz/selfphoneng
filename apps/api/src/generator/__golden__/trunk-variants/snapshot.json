@@ -1,0 +1,32 @@
+{
+  "settings": { "sip.tcpEnabled": true },
+  "trunks": [
+    {
+      "id": "a1b2c3d4-0000-4000-8000-000000000001",
+      "name": "Carrier B (IP auth)",
+      "provider": "generic",
+      "serverHost": "203.0.113.10",
+      "authMode": "ip",
+      "username": null,
+      "password": null,
+      "codecs": ["alaw", "ulaw"]
+    },
+    {
+      "id": "a1b2c3d4-0000-4000-8000-000000000002",
+      "name": "Carrier C; [evil]\ninjected = yes",
+      "serverHost": "example.net",
+      "serverPort": 5080,
+      "transport": "tcp",
+      "username": "acct.c-1",
+      "password": "p@ss w0rd!#",
+      "fromUser": "15551230000",
+      "fromDomain": "example.net",
+      "codecs": ["g722", "ulaw"]
+    },
+    {
+      "id": "a1b2c3d4-0000-4000-8000-000000000003",
+      "name": "Old provider",
+      "enabled": false
+    }
+  ]
+}

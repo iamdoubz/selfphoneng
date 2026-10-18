@@ -29,10 +29,13 @@ export async function liveRoutes(app: FastifyInstance) {
   const keyOf = (m: LiveMessage) =>
     m.type === 'extension.updated' || m.type === 'extension.removed'
       ? `extension:${m.data.number}` // a removal replaces a pending update and vice versa
-      : m.type;
+      : m.type === 'trunk.updated' || m.type === 'trunk.removed'
+        ? `trunk:${m.data.trunkId}`
+        : m.type;
 
   app.live.on('message', (m) => {
-    for (const c of clients) c.pending.set(keyOf(m), m);
+    const adminOnly = m.type.startsWith('trunk.');
+    for (const c of clients) if (c.admin || !adminOnly) c.pending.set(keyOf(m), m);
   });
 
   const viewFor = (c: Client, m: LiveMessage): LiveMessage =>

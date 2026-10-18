@@ -129,7 +129,8 @@ Initial load on connect (use `actionList`):
 |---|---|---|
 | Extension states | `ExtensionStateList` | `Exten`, `Context` (= `sp-local-numbers`), `Status` |
 | Contacts | `PJSIPShowContacts` | `Endpoint`/`EndpointName`, `Uri`, `UserAgent`, `Status`, `RoundtripUsec` |
-| Trunk registrations | `PJSIPShowRegistrationsOutbound` | `ObjectName` (`trunk-{id}-reg`), `Status` |
+| Trunk registrations | `PJSIPShowRegistrationsOutbound` | `OutboundRegistrationDetail`: `ObjectName` (`trunk-{id}-reg`), `Status` (`Registered`, `Rejected`, `Unregistered`, `Stopped`). **The reply also has `AuthDetail` items with the trunk password in clear text: never log it.** |
+| Trunk reachability | `PJSIPShowEndpoint` `trunk-{id}` per trunk | `ContactStatusDetail` `Status`, `RoundtripUsec`. Static (`contact =`) AOR contacts are **not** listed by `PJSIPShowContacts` (verified on 24.0.0-rc2) |
 | Channels | `CoreShowChannels` | `Channel`, `Uniqueid`, `Linkedid`, `ChannelStateDesc`, `CallerIDNum`, `ConnectedLineNum`, `Application`, `Exten`, `Context` |
 | Queues | `QueueStatus` | `QueueParams`, `QueueMember`, `QueueEntry` events |
 | Parking | `ParkedCalls` | `ParkingSpace`, `ParkeeLinkedid`, `ParkeeCallerIDNum` |
@@ -141,7 +142,8 @@ Events to handle (`live/handlers.ts`):
 |---|---|
 | `ExtensionStatus` | update `ExtensionLive.state` (Status: 0 idle, 1 inuse, 2 busy, 4 unavailable, 8 ringing, 9 ringinuse, 16 onhold) |
 | `ContactStatus` | add/update/remove contact (ContactStatus: Created, Reachable, Unreachable, Removed, Updated) |
-| `Registry` | trunk registration status (match `Username` + `Domain` to a trunk) |
+| `Registry` | re-read `PJSIPShowRegistrationsOutbound`. `Username`/`Domain` are the client/server URIs, which two sub-accounts on one server share, so they can't name the trunk (verified) |
+| `ContactStatus` with `AOR` `trunk-{id}` | trunk `reachable` (qualify) |
 | `Newchannel`, `Newstate`, `NewCallerid`, `NewConnectedLine`, `DialBegin`, `DialEnd`, `BridgeEnter`, `BridgeLeave`, `Hold`, `Unhold`, `Hangup` | maintain `ActiveCall` grouped by `Linkedid`. When the last channel of a linkedid hangs up, drop the call and schedule CDR aggregation (§5.4) for 5 s later |
 | `VarSet` with `Variable` in (`SP_DID`, `SP_DIRECTION`, `SP_REC`, `SP_TARGET`) | enrich `ActiveCall` (needs `eventfilter` or `read=all`; fine on localhost) |
 | `QueueCallerJoin` / `QueueCallerLeave` / `QueueCallerAbandon` / `QueueMemberStatus` / `QueueMemberPause` / `AgentConnect` / `AgentComplete` | `QueueLive` |

@@ -15,6 +15,7 @@ import { ensureInitialAdmin } from '../src/services/bootstrap.ts';
 import { EventEmitter } from 'node:events';
 import { createGenerator } from '../src/generator/index.ts';
 import { LiveState } from '../src/live/state.ts';
+import type { AmiMessage } from '../src/ami/events.ts';
 import { createTestDb } from './db.ts';
 
 /** Stand-in for AmiClient: records commands; flip `connected` to simulate Asterisk going away. */
@@ -27,8 +28,15 @@ export function fakeAmi() {
     events,
     on: events.on.bind(events),
     off: events.off.bind(events),
-    async actionList(): Promise<Record<string, string>[]> {
-      return [];
+    /** Canned list responses by Action name. */
+    lists: {} as Record<string, AmiMessage[]>,
+    actions: [] as Record<string, string>[],
+    async actionList(f: Record<string, string>): Promise<AmiMessage[]> {
+      return this.lists[f.Action!] ?? [];
+    },
+    async action(f: Record<string, string>) {
+      this.actions.push(f);
+      return { Response: 'Success' };
     },
     isConnected() {
       return this.connected;
@@ -70,7 +78,7 @@ export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) 
       dir: genDir,
       log: app.log,
       debounceMs: 20,
-      onApplied: () => void live.loadExtensions(),
+      onApplied: () => void live.loadFromDb().catch(() => {}), // may land after close()
     }),
   );
   extend?.(app);

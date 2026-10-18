@@ -61,6 +61,7 @@ function snapshot(): Snapshot {
     today: '2026-10-17',
     settings,
     dids: [],
+    trunks: [],
     extensions: [ext('101', 'Alice'), ext('102', 'Bob')],
   };
 }

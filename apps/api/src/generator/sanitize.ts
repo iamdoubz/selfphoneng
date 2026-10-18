@@ -24,6 +24,12 @@ export const sound = check(/^[a-z0-9/_-]+$/, 'sound', 100);
 export const ident = check(/^[a-z0-9-]+$/, 'ident', 64);
 /** Generated SIP passwords. */
 export const secret = check(/^[A-Za-z0-9]+$/, 'secret', 64);
+/** Trunk usernames (voip.ms sub-accounts like 123456_pbx). */
+export const sipUser = check(/^[A-Za-z0-9_.-]+$/, 'sip user', 64);
+/** Passwords typed by an admin (trunks): no ';' (comment), no line breaks, no edge spaces. */
+export const typedSecret = check(/^[^\s;](?:[^\r\n;]*[^\s;])?$/, 'password', 128);
+/** Codec names. */
+export const codec = check(/^(?:ulaw|alaw|g722)$/, 'codec', 4);
 /** Voicemail / conference PINs. */
 export const pin = check(/^[0-9]{4,10}$/, 'pin', 10);
 /** Trunk server host: a hostname or an IPv4 address. */

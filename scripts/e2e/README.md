@@ -29,5 +29,9 @@ node scripts/e2e/m2-live.mjs check http://127.0.0.1:8080 admin@example.com corre
 node scripts/e2e/m2-live.mjs down
 ```
 
-`pnpm test:asterisk` (golden-file load test plus `call-test.ts`, 30 s two-way audio between two
-baresip phones) needs no api at all.
+`m3-t1.mjs` runs on the same setup (after `m1-t4.mjs`): it starts a fake voip.ms (a second Asterisk
+that accepts one sub-account) on the m2-live network, creates the trunk in the UI and waits for
+**Registered**, then presses Test.
+
+`pnpm test:asterisk` (golden-file load test, `call-test.ts` with 30 s two-way audio between two
+baresip phones, and `trunk-test.ts` with registration against a fake provider) needs no api at all.
