@@ -13,6 +13,7 @@ import { renderPjsip, renderRtp, renderTransports } from './pjsip.ts';
 import { STATIC_DIALPLAN } from './dialplan/static.ts';
 import { renderGlobals, renderLocalNumbers } from './dialplan/local.ts';
 import { PENDING_CONTEXTS } from './dialplan/pending.ts';
+import { renderDids, renderTrunkEntries } from './dialplan/inbound.ts';
 
 export { renderTransports };
 
@@ -40,7 +41,15 @@ const BODIES: Partial<Record<GeneratedFileName, (snap: Snapshot) => string>> = {
   'rtp_selfphoneng.conf': renderRtp,
   'extensions_globals_selfphoneng.conf': renderGlobals,
   'extensions_selfphoneng.conf': (snap) =>
-    `${STATIC_DIALPLAN}\n${renderLocalNumbers(snap)}\n${PENDING_CONTEXTS}`,
+    [
+      STATIC_DIALPLAN,
+      renderLocalNumbers(snap),
+      renderTrunkEntries(snap),
+      renderDids(snap),
+      PENDING_CONTEXTS,
+    ]
+      .filter(Boolean)
+      .join('\n'),
 };
 
 /** PURE: no I/O, no clock, no randomness. Same snapshot → byte-identical files. */

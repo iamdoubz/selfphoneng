@@ -8,3 +8,4 @@ export * from './users.ts';
 export * from './extensions.ts';
 export * from './live.ts';
 export * from './trunks.ts';
+export * from './dids.ts';

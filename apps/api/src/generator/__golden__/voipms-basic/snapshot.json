@@ -1,4 +1,23 @@
 {
+  "settings": {
+    "routing.defaultCallerIdDidId": "11111111-1111-4111-8111-111111111111",
+    "emergency.defaultCallerIdDidId": "11111111-1111-4111-8111-111111111111"
+  },
   "extensions": [{ "number": "101", "name": "Dan Doe" }],
-  "trunks": [{ "id": "7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37" }]
+  "trunks": [{ "id": "7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37" }],
+  "dids": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "number": "13125551234",
+      "label": "Main line",
+      "destination": { "type": "user", "id": "00000000-0000-4000-8000-000000000000" }
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "number": "13125559876",
+      "label": "Sales; line",
+      "callerIdNamePrefix": "SALES:",
+      "destination": { "type": "external", "number": "13125550000" }
+    }
+  ]
 }

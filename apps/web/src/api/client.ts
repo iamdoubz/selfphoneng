@@ -2,6 +2,9 @@
 // Typed fetch wrappers (05 §1). Every request sends X-Requested-With (CSRF, 04 §2.2).
 import type {
   AuthUser,
+  DidCreate,
+  DidDto,
+  DidUpdate,
   ExtensionCreate,
   ExtensionDto,
   ExtensionUpdate,
@@ -67,6 +70,7 @@ export const usersApi = {
 };
 
 export const extensionsApi = {
+  list: () => api<ListResponse<ExtensionDto>>('GET', '/api/extensions').then((r) => r.items),
   get: (id: string) => api<ExtensionDto>('GET', `/api/extensions/${id}`),
   create: (e: ExtensionCreate) => api<ExtensionDto>('POST', '/api/extensions', e),
   update: (id: string, e: ExtensionUpdate) =>
@@ -85,4 +89,11 @@ export const trunksApi = {
   update: (id: string, t: TrunkUpdate) => api<TrunkDto>('PATCH', `/api/trunks/${id}`, t),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/trunks/${id}`),
   test: (id: string) => api<TrunkTestResult>('POST', `/api/trunks/${id}/test`),
+};
+
+export const didsApi = {
+  list: () => api<ListResponse<DidDto>>('GET', '/api/dids').then((r) => r.items),
+  create: (d: DidCreate) => api<DidDto>('POST', '/api/dids', d),
+  update: (id: string, d: DidUpdate) => api<DidDto>('PATCH', `/api/dids/${id}`, d),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/dids/${id}`),
 };

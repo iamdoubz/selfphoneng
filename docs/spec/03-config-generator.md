@@ -514,6 +514,8 @@ exten => 13125551234,1,Set(__SP_DID=13125551234)
 ; anything else
 exten => _[0-9a-z].,1,{destApp(routing.unmatchedDidDestination)}
 ```
+Leave `[sp-did-exists]` out when there are no DIDs: Asterisk doesn't create an empty context, and
+`DIALPLAN_EXISTS` on a missing context is simply false. `record_inbound` arrives with recording (M7).
 
 ### 6.6 `sp-local-numbers`
 

@@ -13,7 +13,7 @@ export const ADMIN_PAGES = [
   { path: '', label: 'Dashboard', milestone: null },
   { path: 'users', label: 'Users & Extensions', milestone: null },
   { path: 'trunks', label: 'Trunks', milestone: null },
-  { path: 'numbers', label: 'Phone numbers', milestone: 'M3' },
+  { path: 'numbers', label: 'Phone numbers', milestone: null },
   { path: 'outbound', label: 'Outbound rules', milestone: 'M3' },
   { path: 'ring-groups', label: 'Ring groups', milestone: 'M6' },
   { path: 'queues', label: 'Queues', milestone: 'M8' },

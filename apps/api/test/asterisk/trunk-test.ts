@@ -3,6 +3,8 @@
 // registers), our generated config is the PBX. Everything runs on a private Docker bridge network.
 // M3-T1: the good trunk registers, the one with a wrong password is rejected, and the AMI
 // session can be recorded for the live-state tests.
+// M3-T2: the provider calls our DID the way voip.ms does (10-digit Request-URI); a baresip phone
+// registered as 101 answers, caller ID arrives normalized, and audio flows both ways.
 // Usage: node --conditions=source apps/api/test/asterisk/trunk-test.ts [--record <file>]
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -26,6 +28,11 @@ const AMI_SECRET = 'trunk-test-secret';
 const GOOD = '7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37';
 const BAD = '0b9f6c21-8e4d-4a7b-b3c5-d1e2f3a4b5c6';
 const SUB = { user: '123456_pbx', pass: 'ProviderSecret42' };
+const PHONES = 'sp-trunk-phones';
+const EXT_ID = '00000000-0000-4000-8000-000000000101';
+const PHONE_PASS = 'TrunkTest101xxxxxxxxxxxx';
+const DID = '13125551234';
+const MOBILE = '3125559999'; // the outside caller, 10 digits as voip.ms sends them
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const docker = (...args: string[]) => {
@@ -59,10 +66,67 @@ function snapshot(): Snapshot {
   return {
     today: '2026-10-17',
     settings,
-    dids: [],
-    extensions: [],
+    dids: [
+      {
+        id: '11111111-1111-4111-8111-111111111111',
+        number: DID,
+        trunkId: GOOD,
+        label: 'Main line',
+        destination: { type: 'user', id: EXT_ID },
+        callerIdNamePrefix: null,
+      },
+    ],
+    extensions: [
+      {
+        id: EXT_ID,
+        number: '101',
+        name: 'Alice',
+        sipPassword: PHONE_PASS,
+        webrtcEnabled: false,
+        maxContacts: 5,
+        ringSeconds: 25,
+        voicemailEnabled: false,
+        outboundClass: 'national',
+        outboundCallerId: null,
+        emergencyCallerId: null,
+        recordMode: 'never',
+        pickupGroup: null,
+        language: 'en',
+        mohClass: 'default',
+        isAdmin: false,
+      },
+    ],
     trunks: [trunk(GOOD, 'voip.ms', SUB.pass), trunk(BAD, 'wrong password', 'NotThePassword1')],
   };
+}
+
+/** A baresip softphone registered as 101: auto-answers, sends a tone. */
+function phoneFiles(dir: string) {
+  const d = join(dir, 'phone-101');
+  mkdirSync(d, { recursive: true });
+  writeFileSync(
+    join(d, 'config'),
+    [
+      'poll_method epoll',
+      'sip_listen 0.0.0.0:5070',
+      'module_path /usr/lib/baresip/modules',
+      'module g711.so',
+      'module ausine.so',
+      'module aufile.so',
+      'module menu.so',
+      'module account.so',
+      'audio_source ausine,440',
+      'ausrc_srate 48000', // ausine only runs at 48 kHz (see call-test.ts)
+      'auplay_srate 48000',
+      'audio_player aufile,/phones/phone-101/heard.wav',
+      'audio_alert aufile,/dev/null',
+      '',
+    ].join('\n'),
+  );
+  writeFileSync(
+    join(d, 'accounts'),
+    `<sip:101@${PBX};transport=udp>;auth_pass=${PHONE_PASS};answermode=auto;audio_codecs=PCMU;regint=60\n`,
+  );
 }
 
 /** The fake voip.ms: one sub-account that may register. */
@@ -91,6 +155,22 @@ max_contacts = 1
 remove_existing = yes
 `;
 
+/**
+ * provider-out: a mobile phone calls one of our DIDs. Like voip.ms, the Request-URI user is the
+ * 10-digit DID (06 §3), sent to the sub-account's registered contact. Echo() returns the audio.
+ */
+const PROVIDER_DIALPLAN = `[provider-out]
+exten => _X.,1,Set(CALLERID(all)="Mobile" <${MOBILE}>)
+ same => n,Dial(PJSIP/\${EXTEN}@${SUB.user},30)
+
+[provider-echo]
+exten => s,1,Answer()
+ same => n,Echo()
+
+[provider-in]
+exten => _X.,1,Hangup()
+`;
+
 async function waitFor(what: string, fn: () => Promise<boolean>, seconds = 60) {
   for (let i = 0; i < seconds; i++) {
     if (await fn()) return;
@@ -108,8 +188,16 @@ async function main() {
   const files = render(snapshot());
   for (const f of GENERATED_FILES) {
     writeFileSync(join(pbxConf, f), files[f]);
-    writeFileSync(join(provConf, f), f === 'pjsip_selfphoneng.conf' ? PROVIDER_PJSIP : '');
+    writeFileSync(
+      join(provConf, f),
+      f === 'pjsip_selfphoneng.conf'
+        ? PROVIDER_PJSIP
+        : f === 'extensions_selfphoneng.conf'
+          ? PROVIDER_DIALPLAN
+          : '',
+    );
   }
+  phoneFiles(dir);
   writeFileSync(
     join(dir, 'manager.conf.template'),
     '[general]\nenabled = yes\nport = 5038\nbindaddr = 0.0.0.0\n\n[selfphoneng]\nsecret = ${AMI_SECRET}\npermit = 0.0.0.0/0.0.0.0\nread = all\nwrite = all\n',
@@ -149,7 +237,7 @@ async function main() {
     );
 
   try {
-    docker('rm', '-f', PBX, PROVIDER);
+    docker('rm', '-f', PBX, PROVIDER, PHONES);
     docker('network', 'create', NET);
     const prov = asterisk(PROVIDER, provConf, []);
     if (!prov.ok) throw new Error(`provider: ${prov.out}`);
@@ -204,6 +292,75 @@ async function main() {
         `Action: PJSIPShowEndpoint\r\nEndpoint: trunk-${GOOD}\r\nActionID: rec-4\r\n\r\n`,
     );
     await sleep(1000);
+    recorder?.destroy(); // the fixture covers registration only
+    recorder = undefined;
+
+    // M3-T2: a call to the DID from outside rings 101.
+    log('starting a baresip phone as 101 (installs baresip on first run)…');
+    const phones = docker(
+      'run',
+      '-d',
+      '--rm',
+      '--name',
+      PHONES,
+      '--network',
+      NET,
+      '-v',
+      `${dir}:/phones`,
+      'debian:trixie-slim',
+      'sh',
+      '-c',
+      'apt-get update -qq >/dev/null && apt-get install -y -qq --no-install-recommends baresip-core >/dev/null 2>&1 && ' +
+        '(baresip -f /phones/phone-101 > /phones/phone-101/log 2>&1 &) && sleep 600',
+    );
+    if (!phones.ok) throw new Error(`phones: ${phones.out}`);
+    await waitFor(
+      '101 to register',
+      async () => /101\/sip:.*Avail/.test(await ami.command('pjsip show contacts')),
+      180,
+    );
+    const dials: Record<string, string | string[]>[] = [];
+    ami.on('event:DialBegin', (m) => dials.push(m));
+    const orig = docker(
+      'exec',
+      PROVIDER,
+      'asterisk',
+      '-rx',
+      `channel originate Local/${DID.slice(1)}@provider-out extension s@provider-echo`,
+    );
+    if (!orig.ok) throw new Error(`originate on the provider: ${orig.out}`);
+    let channels = '';
+    await waitFor(
+      'the inbound call to be answered by 101',
+      async () => {
+        channels = await ami.command('core show channels concise');
+        const up = channels.split('\n').filter((l) => l.includes('!Up!'));
+        return (
+          up.some((l) => l.startsWith('PJSIP/101-')) && up.some((l) => l.startsWith('PJSIP/trunk-'))
+        );
+      },
+      30,
+    );
+    log('inbound call answered by 101');
+    const toPhone = dials.find((m) => String(m.DestChannel).startsWith('PJSIP/101-'));
+    if (!toPhone) problems.push('no DialBegin to PJSIP/101');
+    else if (toPhone.CallerIDNum !== `1${MOBILE}`)
+      problems.push(`101 saw caller ID ${toPhone.CallerIDNum}, expected 1${MOBILE} (normalized)`);
+    await sleep(10_000);
+    const stats = await ami.command('pjsip show channelstats');
+    // The ChannelId column is cut at 18 characters: "trunk-7d3e9a52-1c4".
+    const rows = stats.split('\n').filter((l) => /^\s*\S+ (101-[0-9a-f]{8}|trunk-\S+) /.test(l));
+    if (rows.length !== 2) problems.push(`expected the 101 and trunk legs in:\n${stats}`);
+    for (const r of rows) {
+      const cols = r.trim().split(/\s+/);
+      const ulaw = cols.indexOf('ulaw');
+      const rx = Number(cols[ulaw + 1]);
+      const tx = Number(cols[ulaw + 5]);
+      log(`${cols[1]}: rx ${rx}, tx ${tx}`);
+      if (!(rx > 250) || !(tx > 250))
+        problems.push(`one-way or no audio on ${cols[1]}: rx ${rx}, tx ${tx}`);
+    }
+    await ami.command('channel request hangup all');
 
     // eslint-disable-next-line no-control-regex -- strips Asterisk's ANSI colors
     const plainLog = docker('logs', PBX).out.replace(/\x1b\[[0-9;]*m/g, '');
@@ -218,7 +375,7 @@ async function main() {
     }
     recorder?.destroy();
     ami.stop();
-    docker('rm', '-f', PBX, PROVIDER);
+    docker('rm', '-f', PBX, PROVIDER, PHONES);
     docker('network', 'rm', NET);
     rmSync(dir, { recursive: true, force: true });
   }
@@ -227,7 +384,7 @@ async function main() {
     for (const p of problems) console.log(`     ${p}`);
     process.exit(1);
   }
-  console.log('ok   trunks (registration, rejection, qualify)');
+  console.log('ok   trunks (registration, rejection, qualify, inbound DID call to 101 with audio)');
 }
 
 await main();

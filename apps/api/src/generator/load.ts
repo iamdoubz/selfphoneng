@@ -6,6 +6,7 @@ import type { Db } from '../db/client.ts';
 import { dids, extensions, trunks, users } from '../db/schema.ts';
 import { decrypt } from '../crypto/secrets.ts';
 import { getAllSettings } from '../services/settings.ts';
+import type { Destination } from '@selfphoneng/shared';
 
 export type SnapExtension = {
   id: string;
@@ -26,7 +27,14 @@ export type SnapExtension = {
   isAdmin: boolean; // the extension's user is an admin (time-condition override codes)
 };
 
-export type SnapDid = { id: string; number: string };
+export type SnapDid = {
+  id: string;
+  number: string;
+  trunkId: string;
+  label: string | null;
+  destination: Destination;
+  callerIdNamePrefix: string | null;
+};
 
 export type SnapTrunk = {
   id: string;
@@ -50,7 +58,7 @@ export type Snapshot = {
   today: string;
   settings: Awaited<ReturnType<typeof getAllSettings>>;
   extensions: SnapExtension[];
-  dids: SnapDid[]; // M3 adds routing fields
+  dids: SnapDid[];
   trunks: SnapTrunk[];
 };
 
@@ -75,12 +83,21 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
     .leftJoin(outDid, eq(outDid.id, extensions.outboundCallerIdDidId))
     .leftJoin(e911Did, eq(e911Did.id, extensions.emergencyCallerIdDidId));
 
-  const didRows = await db.select({ id: dids.id, number: dids.number }).from(dids);
+  const didRows = await db
+    .select({
+      id: dids.id,
+      number: dids.number,
+      trunkId: dids.trunkId,
+      label: dids.label,
+      destination: dids.destination,
+      callerIdNamePrefix: dids.callerIdNamePrefix,
+    })
+    .from(dids);
   const trunkRows = await db.select().from(trunks);
   return {
     today: todayIn(settings['general.timezone'], now),
     settings,
-    dids: didRows,
+    dids: didRows.map((d) => ({ ...d, destination: d.destination as Destination })),
     trunks: trunkRows.map((t) => ({
       id: t.id,
       name: t.name,

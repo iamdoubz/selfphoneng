@@ -31,7 +31,8 @@ node scripts/e2e/m2-live.mjs down
 
 `m3-t1.mjs` runs on the same setup (after `m1-t4.mjs`): it starts a fake voip.ms (a second Asterisk
 that accepts one sub-account) on the m2-live network, creates the trunk in the UI and waits for
-**Registered**, then presses Test.
+**Registered**, then presses Test. `m3-t2.mjs` (after `m3-t1.mjs`) adds a phone number routed to a user in the UI and
+checks `sp-inbound` in Asterisk, and that the extension can no longer be deleted.
 
 `pnpm test:asterisk` (golden-file load test, `call-test.ts` with 30 s two-way audio between two
 baresip phones, and `trunk-test.ts` with registration against a fake provider) needs no api at all.

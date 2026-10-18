@@ -15,6 +15,7 @@ import { userRoutes } from './routes/users.ts';
 import { systemRoutes } from './routes/system.ts';
 import { extensionRoutes } from './routes/extensions.ts';
 import { trunkRoutes } from './routes/trunks.ts';
+import { didRoutes } from './routes/dids.ts';
 import { liveRoutes } from './live/hub.ts';
 
 declare module 'fastify' {
@@ -81,6 +82,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.register(systemRoutes);
   app.register(extensionRoutes);
   app.register(trunkRoutes);
+  app.register(didRoutes);
   app.register(liveRoutes);
 
   if (existsSync(publicDir)) {

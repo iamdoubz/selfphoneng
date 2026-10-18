@@ -24,6 +24,7 @@ import {
 } from '../crypto/secrets.ts';
 import { audit } from '../services/audit.ts';
 import { assertNumberAvailable, nextFreeNumber } from '../services/numbering.ts';
+import { findReferences } from '../services/destinations.ts';
 import { getSetting } from '../services/settings.ts';
 
 type ExtRow = typeof extensions.$inferSelect;
@@ -182,7 +183,9 @@ export async function extensionRoutes(app: FastifyInstance) {
   app.delete('/api/extensions/:id', async (req) => {
     const { id } = IdParams.parse(req.params);
     const e = await getExt(db, id);
-    // TODO(M3-T2): refuse with 409 when a destination points here (findReferences, 02 §1).
+    const usedBy = await findReferences(db, 'user', id);
+    if (usedBy.length)
+      throw conflict(`Extension ${e.number} is still used by ${usedBy.join(', ')}`, { usedBy });
     await db.delete(extensions).where(eq(extensions.id, id)); // members, runtime state, devices cascade
     await audit(db, {
       actorUserId: req.user!.id,

@@ -18,7 +18,7 @@ export function loadCase(name: string): Snapshot {
     today?: string;
     settings?: Record<string, unknown>;
     extensions?: Partial<Snapshot['extensions'][number]>[];
-    dids?: Snapshot['dids'];
+    dids?: Partial<Snapshot['dids'][number]>[];
     trunks?: Partial<Snapshot['trunks'][number]>[];
   };
   const settings = Object.fromEntries(
@@ -29,7 +29,15 @@ export function loadCase(name: string): Snapshot {
   return {
     today: raw.today ?? '2026-10-17',
     settings,
-    dids: raw.dids ?? [],
+    dids: (raw.dids ?? []).map((d) => ({
+      trunkId: '7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37',
+      label: null,
+      destination: { type: 'hangup' as const },
+      callerIdNamePrefix: null,
+      ...d,
+      id: d.id!,
+      number: d.number!,
+    })),
     trunks: (raw.trunks ?? []).map((t) => ({
       name: 'voip.ms',
       enabled: true,
@@ -73,9 +81,15 @@ const cases = readdirSync(ROOT).filter((d) => existsSync(join(ROOT, d, 'snapshot
 
 describe('golden', () => {
   it('has the required cases', () => {
-    // 03 §12.1; the rest arrive with their features (M3, M6, M8).
+    // 03 §12.1; the rest arrive with their features (M6, M8).
     expect(cases).toEqual(
-      expect.arrayContaining(['empty', 'one-user', 'webrtc-disabled', 'hostile-names']),
+      expect.arrayContaining([
+        'empty',
+        'one-user',
+        'webrtc-disabled',
+        'hostile-names',
+        'voipms-basic',
+      ]),
     );
   });
 
