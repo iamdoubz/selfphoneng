@@ -3,8 +3,17 @@
 // Upload by picking or dropping a file; play, rename, delete. Music on hold arrives with M8.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { SOUND_MAX_BYTES, type SoundDto } from '@selfphoneng/shared';
-import { soundsApi } from '../../api/client.ts';
+import {
+  AnnouncementCreateSchema,
+  SOUND_MAX_BYTES,
+  type AnnouncementCreate,
+  type AnnouncementDto,
+  type Destination,
+  type SoundDto,
+} from '@selfphoneng/shared';
+import { announcementsApi, soundsApi } from '../../api/client.ts';
+import { DestinationPicker } from '../../components/DestinationPicker.tsx';
+import { SoundPicker } from '../../components/SoundPicker.tsx';
 import { ConfirmDialog, Dialog } from '../../components/Dialog.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
@@ -163,7 +172,150 @@ export function SoundsPage() {
         }}
         onConfirm={() => deleting && remove.mutate(deleting.id)}
       />
+      <Announcements />
     </section>
+  );
+}
+
+/** Announcements (03 §6.11): play one of these sounds, then send the caller on. */
+function Announcements() {
+  const qc = useQueryClient();
+  const list = useQuery({ queryKey: ['announcements'], queryFn: announcementsApi.list });
+  const [editing, setEditing] = useState<AnnouncementDto | 'new' | null>(null);
+  const [deleting, setDeleting] = useState<AnnouncementDto | null>(null);
+  const refresh = () => qc.invalidateQueries({ queryKey: ['announcements'] });
+  const remove = useMutation({
+    mutationFn: (id: string) => announcementsApi.remove(id),
+    onSuccess: async () => {
+      setDeleting(null);
+      await refresh();
+    },
+  });
+  return (
+    <section aria-labelledby="ann-h" className="mt-4 flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="ann-h" className="text-lg font-semibold">
+          Announcements
+        </h2>
+        <Button onClick={() => setEditing('new')}>Add announcement</Button>
+      </div>
+      <p className="text-sm text-zinc-500">
+        An announcement plays a sound ("Our hours are…") and then sends the caller on, e.g. back to
+        a menu. Use them from phone numbers, menus and office hours.
+      </p>
+      {list.data && list.data.length > 0 && (
+        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+          {list.data.map((a) => (
+            <li
+              key={a.id}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm"
+            >
+              <span className="font-medium">{a.name}</span>
+              <span className="min-w-0 flex-1 truncate text-zinc-500">
+                plays "{a.soundName}", then {a.destinationSummary}
+              </span>
+              <Button onClick={() => setEditing(a)}>Edit</Button>
+              <Button variant="ghost" onClick={() => setDeleting(a)}>
+                Delete
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {editing && (
+        <AnnouncementForm
+          ann={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+          onSaved={refresh}
+        />
+      )}
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Delete announcement"
+        message={<p>Delete {deleting?.name}?</p>}
+        confirmLabel="Delete"
+        busy={remove.isPending}
+        error={remove.error?.message}
+        onCancel={() => {
+          setDeleting(null);
+          remove.reset();
+        }}
+        onConfirm={() => deleting && remove.mutate(deleting.id)}
+      />
+    </section>
+  );
+}
+
+function AnnouncementForm({
+  ann,
+  onClose,
+  onSaved,
+}: {
+  ann: AnnouncementDto | null;
+  onClose: () => void;
+  onSaved: () => Promise<unknown>;
+}) {
+  const [name, setName] = useState(ann?.name ?? '');
+  const [soundId, setSoundId] = useState<string | null>(ann?.soundId ?? null);
+  const [dest, setDest] = useState<Destination | null>(ann?.destination ?? { type: 'hangup' });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const save = useMutation({
+    mutationFn: (body: AnnouncementCreate) =>
+      ann ? announcementsApi.update(ann.id, body) : announcementsApi.create(body),
+    onSuccess: async () => {
+      await onSaved();
+      onClose();
+    },
+  });
+  function submit() {
+    const parsed = AnnouncementCreateSchema.safeParse({
+      name,
+      soundId: soundId ?? undefined,
+      destination: dest ?? undefined,
+    });
+    if (!parsed.success) {
+      setErrors(Object.fromEntries(parsed.error.issues.map((i) => [String(i.path[0]), i.message])));
+      return;
+    }
+    setErrors({});
+    save.mutate(parsed.data);
+  }
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={ann ? ann.name : 'New announcement'}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={submit} disabled={save.isPending}>
+            Save
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4">
+        <Field label="Name" error={errors.name}>
+          {(p) => (
+            <input
+              {...p}
+              className={inputClass}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          )}
+        </Field>
+        <SoundPicker label="Sound" value={soundId} onChange={setSoundId} error={errors.soundId} />
+        <DestinationPicker
+          label="Then"
+          value={dest ?? { type: 'hangup' }}
+          onChange={setDest}
+          error={errors.destination}
+          exclude={ann?.id}
+        />
+        {save.error && <Alert>{save.error.message}</Alert>}
+      </div>
+    </Dialog>
   );
 }
 

@@ -4,10 +4,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { normalizeNumber, type Destination } from '@selfphoneng/shared';
-import { extensionsApi, ivrsApi, ringGroupsApi, timeConditionsApi } from '../api/client.ts';
+import {
+  announcementsApi,
+  extensionsApi,
+  ivrsApi,
+  ringGroupsApi,
+  timeConditionsApi,
+} from '../api/client.ts';
 import { inputClass } from './ui.tsx';
 
-type IdKind = 'user' | 'voicemail' | 'ring_group' | 'ivr' | 'time_condition';
+type IdKind = 'user' | 'voicemail' | 'ring_group' | 'ivr' | 'time_condition' | 'announcement';
 type Kind = IdKind | 'external' | 'hangup';
 
 const KINDS: { kind: Kind; label: string }[] = [
@@ -16,6 +22,7 @@ const KINDS: { kind: Kind; label: string }[] = [
   { kind: 'ring_group', label: 'Ring group' },
   { kind: 'ivr', label: 'Digital receptionist' },
   { kind: 'time_condition', label: 'Office hours' },
+  { kind: 'announcement', label: 'Announcement' },
   { kind: 'external', label: 'Forward to an outside number' },
   { kind: 'hangup', label: 'Hang up' },
 ];
@@ -26,6 +33,7 @@ const TARGET_NOUN: Record<IdKind, string> = {
   ring_group: 'ring group',
   ivr: 'digital receptionist',
   time_condition: 'office hours',
+  announcement: 'announcement',
 };
 const isIdKind = (k: Kind): k is IdKind => k !== 'external' && k !== 'hangup';
 /** Kinds whose targets are the same rows: switching between them keeps the pick. */
@@ -133,6 +141,7 @@ function useTargets() {
   const groups = useQuery({ queryKey: ['ring-groups'], queryFn: ringGroupsApi.list });
   const ivrs = useQuery({ queryKey: ['ivrs'], queryFn: ivrsApi.list });
   const tcs = useQuery({ queryKey: ['time-conditions'], queryFn: timeConditionsApi.list });
+  const anns = useQuery({ queryKey: ['announcements'], queryFn: announcementsApi.list });
   const rows = (q: { data?: { id: string; name: string; number?: string }[] }) =>
     q.data?.map((x) => ({ id: x.id, label: x.number ? `${x.number} ${x.name}` : x.name }));
   return {
@@ -141,6 +150,7 @@ function useTargets() {
     ring_group: rows(groups),
     ivr: rows(ivrs),
     time_condition: rows(tcs),
+    announcement: rows(anns),
   } satisfies Record<IdKind, unknown>;
 }
 

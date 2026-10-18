@@ -4,6 +4,7 @@ import { asc, eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Db } from '../db/client.ts';
 import {
+  announcements,
   dids,
   extensions,
   holidays,
@@ -125,6 +126,14 @@ export type SnapHoliday = {
   recurringYearly: boolean;
 };
 
+export type SnapAnnouncement = {
+  id: string;
+  name: string;
+  /** Asterisk sound name, e.g. custom/<id>. */
+  sound: string;
+  destination: Destination;
+};
+
 export type Snapshot = {
   /** "YYYY-MM-DD" in general.timezone; render() never reads the clock. */
   today: string;
@@ -137,6 +146,7 @@ export type Snapshot = {
   ivrs: SnapIvr[];
   timeConditions: SnapTimeCondition[];
   holidays: SnapHoliday[];
+  announcements: SnapAnnouncement[];
 };
 
 export function todayIn(timezone: string, now = new Date()): string {
@@ -176,6 +186,7 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
   const ivrRows = await db.select().from(ivrs);
   const tcRows = await db.select().from(timeConditions);
   const holidayRows = await db.select().from(holidays);
+  const annRows = await db.select().from(announcements);
   const optionRows = await db.select().from(ivrOptions);
   const soundName = new Map(
     (await db.select({ id: soundFiles.id, name: soundFiles.asteriskName }).from(soundFiles)).map(
@@ -202,6 +213,12 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
       openDestination: t.openDestination as Destination,
       closedDestination: t.closedDestination as Destination,
       holidayDestination: t.holidayDestination as Destination | null,
+    })),
+    announcements: annRows.map((a) => ({
+      id: a.id,
+      name: a.name,
+      sound: soundName.get(a.soundId)!,
+      destination: a.destination as Destination,
     })),
     holidays: holidayRows.map((h) => ({
       name: h.name,

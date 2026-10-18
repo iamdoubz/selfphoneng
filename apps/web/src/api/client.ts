@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Typed fetch wrappers (05 §1). Every request sends X-Requested-With (CSRF, 04 §2.2).
 import type {
+  AnnouncementCreate,
+  AnnouncementDto,
+  AnnouncementUpdate,
   AuthUser,
   DidCreate,
   DidDto,
@@ -239,4 +242,12 @@ export const holidaysApi = {
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/holidays/${id}`),
   importUsFederal: (year: number) =>
     api<{ added: number }>('POST', '/api/holidays/import-us-federal', { year }),
+};
+
+export const announcementsApi = {
+  list: () => api<ListResponse<AnnouncementDto>>('GET', '/api/announcements').then((r) => r.items),
+  create: (a: AnnouncementCreate) => api<AnnouncementDto>('POST', '/api/announcements', a),
+  update: (id: string, a: AnnouncementUpdate) =>
+    api<AnnouncementDto>('PATCH', `/api/announcements/${id}`, a),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/announcements/${id}`),
 };

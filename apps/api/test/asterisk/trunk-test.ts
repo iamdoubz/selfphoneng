@@ -104,6 +104,7 @@ function snapshot(): Snapshot {
     ivrs: [],
     timeConditions: [],
     holidays: [],
+    announcements: [],
     routes: [
       {
         id: 'aaaaaaaa-0000-4000-8000-000000000001',

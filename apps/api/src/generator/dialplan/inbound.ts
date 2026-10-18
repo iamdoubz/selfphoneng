@@ -29,8 +29,12 @@ export function destApp(d: Destination, snap: Snapshot): string {
       return snap.timeConditions.some((t) => t.id === d.id)
         ? `Goto(sp-tc-${s.ident(d.id)},s,1)`
         : 'Hangup()';
+    case 'announcement':
+      return snap.announcements.some((a) => a.id === d.id)
+        ? `Goto(sp-ann-${s.ident(d.id)},s,1)`
+        : 'Hangup()';
     default:
-      // TODO(M6, M8): queues, conferences, announcements.
+      // TODO(M8): queues, conferences.
       return 'Hangup()';
   }
 }

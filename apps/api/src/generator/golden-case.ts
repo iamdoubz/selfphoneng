@@ -21,6 +21,7 @@ export function loadCase(name: string): Snapshot {
     ivrs?: Partial<Snapshot['ivrs'][number]>[];
     timeConditions?: Partial<Snapshot['timeConditions'][number]>[];
     holidays?: Snapshot['holidays'];
+    announcements?: Snapshot['announcements'];
   };
   const settings = Object.fromEntries(
     (Object.keys(SettingsSchemas) as SettingKey[])
@@ -52,6 +53,7 @@ export function loadCase(name: string): Snapshot {
       id: t.id!,
     })),
     holidays: raw.holidays ?? [],
+    announcements: raw.announcements ?? [],
     ivrs: (raw.ivrs ?? []).map((r, i) => ({
       name: `Menu ${i + 1}`,
       greeting: 'custom/greeting',

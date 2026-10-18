@@ -38,7 +38,7 @@ Left sidebar navigation, in this order:
 | Office hours | `/admin/hours` | Time conditions: weekly grid editor (click-drag hours per day) that saves to `open_ranges`; timezone; holidays toggle; open/closed/holiday destinations; override digit; big status chip "Open now / Closed now" with Force open / Force closed / Automatic buttons. Holidays sub-tab: list + "Add US federal holidays for {year}" |
 | Conferences | `/admin/conferences` | number, name, PIN, admin PIN, max members, record |
 | Paging | `/admin/paging` | number, name, members, duplex |
-| Sounds & music | `/admin/sounds` | Prompts list with play buttons, upload (drag-drop), TTS (M12). MOH classes with their files |
+| Sounds & music | `/admin/sounds` | Prompts list with play buttons, upload (drag-drop), TTS (M12). MOH classes with their files (M8). An **Announcements** section (play a sound, then a destination) lives here too: no page of its own (M6-T5) |
 | Phones (devices) | `/admin/devices` | Table: MAC, vendor, model, user, last provisioned. Form: MAC (any format → normalized), vendor, model, extension. Shows the provisioning URL to type into the phone, and "Preview config" |
 | Contacts | `/admin/contacts` | Company phonebook, CSV import |
 | Call history | `/admin/calls` | Filters + table + CSV export; a row expands to show the CDR legs and plays the recording |
