@@ -4,6 +4,8 @@ import type {
   AnnouncementCreate,
   AnnouncementDto,
   AnnouncementUpdate,
+  BlockedCreate,
+  BlockedDto,
   AuthUser,
   DidCreate,
   DidDto,
@@ -254,4 +256,10 @@ export const announcementsApi = {
   update: (id: string, a: AnnouncementUpdate) =>
     api<AnnouncementDto>('PATCH', `/api/announcements/${id}`, a),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/announcements/${id}`),
+};
+
+export const blockedApi = {
+  list: () => api<ListResponse<BlockedDto>>('GET', '/api/blocked-numbers').then((r) => r.items),
+  create: (b: BlockedCreate) => api<BlockedDto>('POST', '/api/blocked-numbers', b),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/blocked-numbers/${id}`),
 };

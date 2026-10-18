@@ -28,7 +28,7 @@ export const ADMIN_PAGES = [
   { path: 'recordings', label: 'Recordings', milestone: 'M7' },
   { path: 'reports', label: 'Reports', milestone: 'M11' },
   { path: 'sms', label: 'SMS', milestone: 'M9' },
-  { path: 'blocked', label: 'Blocked numbers', milestone: 'M6' },
+  { path: 'blocked', label: 'Blocked numbers', milestone: null },
   { path: 'settings', label: 'Settings', milestone: null },
   { path: 'system', label: 'System', milestone: 'M11' },
 ] as const;

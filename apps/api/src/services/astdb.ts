@@ -3,7 +3,7 @@
 // is the truth: routes write it first, then call one of these; every AMI connect resyncs (04 §5.5).
 import { eq, isNotNull } from 'drizzle-orm';
 import type { Db } from '../db/client.ts';
-import { extensions, timeConditions, userRuntimeState } from '../db/schema.ts';
+import { blockedNumbers, extensions, timeConditions, userRuntimeState } from '../db/schema.ts';
 
 export type AstDbAmi = { action(fields: Record<string, string>): Promise<unknown> };
 
@@ -30,7 +30,11 @@ export const setForward = (
     ? put(ami, `${kind.toUpperCase()}/${ext}`, target)
     : del(ami, `${kind.toUpperCase()}/${ext}`);
 
-/** Wipe our keys and write them again from PostgreSQL. M6-T8 adds blocks, M8 queue pauses. */
+/** Callers from `number` (normalized) are rejected at the trunk (03 §6.4). */
+export const setBlock = (ami: AstDbAmi, number: string, on: boolean) =>
+  on ? put(ami, `BLOCK/${number}`, '1') : del(ami, `BLOCK/${number}`);
+
+/** Wipe our keys and write them again from PostgreSQL. M8 adds queue pauses. */
 export async function syncAstDb(db: Db, ami: AstDbAmi): Promise<void> {
   await ami.action({ Action: 'DBDelTree', Family: 'SP' }).catch(() => undefined); // empty tree
   const overrides = await db
@@ -47,4 +51,6 @@ export async function syncAstDb(db: Db, ami: AstDbAmi): Promise<void> {
     for (const kind of ['cfu', 'cfb', 'cfna'] as const)
       if (s[kind]) await setForward(ami, kind, ext, s[kind]);
   }
+  for (const b of await db.select({ n: blockedNumbers.number }).from(blockedNumbers))
+    await setBlock(ami, b.n, true);
 }

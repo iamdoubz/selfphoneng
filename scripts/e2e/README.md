@@ -105,3 +105,9 @@ dialplan.
 - `/me/settings` saves a no-answer forward.
 - `*43` echo test and `*65` say my extension.
 - `**200` and `*8` pick up a call ringing at 200.
+
+`m6-check.mjs` is the M6 milestone check (after `m1-t4.mjs`). It builds DID → office hours → menu
+(1 → a ring group of 221 and 222, 2 → 223; closed → 220's voicemail) and calls the trunk entry with
+a caller ID over AMI. It checks the closed path; `*31N` from an admin's phone (220) forcing open;
+the menu keys; and a number blocked on **Blocked numbers** being rejected (cause 21) while other
+callers still get through.
