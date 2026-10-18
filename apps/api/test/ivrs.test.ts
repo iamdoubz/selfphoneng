@@ -129,7 +129,7 @@ describe.skipIf(!hasTestDb)('/api/ivrs', () => {
         destination: { type: 'ivr', id: ivrId },
       })
     ).json();
-    expect(did.destinationSummary).toBe('Digital receptionist Main menu');
+    expect(did.destinationSummary).toBe('Digital receptionist Main menu (600)');
     expect((await req('DELETE', `/api/ivrs/${ivrId}`)).statusCode).toBe(409);
     // The refused delete must not have dropped its options.
     expect((await req('GET', `/api/ivrs/${ivrId}`)).json().options).toHaveLength(1);

@@ -73,7 +73,10 @@ Implementation notes (M3):
   (`POST /api/system/asterisk/restart?now=true`). `restartRequired` clears on the next AMI
   connect once Asterisk's uptime shows it started after the change.
 - M3 also ships steps 7 and 8 because "calls work using only the wizard" needs a user and a
-  routed number. Step 8 offers a user or an outside number; "everyone" and "an IVR" arrive in M6.
+  routed number. Step 8 has the full DestinationPicker plus a **Ring everyone** button (M6-T6), which
+  creates or refreshes a ring group "Everyone" with every extension (unanswered → the
+  lowest-numbered user's voicemail). It does not create an IVR: that needs a recorded greeting,
+  so the step points to Digital receptionist instead.
   Step 10 does not mention *43 or the softphone until M6/M5 build them.
 - The first phone number added becomes `routing.defaultCallerIdDidId` when none is set.
 
@@ -82,6 +85,9 @@ Implementation notes (M3):
 - **DestinationPicker**: a type select (User, Voicemail of user, Ring group, Queue,
   IVR, Office hours, Conference, Announcement, External number, Hang up), then a
   searchable target select or a number input. The value is a `Destination` object (02 §1).
+  As built (M6-T6): every type that exists so far (queues and conferences join in M8); the target
+  is a native select, which is searchable by typing. API summaries include the number where there
+  is one: "Ring group Sales (500)".
   The read-only display renders "→ Ring group Sales (500)".
 - **SoundPicker**: select + play button + "upload new" shortcut.
 - **ExtensionPicker** (single/multi, orderable via drag handle).

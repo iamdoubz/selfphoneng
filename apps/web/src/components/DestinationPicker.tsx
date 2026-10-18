@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // "Where should the call go?" (05 §3): a type, then the target (or a number).
-// Types join as their features land; M6-T6 finishes the list.
+// Every type that exists (M6-T6); queues and conferences join with M8.
 import { useQuery } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { normalizeNumber, type Destination } from '@selfphoneng/shared';

@@ -195,17 +195,14 @@ try {
   await p.waitFor(`document.body.innerText.includes('✓ ${ext} Dan Doe')`);
   await clickNext();
 
-  // 8. Main number → Dan
+  // 8. Main number → "Ring everyone" (M6: a ring group of all users; Dan is the only one)
   await step(8, 'Main number');
   const label = 'When someone calls (312) 555-1234 (Main line), ring:';
-  await choose(`${label}: type`, 'user');
+  await p.click('Ring everyone');
   await p.waitFor(
-    `[...document.querySelectorAll('select[aria-label="${label}: user"] option')].some(o => o.textContent.includes('Dan Doe'))`,
+    `document.querySelector('select[aria-label="${label}: type"]')?.value === 'ring_group' && document.querySelector('select[aria-label="${label}: ring group"]')?.selectedOptions[0]?.textContent.includes('Everyone')`,
+    'ring group Everyone picked',
   );
-  const danId = await p.evaluate(
-    `[...document.querySelectorAll('select[aria-label="${label}: user"] option')].find(o => o.textContent.includes('Dan Doe')).value`,
-  );
-  await choose(`${label}: user`, danId);
   await p.click('Save and continue');
 
   // 9. Emergency: Next stays locked until a default E911 caller ID is saved.

@@ -113,7 +113,7 @@ describe.skipIf(!hasTestDb)('/api/ring-groups', () => {
       trunkId,
       destination: { type: 'ring_group', id: groupId },
     });
-    expect(did.json().destinationSummary).toBe('Ring group Sales');
+    expect(did.json().destinationSummary).toBe('Ring group Sales (500)');
     expect(await dialplan()).toContain(`Goto(sp-rg-${groupId},s,1)`);
     const busy = await req('DELETE', `/api/ring-groups/${groupId}`);
     expect(busy.statusCode).toBe(409);

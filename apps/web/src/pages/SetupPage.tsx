@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // First-run setup wizard (05 §2.1). Every step saves before moving on; some can be skipped.
 // M3 also brings steps 7 (users) and 8 (main number routing) because "calls work using only the
-// wizard" needs them; step 8's ring group and IVR choices arrive with M6.
+// wizard" needs them; M6 adds "Ring everyone" to step 8 (an IVR needs a recorded greeting first).
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -9,6 +9,7 @@ import { formatNumber, type Destination, type TrunkDto } from '@selfphoneng/shar
 import {
   didsApi,
   extensionsApi,
+  ringGroupsApi,
   settingsApi,
   systemApi,
   trunksApi,
@@ -619,6 +620,26 @@ function RoutingStep({ next }: { next: () => void }) {
   const qc = useQueryClient();
   const dids = useQuery({ queryKey: ['dids'], queryFn: didsApi.list });
   const [dest, setDest] = useState<Record<string, Destination | null>>({});
+  /** A ring group "Everyone" with every extension (made once, kept up to date). */
+  const everyone = useMutation({
+    mutationFn: async () => {
+      const exts = (await extensionsApi.list()).sort((a, b) => Number(a.number) - Number(b.number));
+      if (!exts.length) throw new Error('Add users with extensions first (step 7)');
+      const memberIds = exts.map((e) => e.id);
+      const existing = (await ringGroupsApi.list()).find((g) => g.name === 'Everyone');
+      const g = existing
+        ? await ringGroupsApi.update(existing.id, { memberIds })
+        : await ringGroupsApi.create({
+            number: (await extensionsApi.nextNumber('ringGroup')) ?? '500',
+            name: 'Everyone',
+            memberIds,
+            // Nobody picks up: the first person's voicemail rather than a dead end.
+            noAnswerDestination: { type: 'voicemail', id: exts[0]!.id },
+          });
+      await qc.invalidateQueries({ queryKey: ['ring-groups'] });
+      return g;
+    },
+  });
   const save = useMutation({
     mutationFn: async () => {
       for (const [id, d] of Object.entries(dest))
@@ -640,14 +661,38 @@ function RoutingStep({ next }: { next: () => void }) {
   const incomplete = Object.values(dest).some((d) => d === null);
   return (
     <>
-      {dids.data.map((d) => (
-        <DestinationPicker
-          key={d.id}
-          label={`When someone calls ${formatNumber(d.number)}${d.label ? ` (${d.label})` : ''}, ring:`}
-          value={dest[d.id] ?? d.destination}
-          onChange={(v) => setDest({ ...dest, [d.id]: v })}
-        />
-      ))}
+      <p className="text-xs text-zinc-500">
+        A digital receptionist ("press 1 for sales…") needs a recorded greeting: build it under
+        Digital receptionist later and pick it here or on the Phone numbers page.
+      </p>
+      {dids.data.map((d) => {
+        const value = dest[d.id] ?? d.destination;
+        return (
+          <div key={d.id} className="flex flex-col gap-2">
+            <DestinationPicker
+              // Re-mount when "Ring everyone" sets the value from outside.
+              key={JSON.stringify(value)}
+              label={`When someone calls ${formatNumber(d.number)}${d.label ? ` (${d.label})` : ''}, ring:`}
+              value={value}
+              onChange={(v) => setDest({ ...dest, [d.id]: v })}
+            />
+            <div>
+              <Button
+                disabled={everyone.isPending}
+                onClick={() =>
+                  everyone.mutate(undefined, {
+                    onSuccess: (g) =>
+                      setDest({ ...dest, [d.id]: { type: 'ring_group', id: g.id } }),
+                  })
+                }
+              >
+                Ring everyone
+              </Button>
+            </div>
+          </div>
+        );
+      })}
+      {everyone.isError && <Alert>{everyone.error.message}</Alert>}
       {save.isError && <Alert>{save.error.message}</Alert>}
       <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
         <Button

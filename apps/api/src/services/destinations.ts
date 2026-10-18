@@ -40,8 +40,10 @@ async function targetName(db: Db, type: RefType, id: string): Promise<string | n
     return e ? `${e.name} (${e.number})` : null;
   }
   const t = TABLES[type];
-  const [r] = await db.select({ name: t.name }).from(t).where(eq(t.id, id));
-  return r?.name ?? null;
+  const [r] = await db.select().from(t).where(eq(t.id, id));
+  if (!r) return null;
+  // Things you can dial show their number too: "Ring group Sales (500)" (05 §3).
+  return 'number' in r ? `${r.name} (${r.number})` : r.name;
 }
 
 /** Throws 400 when a destination points at something that doesn't exist. */
