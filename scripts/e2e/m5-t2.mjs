@@ -12,6 +12,8 @@ import { startPhones } from './phones.mjs';
 const NET = 'sp-live';
 const AST = 'sp-live-ast';
 const USER = { email: 'web@example.com', password: 'web-new-password-123' };
+/** The softphone's own buttons (People rows also have Call/Transfer). */
+const SP = '[aria-label=Softphone]';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const docker = (...a) => spawnSync('docker', a, { encoding: 'utf8' }).stdout ?? '';
 const cli = (cmd) => docker('exec', AST, 'asterisk', '-rx', cmd);
@@ -132,7 +134,7 @@ try {
   console.log('incoming dialog → answered');
 
   // 2. DTMF from the keypad reaches the other phone.
-  await p.click('Keypad');
+  await p.click('Keypad', SP);
   await p.evaluate(
     `[...document.querySelectorAll('[aria-label="Send tones"] button')].find(b => b.textContent === '5').click(), true`,
   );
@@ -141,11 +143,11 @@ try {
 
   // 3. Hold / resume: Asterisk plays music on hold to 172 while held.
   let at = mark();
-  await p.click('Hold');
+  await p.click('Hold', SP);
   await p.waitFor(`document.body.innerText.includes('On hold')`, 'held in the UI');
   await waitUntil(() => /music on hold.*PJSIP\/172-/i.test(logSince(at)), 'MOH to 172', 5000);
   at = mark();
-  await p.click('Resume');
+  await p.click('Resume', SP);
   await waitUntil(
     () => /Stopped music on hold.*PJSIP\/172-/i.test(logSince(at)),
     'MOH stopped',
@@ -162,7 +164,7 @@ try {
     15_000,
   );
   await p.shot('m5-t2-02-waiting');
-  await p.click('Answer');
+  await p.click('Answer', SP);
   await waitUntil(() => /music on hold.*PJSIP\/172-/i.test(logSince(at)), '172 held', 8000);
   await p.waitFor(
     `document.body.innerText.includes('On hold') && document.body.innerText.includes('On call')`,
@@ -172,13 +174,13 @@ try {
   await p.waitFor(`!document.body.innerText.includes('On call')`, 'calls gone in the UI');
 
   // 5. Blind transfer: browser calls 172, transfers it to 173.
-  await p.click('Keypad');
+  await p.click('Keypad', SP);
   await p.fill('Number to call', '172');
-  await p.click('Call');
+  await p.click('Call', SP);
   await p.waitFor(`document.body.innerText.includes('On call')`, 'browser → 172 answered', 15_000);
-  await p.click('Transfer');
+  await p.click('Transfer', SP);
   await p.fill('Transfer to', '173');
-  await p.click('Transfer now');
+  await p.click('Transfer now', SP);
   await waitUntil(transferred, 'blind transfer: 172 ↔ 173');
   await p.waitFor(`!document.body.innerText.includes('On call')`, 'browser left the call');
   console.log('blind transfer: 172 now talks to 173');
@@ -186,18 +188,18 @@ try {
 
   // 6. Attended transfer: browser calls 172, talks to 173 first, then completes.
   await p.fill('Number to call', '172');
-  await p.click('Call');
+  await p.click('Call', SP);
   await p.waitFor(`document.body.innerText.includes('On call')`, 'browser → 172 answered', 15_000);
-  await p.click('Transfer');
+  await p.click('Transfer', SP);
   await p.fill('Transfer to', '173');
-  await p.click('Talk first');
+  await p.click('Talk first', SP);
   await p.waitFor(
     `[...document.querySelectorAll('button')].some(b => b.textContent === 'Complete transfer' && !b.disabled)`,
     'consult call to 173 answered',
     15_000,
   );
   await p.shot('m5-t2-03-consult');
-  await p.click('Complete transfer');
+  await p.click('Complete transfer', SP);
   await waitUntil(transferred, 'attended transfer: 172 ↔ 173');
   console.log('attended transfer: 172 now talks to 173');
   await hangupAll();

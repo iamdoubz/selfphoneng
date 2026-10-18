@@ -16,7 +16,7 @@ import { decrypt } from '../crypto/secrets.ts';
 import { getSetting } from '../services/settings.ts';
 import { requireAuth } from '../auth/guards.ts';
 import { extensions, voicemailMessages } from '../db/schema.ts';
-import { badRequest, HttpError, notFound } from '../errors.ts';
+import { badRequest, conflict, HttpError, notFound } from '../errors.ts';
 import { AudioError, MAX_UPLOAD_BYTES, toPcmWav } from '../media/audio.ts';
 import { toVoicemailDto, type watchVoicemail } from '../services/voicemail.ts';
 
@@ -29,6 +29,13 @@ declare module 'fastify' {
 const IdParams = z.object({ id: z.uuid() });
 const KindParams = z.object({ kind: z.enum(GREETINGS) });
 const MoveBody = z.object({ folder: z.enum(['INBOX', 'Old']) });
+/** Anything a person would type: "(312) 555-1234", "+44 20 …", "172". */
+const ClickToCallBody = z.object({
+  number: z
+    .string()
+    .max(40)
+    .regex(/^[0-9*#+()\s.-]*[0-9*#][0-9*#+()\s.-]*$/, 'Enter a number'),
+});
 
 export async function meRoutes(app: FastifyInstance) {
   const { db } = app;
@@ -93,6 +100,27 @@ export async function meRoutes(app: FastifyInstance) {
           : []),
       ],
     };
+  });
+
+  /** Rings the user's desk phone first; when they pick up, it dials `number` (04 §7.3). */
+  app.post('/api/me/click-to-call', async (req) => {
+    const { number } = ClickToCallBody.parse(req.body);
+    const ext = await myExtension(req.user!.id);
+    if (!app.ami.isConnected())
+      throw new HttpError(503, 'unavailable', 'Asterisk is not connected');
+    if (!app.live.deskOnline(ext.number))
+      throw conflict("Your desk phone isn't connected, so it can't ring");
+    const target = number.replace(/[^0-9*#+]/g, '');
+    await app.ami.action({
+      Action: 'Originate',
+      Channel: `PJSIP/${ext.number}`,
+      Context: 'sp-from-ext',
+      Exten: target,
+      Priority: '1',
+      CallerID: `"${target}" <${ext.number}>`,
+      Async: 'true',
+    });
+    return { ok: true };
   });
 
   app.get('/api/me/voicemail', async (req): Promise<ListResponse<VoicemailDto>> => {

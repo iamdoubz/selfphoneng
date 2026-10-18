@@ -106,6 +106,12 @@ Right column on wide screens, a tab on mobile. Lists every extension with its
 StatusDot, name and number, plus a search box. Click to call, or to transfer when
 in a call (drop the active call onto a person = blind transfer; a menu offers attended).
 
+As built (M5-T3): the tab is `/me/people`, shown only below the `lg` breakpoint. **Call** uses the
+browser softphone when it's registered, and otherwise click-to-call: the desk phone rings first,
+or a 409 comes back if no desk phone is registered. During a call each person shows **Transfer**
+(blind) and **Talk first** (a consult call; the first call is held). A held call card offers
+**Complete transfer** whenever another call is active, which also covers call waiting.
+
 ## 5. Browser softphone (`src/softphone/`)
 
 ### 5.1 Structure

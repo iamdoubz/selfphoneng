@@ -379,3 +379,6 @@ export class SoftphoneEngine {
 
 /** One engine per tab. */
 export const softphone = new SoftphoneEngine();
+
+/** dataTransfer type for dragging a call card onto a person in People (blind transfer). */
+export const CALL_DRAG = 'application/x-selfphoneng-call';

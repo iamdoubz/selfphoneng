@@ -77,7 +77,7 @@ describe.skipIf(!hasTestDb)('/api/me/voicemail and greetings', () => {
     // Asterisk's side of VoicemailMove/VoicemailRemove, on disk (one message, msg0000).
     t.ami.action = async function (f: Record<string, string>) {
       this.actions.push(f);
-      const from = join(box(), f.Folder!, 'msg0000');
+      const from = join(box(), f.Folder ?? '', 'msg0000');
       if (f.Action === 'VoicemailMove') {
         mkdirSync(join(box(), f.ToFolder!), { recursive: true });
         for (const x of ['wav', 'txt'])
@@ -142,6 +142,24 @@ describe.skipIf(!hasTestDb)('/api/me/voicemail and greetings', () => {
     t.ami.connected = false;
     expect((await dan('DELETE', `/api/me/voicemail/${m.id}`)).statusCode).toBe(503);
     t.ami.connected = true;
+  });
+
+  it('click-to-call: rings my desk phone first, then dials the number', async () => {
+    expect((await dan('POST', '/api/me/click-to-call', { number: '172' })).statusCode).toBe(409);
+    t.live.deskOnline = (n) => n === '101';
+    const r = await dan('POST', '/api/me/click-to-call', { number: '(312) 555-1234' });
+    expect(r.statusCode).toBe(200);
+    expect(t.ami.actions.at(-1)).toEqual({
+      Action: 'Originate',
+      Channel: 'PJSIP/101',
+      Context: 'sp-from-ext',
+      Exten: '3125551234',
+      Priority: '1',
+      CallerID: '"3125551234" <101>',
+      Async: 'true',
+    });
+    expect((await dan('POST', '/api/me/click-to-call', { number: 'abc' })).statusCode).toBe(400);
+    expect((await eve('POST', '/api/me/click-to-call', { number: '172' })).statusCode).toBe(404);
   });
 
   it('webrtc: creds for <ext>-web with ICE servers; 404 without an extension', async () => {

@@ -2,14 +2,15 @@
 // Softphone on every /me page (05 §5.3): a bar at the bottom that opens a panel with the
 // dialpad and audio devices; call cards with mute/hold/keypad/transfer; the incoming call dialog.
 // Not yet: DND toggle (M6), Record via *1 and recent calls (M7).
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { formatNumber } from '@selfphoneng/shared';
 import { meApi } from '../api/client.ts';
 import { Dialog } from '../components/Dialog.tsx';
 import { Button, inputClass } from '../components/ui.tsx';
 import { useLive } from '../live/store.ts';
 import { onTakeOver, stepDown, takeOver, tryLead } from './leader.ts';
-import { softphone, type CallInfo } from './SoftphoneEngine.ts';
+import { CALL_DRAG, softphone, type CallInfo } from './SoftphoneEngine.ts';
+import { useSoftphone } from './useSoftphone.ts';
 import { startRinging, stopRinging } from './sounds.ts';
 
 const KEY = 'softphone.enabled';
@@ -28,8 +29,6 @@ const remember = (on: boolean) => {
     /* private mode: just don't remember */
   }
 };
-
-export const useSoftphone = () => useSyncExternalStore(softphone.subscribe, () => softphone.state);
 
 onTakeOver(async () => {
   await softphone.stop();
@@ -290,7 +289,10 @@ function CallCard({
   const [transfer, setTransfer] = useState(false);
   const [target, setTarget] = useState('');
   const [consultId, setConsultId] = useState<string | null>(null);
-  const consult = useSoftphone().calls.find((c) => c.id === consultId);
+  const all = useSoftphone().calls;
+  const consult = all.find((c) => c.id === consultId);
+  // Held here while talking on another call (call waiting, or "Talk first" from People).
+  const other = all.find((c) => c.id !== call.id && c.state === 'active' && !c.held);
   const run = (p: Promise<unknown>) => {
     onError(null);
     p.catch((e: Error) => onError(e.message));
@@ -310,6 +312,9 @@ function CallCard({
       role="group"
       aria-label={`${label}: ${name}`}
       className="flex flex-col gap-2 rounded-md bg-zinc-100 p-2 dark:bg-zinc-900"
+      // Drop it on a person in People to transfer it there.
+      draggable={call.state === 'active'}
+      onDragStart={(e) => e.dataTransfer.setData(CALL_DRAG, call.id)}
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="flex-1 text-sm">
@@ -330,6 +335,14 @@ function CallCard({
           </>
         ) : (
           <>
+            {call.held && other && !consultId && (
+              <Button
+                variant="primary"
+                onClick={() => run(softphone.attendedTransfer(call.id, other.id))}
+              >
+                Complete transfer
+              </Button>
+            )}
             {call.state === 'active' && (
               <>
                 <Button

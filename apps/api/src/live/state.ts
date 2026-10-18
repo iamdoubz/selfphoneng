@@ -86,6 +86,15 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
     return admin ? { ...rest, contacts } : rest;
   }
 
+  /** A desk phone or phone app (not the browser) is registered for this extension. */
+  deskOnline(number: string): boolean {
+    return (
+      this.exts
+        .get(number)
+        ?.contacts.some((c) => c.endpoint === number && c.status !== 'unreachable') ?? false
+    );
+  }
+
   private setAmi(connected: boolean) {
     if (this.amiConnected === connected) return;
     this.amiConnected = connected;

@@ -18,6 +18,8 @@ const AST = 'sp-live-ast';
 const PHONE = 'sp-live-phone171';
 const USER = { email: 'web@example.com', password: 'web-new-password-123' };
 const SECONDS = 8;
+/** The softphone's own buttons (People rows also have Call/Transfer). */
+const SP = '[aria-label=Softphone]';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const docker = (...a) => {
   const r = spawnSync('docker', a, { encoding: 'utf8' });
@@ -165,14 +167,14 @@ try {
   await p.shot('m5-t1-01-ready');
 
   // Browser → desk phone.
-  await p.click('Keypad');
+  await p.click('Keypad', SP);
   await p.fill('Number to call', '171');
-  await p.click('Call');
+  await p.click('Call', SP);
   await p.waitFor(`document.body.innerText.includes('On call')`, 'outgoing call answered', 15_000);
   await sleep(SECONDS * 1000);
   await p.shot('m5-t1-02-outgoing');
   assertTwoWay('browser → desk');
-  await p.click('Hang up');
+  await p.click('Hang up', SP);
   await p.waitFor(`!document.body.innerText.includes('On call')`, 'hung up');
   await hangupAll();
 
@@ -180,11 +182,11 @@ try {
   cli(`channel originate PJSIP/171 extension 170@sp-from-ext`);
   await p.waitFor(`document.body.innerText.includes('Incoming call')`, 'incoming call', 15_000);
   await p.shot('m5-t1-03-incoming');
-  await p.click('Answer');
+  await p.click('Answer', SP);
   await p.waitFor(`document.body.innerText.includes('On call')`, 'incoming answered', 10_000);
   await sleep(SECONDS * 1000);
   assertTwoWay('desk → browser');
-  await p.click('Hang up');
+  await p.click('Hang up', SP);
   await p.waitFor(`!document.body.innerText.includes('On call')`, 'hung up');
   await hangupAll();
 

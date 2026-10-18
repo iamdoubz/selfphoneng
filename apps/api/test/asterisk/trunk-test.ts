@@ -471,7 +471,11 @@ async function main() {
 
     // eslint-disable-next-line no-control-regex -- strips Asterisk's ANSI colors
     const plainLog = docker('logs', PBX).out.replace(/\x1b\[[0-9;]*m/g, '');
-    const errors = plainLog.split('\n').filter((l) => /ERROR\[/.test(l));
+    // An RTCP report sent while a test container's network is going away fails with EPERM;
+    // that's teardown noise, not a config problem.
+    const errors = plainLog
+      .split('\n')
+      .filter((l) => /ERROR\[/.test(l) && !/RTCP SR transmission error/.test(l));
     problems.push(...errors.map((l) => `pbx log: ${l.trim()}`));
   } catch (e) {
     problems.push((e as Error).message);

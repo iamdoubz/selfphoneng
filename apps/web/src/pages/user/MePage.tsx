@@ -10,6 +10,7 @@ import { ThemeToggle } from '../../components/ThemeToggle.tsx';
 import { Alert, Button } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
 import { SoftphoneDock } from '../../softphone/SoftphoneDock.tsx';
+import { PresencePanel } from '../../softphone/PresencePanel.tsx';
 import { VoicemailPage, callerOf, isNew, mmss } from './VoicemailPage.tsx';
 
 const link = 'text-sky-700 underline dark:text-sky-400';
@@ -17,6 +18,7 @@ const link = 'text-sky-700 underline dark:text-sky-400';
 export function MePage({ user }: { user: AuthUser }) {
   const qc = useQueryClient();
   const nav = useNavigate();
+  const me = user.extension?.number ?? null;
   useEffect(subscribeLive, []);
   const voicemailSeq = useLive((s) => s.voicemailSeq);
   useEffect(() => {
@@ -26,7 +28,7 @@ export function MePage({ user }: { user: AuthUser }) {
   const tab = ({ isActive }: { isActive: boolean }) =>
     `rounded-md px-3 py-2 text-sm font-medium ${isActive ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'}`;
   return (
-    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col gap-6 p-4 sm:p-8">
+    <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-6 p-4 sm:p-8">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">{APP_NAME}</h1>
         <div className="flex items-center gap-2">
@@ -58,12 +60,24 @@ export function MePage({ user }: { user: AuthUser }) {
         <NavLink to="/me/voicemail" className={tab}>
           Voicemail
         </NavLink>
+        {/* People is a right-hand column on wide screens, a tab on small ones (05 §4.1). */}
+        <NavLink to="/me/people" className={(s) => `${tab(s)} lg:hidden`}>
+          People
+        </NavLink>
       </nav>
-      <Routes>
-        <Route index element={<Home user={user} />} />
-        <Route path="voicemail" element={<VoicemailPage />} />
-      </Routes>
-      <SoftphoneDock />
+      <div className="grid flex-1 gap-8 lg:grid-cols-[1fr_20rem]">
+        <div className="flex min-w-0 flex-col gap-6">
+          <Routes>
+            <Route index element={<Home user={user} />} />
+            <Route path="voicemail" element={<VoicemailPage />} />
+            <Route path="people" element={<PresencePanel me={me} />} />
+          </Routes>
+          <SoftphoneDock />
+        </div>
+        <aside className="hidden lg:block">
+          <PresencePanel me={me} />
+        </aside>
+      </div>
     </main>
   );
 }

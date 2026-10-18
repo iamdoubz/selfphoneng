@@ -69,3 +69,8 @@ directions.
 `phones.mjs` and checks the softphone features: the incoming call dialog, DTMF, hold (music on hold
 at the other end), call waiting, blind and attended transfer, and "Use here" moving the softphone to
 a second tab (`cdp.mjs` `newTab()`).
+
+`m5-t3.mjs` (after `m5-t2.mjs`) is the M5-T3 acceptance. It watches People in one browser while 173
+calls 172 and measures the time from Asterisk's hint changing to the dot changing (must be < 1 s).
+Then a second browser, as a new user with desk phone 174 and the softphone off, clicks **Call** on
+172: 174 must ring first (Asterisk channel order), then the two are connected.

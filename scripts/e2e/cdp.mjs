@@ -115,10 +115,13 @@ async function attach(wsUrl, { width, height, shotsDir }) {
         return true;
       })()`),
     /** Clicks the first visible button/link whose text or aria-label matches. */
-    click: (text) =>
+    /** `within`: a CSS selector to search inside, when the same label appears elsewhere. */
+    click: (text, within = 'body') =>
       evaluate(`(() => {
         const t = ${JSON.stringify(text)};
-        const el = [...document.querySelectorAll('button, a')].reverse().find(e => (e.textContent.trim() === t || e.getAttribute('aria-label') === t) && e.getClientRects().length);
+        const root = document.querySelector(${JSON.stringify(within)});
+        if (!root) throw new Error('no ' + ${JSON.stringify(within)});
+        const el = [...root.querySelectorAll('button, a')].reverse().find(e => (e.textContent.trim() === t || e.getAttribute('aria-label') === t) && e.getClientRects().length);
         if (!el) throw new Error('no visible button ' + t);
         el.click();
         return true;
