@@ -34,13 +34,17 @@ export async function liveRoutes(app: FastifyInstance) {
         ? `trunk:${m.data.trunkId}`
         : m.type === 'emergency.call'
           ? `emergency:${m.data.at}:${m.data.ext}` // never merge two 911 calls
-          : m.type;
+          : m.type === 'voicemail.new'
+            ? `voicemail:${m.data.id}`
+            : m.type;
 
   const maySee = (c: Client, m: LiveMessage) =>
-    c.admin ||
-    (m.type === 'emergency.call'
-      ? m.data.audienceUserIds.includes(c.userId)
-      : !m.type.startsWith('trunk.'));
+    m.type === 'voicemail.new'
+      ? m.data.userId === c.userId // private, even from admins
+      : c.admin ||
+        (m.type === 'emergency.call'
+          ? m.data.audienceUserIds.includes(c.userId)
+          : !m.type.startsWith('trunk.'));
 
   app.live.on('message', (m) => {
     for (const c of clients) if (maySee(c, m)) c.pending.set(keyOf(m), m);

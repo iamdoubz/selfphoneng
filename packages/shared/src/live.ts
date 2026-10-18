@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Live state shapes sent over the /api/live WebSocket (04 §5.1, §5.2).
+import type { VoicemailDto } from './voicemail.ts';
 
 export type ExtensionState =
   'idle' | 'inuse' | 'busy' | 'unavailable' | 'ringing' | 'onhold' | 'ringinuse';
@@ -59,6 +60,8 @@ export type LiveMessage =
   | { type: 'trunk.updated'; data: TrunkLive }
   | { type: 'trunk.removed'; data: { trunkId: string } }
   | { type: 'emergency.call'; data: EmergencyCall }
+  /** Only to the mailbox owner. */
+  | { type: 'voicemail.new'; data: VoicemailDto & { userId: string } }
   | { type: 'ami.status'; data: { connected: boolean } }
   | {
       type: 'system.configApplied';

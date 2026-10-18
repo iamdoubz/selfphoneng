@@ -7,10 +7,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { launch } from './cdp.mjs';
+import { smtpSink } from './smtp-sink.mjs';
 
 const NET = 'sp-live';
 const AST = 'sp-live-ast';
@@ -23,36 +23,7 @@ const docker = (...a) => {
 const cli = (cmd) => docker('exec', AST, 'asterisk', '-rx', cmd).out;
 const [base, email, pw, shotsDir] = process.argv.slice(2);
 
-/** Just enough SMTP for nodemailer: no auth, no TLS, keeps every message. */
-const mails = [];
-const smtp = createServer((sock) => {
-  let data = false;
-  let buf = '';
-  let msg = '';
-  sock.write('220 sink ESMTP\r\n');
-  sock.on('data', (d) => {
-    buf += d;
-    let i;
-    while ((i = buf.indexOf('\r\n')) >= 0) {
-      const line = buf.slice(0, i);
-      buf = buf.slice(i + 2);
-      if (data) {
-        if (line === '.') {
-          data = false;
-          mails.push(msg);
-          msg = '';
-          sock.write('250 ok\r\n');
-        } else msg += line + '\n';
-      } else if (/^EHLO/i.test(line)) sock.write('250-sink\r\n250 OK\r\n');
-      else if (/^DATA/i.test(line)) {
-        data = true;
-        sock.write('354 go\r\n');
-      } else if (/^QUIT/i.test(line)) sock.end('221 bye\r\n');
-      else sock.write('250 ok\r\n');
-    }
-  });
-});
-await new Promise((r) => smtp.listen(2525, '127.0.0.1', r));
+const { mails, server: smtp } = await smtpSink();
 
 const login = await fetch(`${base}/api/auth/login`, {
   method: 'POST',

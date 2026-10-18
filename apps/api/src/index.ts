@@ -11,6 +11,7 @@ import { ensureInitialAdmin } from './services/bootstrap.ts';
 import { LiveState } from './live/state.ts';
 import { smtpMailer } from './services/mail.ts';
 import { watchEmergencies } from './services/emergency.ts';
+import { watchVoicemail } from './services/voicemail.ts';
 
 let config;
 try {
@@ -50,6 +51,18 @@ app.decorate('ami', ami);
 const sendMail = smtpMailer(db);
 app.decorate('sendMail', sendMail);
 watchEmergencies({ db, ami, live, send: sendMail, log: app.log }, ami);
+const voicemail = watchVoicemail(
+  {
+    db,
+    spoolDir: resolve(config.VOICEMAIL_DIR),
+    ami,
+    live,
+    send: sendMail,
+    publicHost: config.PUBLIC_HOSTNAME,
+    log: app.log,
+  },
+  ami,
+);
 app.decorate('live', live);
 
 await runMigrations(db);
@@ -72,6 +85,7 @@ ami.on('connected', () => {
       app.log.info('asterisk restarted: restart no longer required');
     await generator.apply({ trigger: 'startup', force: true });
     await live.loadFromAsterisk();
+    await voicemail.scanAll();
   })().catch((err) => app.log.error({ err }, 'startup sync failed'));
 });
 ami.start();

@@ -3,9 +3,10 @@
 // AMI published on 127.0.0.1:15038, the api writing its config into that container, two baresip
 // phones, and the dashboard checked in a headless browser.
 //
-// 1. node scripts/e2e/m2-live.mjs up <confDir>
+// 1. node scripts/e2e/m2-live.mjs up <confDir> [<voicemailDir>]
 //      starts Asterisk; then start the api with AMI_PORT=15038 AMI_SECRET=m2-live-secret
-//      ASTERISK_CONFIG_DIR=<confDir> and run m1-t4.mjs to get past the first login
+//      ASTERISK_CONFIG_DIR=<confDir> [VOICEMAIL_DIR=<voicemailDir>] and run m1-t4.mjs to get
+//      past the first login
 // 2. node scripts/e2e/m2-live.mjs check <baseUrl> <adminEmail> <adminPassword> <shotsDir>
 // 3. node scripts/e2e/m2-live.mjs down
 import assert from 'node:assert/strict';
@@ -28,8 +29,9 @@ const cli = (cmd) => docker('exec', AST, 'asterisk', '-rx', cmd).out;
 const [cmd, ...args] = process.argv.slice(2);
 
 if (cmd === 'up') {
-  const conf = args[0];
+  const [conf, vm] = args;
   mkdirSync(conf, { recursive: true });
+  if (vm) mkdirSync(vm, { recursive: true });
   const dir = mkdtempSync(join(tmpdir(), 'sp-live-'));
   writeFileSync(
     join(dir, 'manager.conf.template'),
@@ -53,6 +55,7 @@ if (cmd === 'up') {
     `${conf}:/etc/asterisk/selfphoneng`,
     '-v',
     `${join(dir, 'manager.conf.template')}:/etc/asterisk/manager.conf.template:ro`,
+    ...(vm ? ['-v', `${vm}:/var/spool/asterisk/voicemail`] : []),
     IMAGE,
   );
   assert.ok(r.ok, r.out);

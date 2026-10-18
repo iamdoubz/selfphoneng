@@ -236,21 +236,26 @@ Keep one function per key type (`setDnd(ext, on)`, etc.). Routes call these afte
 
 ### 5.6 Voicemail watcher (`services/voicemail.ts`)
 
-- Watch `/var/spool/asterisk/voicemail/default/*/{INBOX,Old,Urgent}/msg*.txt` with chokidar (`awaitWriteFinish: { stabilityThreshold: 2000 }`).
-- Parse the `.txt` file: INI-like, section `[message]`, keys `callerid`, `origtime` (epoch),
-  `duration`, `msg_id`, `flag`. `callerid` looks like `"Name" <13125551234>`.
-- **add**: upsert `voicemail_messages` by `msg_id` (update `folder`, `file_path`).
-  If it's new and in INBOX: fire `voicemail.new` (WS + webhook) and, if the user has
-  `voicemail_email` and SMTP is configured, send an email (§10) with the `.wav` attached
-  if `voicemail_attach_audio`. Then set `emailed_at`. If `voicemail_delete_after_email`, delete it (below).
-- **unlink**: if no file with that `msg_id` is left anywhere in the mailbox, set `deleted_at`.
-- **API operations** (`markRead` = move INBOX→Old, `delete`, `move`): Asterisk expects
-  files in each folder numbered `msg0000…msgNNNN` with no gaps. So every
-  operation must, under a per-mailbox lock: move/delete the `.txt` and `.wav`
-  together, renumber the remaining files in that folder to close gaps, then
-  send AMI `VoicemailRefresh Context: default Mailbox: <ext>` so MWI lights update.
-  First check `manager show commands` on the installed Asterisk for `VoicemailRemove`/`VoicemailMove`
-  actions. If they exist, use them instead and delete the renumbering code.
+- **When to look:** rescan one mailbox's `INBOX`, `Old` and `Urgent` folders on every AMI
+  `MessageWaiting` event (`Mailbox: 101@default`), and every mailbox on each AMI (re)connect.
+  Asterisk raises it after a message is saved, listened to, moved or deleted, from a phone or
+  from us. No file watcher: inotify is unreliable on bind mounts, and this needs no dependency.
+  Scans of one mailbox run one at a time. (M4-T2; the spec first said chokidar.)
+- Parse each `msgNNNN.txt`: INI-like, section `[message]`, keys `callerid`, `origtime` (epoch),
+  `duration`, `msg_id`, `flag`. `callerid` looks like `"Name" <13125551234>`. A file without
+  `msg_id` is still being written: skip it, the next event picks it up.
+- Upsert `voicemail_messages` by `msg_id` (update `folder`, `file_path`; `file_path` is relative
+  to the spool, e.g. `default/101/INBOX/msg0000.wav`, because Asterisk renumbers files).
+  If it's new and not in `Old`: send `voicemail.new` over the live WebSocket (only to the owner,
+  not to admins; webhook in M11-T5) and, if the user has `voicemail_email`, an email address and
+  SMTP is configured, send an email (§10) with the `.wav` attached if `voicemail_attach_audio`.
+  Then set `emailed_at`. If `voicemail_delete_after_email` **and** the audio was attached, remove
+  it with AMI `VoicemailRemove` and set `deleted_at`. A failed email is logged; the message stays.
+- Rows whose `msg_id` is no longer in any folder get `deleted_at`.
+- **API operations** (`markRead` = INBOX→Old, `delete`): use the AMI actions `VoicemailMove`
+  (`Context, Mailbox, Folder, ID, ToFolder`) and `VoicemailRemove` (`Context, Mailbox, Folder, ID`),
+  where `ID` is the `msg_id`. They exist in Asterisk 24 (checked on 24.0.0-rc2), renumber the
+  folder and update MWI, so there is no renumbering code.
 - Greetings: `PUT /api/me/greetings/:kind` (kind: `unavail` | `busy` | `greet` (name) | `temp`)
   converts the upload to `/var/spool/asterisk/voicemail/default/<ext>/<kind>.wav`
   (8 kHz mono PCM). `DELETE` removes it.

@@ -5,7 +5,12 @@ import type { Db } from '../db/client.ts';
 import { decrypt } from '../crypto/secrets.ts';
 import { getSetting } from './settings.ts';
 
-export type Mail = { to: string[]; subject: string; text: string };
+export type Mail = {
+  to: string[];
+  subject: string;
+  text: string;
+  attachments?: { filename: string; path: string }[];
+};
 export type SendMail = (m: Mail) => Promise<void>;
 
 export class MailNotConfigured extends Error {
@@ -16,7 +21,7 @@ export class MailNotConfigured extends Error {
 
 /** Reads the SMTP settings on every send, so changes apply without a restart. */
 export function smtpMailer(db: Db): SendMail {
-  return async ({ to, subject, text }) => {
+  return async ({ to, subject, text, attachments }) => {
     const smtp = await getSetting(db, 'smtp');
     if (!smtp) throw new MailNotConfigured();
     const transport = nodemailer.createTransport({
@@ -27,6 +32,6 @@ export function smtpMailer(db: Db): SendMail {
       connectionTimeout: 15_000,
       greetingTimeout: 15_000,
     });
-    await transport.sendMail({ from: smtp.from, to, subject, text });
+    await transport.sendMail({ from: smtp.from, to, subject, text, attachments });
   };
 }

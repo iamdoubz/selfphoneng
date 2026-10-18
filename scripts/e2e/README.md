@@ -45,3 +45,9 @@ baresip phones, and `trunk-test.ts` with registration against a fake provider) n
 `m3-t5.mjs` is the M3-T5 acceptance and needs its own fresh database: it signs in with the
 initial password, walks all ten wizard steps against a fake voip.ms, then proves an inbound call
 to the DID rings the new user's softphone and an outbound call leaves with the DID as caller ID.
+
+`m4-t2.mjs` is the M4-T2 acceptance (no browser): start m2-live with a voicemail dir
+(`m2-live.mjs up <confDir> <vmDir>`) and the api with `VOICEMAIL_DIR=<vmDir>`. It runs the SMTP
+sink (`smtp-sink.mjs`, shared with `m3-t4.mjs`), adds a user and extension 150 with voicemail,
+leaves a message from a Local channel, and checks the email arrives within 10 s with a PCM 8 kHz
+wav attached. The voicemail itself (MWI on a phone, `*97`) is covered by `pnpm test:asterisk`.
