@@ -118,7 +118,8 @@ export class CallTracker {
       case 'VarSet': {
         const v = field(m, 'Variable') ?? '';
         const value = field(m, 'Value') ?? '';
-        if (!/^(?:__)?SP_(?:DID|DIRECTION|REC)$/.test(v) || !this.byLinkedid(linkedid).length) return;
+        if (!/^(?:__)?SP_(?:DID|DIRECTION|REC)$/.test(v) || !this.byLinkedid(linkedid).length)
+          return;
         const x = this.extraOf(linkedid);
         if (v.endsWith('DID')) x.did = value || x.did;
         else if (v.endsWith('DIRECTION'))
