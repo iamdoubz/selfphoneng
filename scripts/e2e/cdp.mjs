@@ -9,7 +9,8 @@ import { join } from 'node:path';
 const EDGE = process.env.BROWSER ?? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-export async function launch({ width = 1280, height = 800, shotsDir }) {
+/** `args`: extra browser flags, e.g. a fake microphone for MediaRecorder tests. */
+export async function launch({ width = 1280, height = 800, shotsDir, args = [] }) {
   const profile = mkdtempSync(join(tmpdir(), 'sp-edge-'));
   const port = 9300 + Math.floor(Math.random() * 500);
   const proc = spawn(EDGE, [
@@ -18,6 +19,7 @@ export async function launch({ width = 1280, height = 800, shotsDir }) {
     `--user-data-dir=${profile}`,
     '--no-first-run',
     `--window-size=${width},${height}`,
+    ...args,
     'about:blank',
   ]);
   let info;

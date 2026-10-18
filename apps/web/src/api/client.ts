@@ -8,6 +8,7 @@ import type {
   ExtensionCreate,
   ExtensionDto,
   ExtensionUpdate,
+  GreetingKind,
   ListResponse,
   NumberKind,
   OutboundRouteCreate,
@@ -23,6 +24,7 @@ import type {
   UserCreate,
   UserDto,
   UserUpdate,
+  VoicemailDto,
   Warning,
 } from '@selfphoneng/shared';
 
@@ -140,4 +142,32 @@ export const systemApi = {
     api<{ ip: string }>('POST', '/api/settings/network/detect-public-ip').then((r) => r.ip),
   setupStatus: () => api<{ completed: boolean }>('GET', '/api/setup/status'),
   completeSetup: () => api<{ ok: true }>('POST', '/api/setup/complete'),
+};
+
+export const meApi = {
+  voicemail: () => api<ListResponse<VoicemailDto>>('GET', '/api/me/voicemail').then((r) => r.items),
+  audioUrl: (id: string, download = false) =>
+    `/api/me/voicemail/${id}/audio${download ? '?download=1' : ''}`,
+  moveVoicemail: (id: string, folder: 'INBOX' | 'Old') =>
+    api<VoicemailDto>('PATCH', `/api/me/voicemail/${id}`, { folder }),
+  deleteVoicemail: (id: string) => api<{ ok: true }>('DELETE', `/api/me/voicemail/${id}`),
+  greetings: () => api<Record<GreetingKind, boolean>>('GET', '/api/me/greetings'),
+  greetingUrl: (kind: GreetingKind) => `/api/me/greetings/${kind}/audio`,
+  /** The raw recording or file is the body; the server converts it with ffmpeg. */
+  putGreeting: async (kind: GreetingKind, audio: Blob) => {
+    const res = await fetch(`/api/me/greetings/${kind}`, {
+      method: 'PUT',
+      credentials: 'same-origin',
+      headers: {
+        'X-Requested-With': 'selfphoneng',
+        'Content-Type': audio.type || 'application/octet-stream',
+      },
+      body: audio,
+    });
+    if (!res.ok) {
+      const e = (await res.json().catch(() => null))?.error ?? {};
+      throw new ApiError(res.status, e.code ?? 'internal', e.message ?? res.statusText, e.details);
+    }
+  },
+  deleteGreeting: (kind: GreetingKind) => api<{ ok: true }>('DELETE', `/api/me/greetings/${kind}`),
 };

@@ -63,6 +63,7 @@ const voicemail = watchVoicemail(
   },
   ami,
 );
+app.decorate('voicemail', voicemail);
 app.decorate('live', live);
 
 await runMigrations(db);

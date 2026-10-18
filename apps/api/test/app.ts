@@ -17,6 +17,7 @@ import { createGenerator } from '../src/generator/index.ts';
 import { LiveState } from '../src/live/state.ts';
 import type { AmiMessage } from '../src/ami/events.ts';
 import type { Mail } from '../src/services/mail.ts';
+import { watchVoicemail } from '../src/services/voicemail.ts';
 import { createTestDb } from './db.ts';
 
 /** Stand-in for AmiClient: records commands; flip `connected` to simulate Asterisk going away. */
@@ -90,6 +91,22 @@ export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) 
       onApplied: () => void live.loadFromDb().catch(() => {}), // may land after close()
     }),
   );
+  const spoolDir = mkdtempSync(join(tmpdir(), 'sp-vm-'));
+  app.decorate(
+    'voicemail',
+    watchVoicemail(
+      {
+        db: t.db,
+        spoolDir,
+        ami,
+        live,
+        send: (m) => app.sendMail(m),
+        publicHost: 'pbx.test',
+        log: app.log,
+      },
+      ami.events,
+    ),
+  );
   extend?.(app);
   await ensureInitialAdmin(t.db, ADMIN.email, ADMIN.password);
   resetLoginLimiter();
@@ -129,6 +146,7 @@ export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) 
     mail,
     live,
     genDir,
+    spoolDir,
     login,
     addUser,
     clearMustChange,

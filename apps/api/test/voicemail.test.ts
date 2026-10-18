@@ -1,13 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // M4-T2: voicemail index, live event and email (04 §5.6, §10).
-import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { LiveMessage } from '@selfphoneng/shared';
 import { extensions, voicemailMessages } from '../src/db/schema.ts';
-import { parseCallerId, watchVoicemail } from '../src/services/voicemail.ts';
+import { parseCallerId, type watchVoicemail } from '../src/services/voicemail.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
 
@@ -55,20 +54,9 @@ describe.skipIf(!hasTestDb)('voicemail watcher', () => {
       headers: { ...H, cookie },
       payload: { number: '101', name: 'Dan Doe', userId },
     });
-    spool = mkdtempSync(join(tmpdir(), 'sp-vm-'));
+    spool = t.spoolDir;
     t.live.on('message', (m) => live.push(m));
-    w = watchVoicemail(
-      {
-        db: t.db,
-        spoolDir: spool,
-        ami: t.ami,
-        live: t.live,
-        send: t.app.sendMail,
-        publicHost: 'pbx.test',
-        log: t.app.log,
-      },
-      t.ami.events,
-    );
+    w = t.app.voicemail;
   });
   afterAll(async () => {
     await t?.close();

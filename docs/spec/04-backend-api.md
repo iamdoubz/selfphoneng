@@ -312,7 +312,10 @@ Auth & self:
 | GET | `/api/me/voicemail/:id/audio` | user | streams the wav (`Content-Type: audio/wav`, supports Range) |
 | PATCH | `/api/me/voicemail/:id` | user | `{folder: 'Old'|'INBOX'}` |
 | DELETE | `/api/me/voicemail/:id` | user | |
-| PUT/DELETE | `/api/me/greetings/:kind` | user | multipart upload |
+| GET | `/api/me/greetings` | user | `{unavail, busy, greet, temp}`: which are recorded |
+| GET | `/api/me/greetings/:kind/audio` | user | the wav |
+| PUT/DELETE | `/api/me/greetings/:kind` | user | PUT body is the raw audio (a MediaRecorder Blob or a picked File, any `Content-Type`, max 20 MB), not multipart: no extra dependency. ffmpeg converts it (§6) |
+| GET | `/api/me/voicemail/:id/audio?download=1` | user | same, as an attachment |
 | GET/POST/PATCH/DELETE | `/api/me/contacts[/:id]` | user | personal contacts |
 | POST | `/api/me/click-to-call` | user | `{number}` → AMI `Originate Channel: PJSIP/<ext>, Context: sp-from-ext, Exten: <normalized>, Priority: 1, CallerID: "<number>" <<ext>>, Async: true`. The user's phone rings first, then the call goes out |
 

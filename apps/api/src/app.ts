@@ -20,6 +20,7 @@ import { trunkRoutes } from './routes/trunks.ts';
 import { didRoutes } from './routes/dids.ts';
 import { outboundRouteRoutes } from './routes/outbound.ts';
 import { liveRoutes } from './live/hub.ts';
+import { meRoutes } from './routes/me.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -91,10 +92,14 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.register(outboundRouteRoutes);
   app.register(settingsRoutes);
   app.register(liveRoutes);
+  app.register(meRoutes);
 
-  if (existsSync(publicDir)) {
-    app.register(fastifyStatic, { root: publicDir, wildcard: false });
-  }
+  // Always registered: reply.sendFile also streams voicemail audio (with Range) from the spool.
+  app.register(fastifyStatic, {
+    root: publicDir,
+    serve: existsSync(publicDir),
+    wildcard: false,
+  });
   app.setNotFoundHandler((req, reply) => {
     if (existsSync(publicDir) && req.method === 'GET' && !NON_SPA.test(req.url))
       return reply.sendFile('index.html');

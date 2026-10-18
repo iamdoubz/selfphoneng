@@ -221,6 +221,7 @@ export function watchVoicemail(d: VoicemailDeps, ami: Pick<EventEmitter, 'on'>) 
     if (context === 'default' && box && /^\d+$/.test(box)) void scan(box);
   });
   return {
+    spoolDir: d.spoolDir,
     scan,
     /** Startup and AMI reconnects: messages may have come and gone while we weren't listening. */
     scanAll: async () => {

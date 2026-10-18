@@ -51,3 +51,9 @@ to the DID rings the new user's softphone and an outbound call leaves with the D
 sink (`smtp-sink.mjs`, shared with `m3-t4.mjs`), adds a user and extension 150 with voicemail,
 leaves a message from a Local channel, and checks the email arrives within 10 s with a PCM 8 kHz
 wav attached. The voicemail itself (MWI on a phone, `*97`) is covered by `pnpm test:asterisk`.
+
+`m4-t3.mjs <baseUrl> <adminEmail> <adminPassword> <vmDir> <shotsDir>` is the M4-T3 acceptance on the
+same setup: it adds a user with extension 160 and a baresip phone with the mwi module, leaves
+messages, then as that user in the browser plays one (marks it read) and deletes another, each
+time checking the phone's MWI goes off within 5 s. It records the "no answer" greeting with a
+fake microphone and checks a caller hears it.

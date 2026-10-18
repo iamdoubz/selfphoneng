@@ -94,7 +94,7 @@ Implementation notes (M3):
 
 | Page | Path | Contents |
 |---|---|---|
-| Home | `/me` | Status card (DND toggle, forwarding summary, queue login toggles), missed calls, new voicemails, colleagues presence list |
+| Home | `/me` | Status card (DND toggle, forwarding summary, queue login toggles), missed calls, new voicemails, colleagues presence list. M4 ships only new voicemails; the rest arrives with DND/forwarding (M6), call history (M7) and presence (M5-T3) |
 | Calls | `/me/calls` | Own call history, click a number to call back, add to contacts |
 | Voicemail | `/me/voicemail` | List (new bold), play (marks read), download, delete. Greetings section: record in the browser (MediaRecorder → upload), upload, or delete for unavail/busy/name |
 | Contacts | `/me/contacts` | Personal + company (read-only) with search, click to call |

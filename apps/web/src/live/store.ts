@@ -12,6 +12,8 @@ type LiveStore = {
   trunks: Record<string, TrunkLive>;
   /** 911 alerts received while this tab was open, newest last; dismissed ones are removed. */
   emergencies: EmergencyCall[];
+  /** Bumped on every voicemail.new, so the voicemail list knows to refetch. */
+  voicemailSeq: number;
 };
 
 export const useLive = create<LiveStore>(() => ({
@@ -20,6 +22,7 @@ export const useLive = create<LiveStore>(() => ({
   extensions: {},
   trunks: {},
   emergencies: [],
+  voicemailSeq: 0,
 }));
 
 function apply(m: LiveMessage) {
@@ -46,6 +49,8 @@ function apply(m: LiveMessage) {
       }
       case 'emergency.call':
         return { emergencies: [...s.emergencies, m.data] };
+      case 'voicemail.new':
+        return { voicemailSeq: s.voicemailSeq + 1 };
       case 'ami.status':
         return { amiConnected: m.data.connected };
       default:

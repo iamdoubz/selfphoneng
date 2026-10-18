@@ -5,6 +5,10 @@
 export const VOICEMAIL_FOLDERS = ['INBOX', 'Old', 'Urgent'] as const;
 export type VoicemailFolder = (typeof VOICEMAIL_FOLDERS)[number];
 
+/** unavail/busy: played before the beep; greet: your name; temp: overrides both while set. */
+export const GREETINGS = ['unavail', 'busy', 'greet', 'temp'] as const;
+export type GreetingKind = (typeof GREETINGS)[number];
+
 export type VoicemailDto = {
   id: string;
   folder: VoicemailFolder;
