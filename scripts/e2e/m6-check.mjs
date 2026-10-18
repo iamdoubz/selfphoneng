@@ -211,6 +211,7 @@ try {
   await p.click('Sign in');
   await p.waitFor(`location.pathname === '/admin'`);
   await p.click('Blocked numbers');
+  await p.waitFor(`document.body.innerText.includes('Number to block')`);
   await p.fill('Number to block', '(312) 555-0111');
   await p.fill('Note (optional)', 'Test spammer');
   await p.click('Block');

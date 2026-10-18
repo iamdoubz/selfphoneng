@@ -36,6 +36,15 @@ describe('CallTracker', () => {
     expect(seen.at(-1)).toBeNull();
   });
 
+  it('an event after Hangup does not bring the channel back', () => {
+    const t = new CallTracker(() => undefined);
+    const ch = { Channel: 'Local/600@sp-from-ext-00000005;1', Linkedid: '2.0', Uniqueid: '2.0' };
+    t.handle({ Event: 'Newchannel', ChannelStateDesc: 'Down', ...ch });
+    t.handle({ Event: 'Hangup', ...ch });
+    t.handle({ Event: 'NewCallerid', ChannelStateDesc: 'Up', CallerIDNum: '193', ...ch });
+    expect(t.list()).toEqual([]);
+  });
+
   it('loads calls already up from CoreShowChannels', () => {
     const t = new CallTracker(() => undefined);
     const ch = (Channel: string, extra: Record<string, string>) => ({

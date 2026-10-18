@@ -164,7 +164,9 @@ try {
 
   // Call history: expand, the player's audio is a real recording.
   await p.click('Call history');
-  await p.waitFor(`document.body.innerText.includes('(312) 555-8888')`);
+  await p.waitFor(
+    `[...document.querySelectorAll('ul[aria-label=Calls] > li')].some(li => li.innerText.includes('(312) 555-8888'))`,
+  );
   await p.evaluate(
     `[...document.querySelectorAll('ul[aria-label=Calls] > li')].find(li => li.innerText.includes('(312) 555-8888')).querySelector('button[aria-expanded]').click(), true`,
   );

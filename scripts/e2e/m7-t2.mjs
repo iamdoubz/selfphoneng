@@ -105,6 +105,7 @@ try {
   await p.click('Sign in');
   await p.waitFor(`location.pathname === '/admin'`);
   await p.click('Call history');
+  await p.waitFor(`location.pathname === '/admin/calls'`);
   await p.waitFor(`document.body.innerText.includes('Cy Caller')`, 'calls listed');
   await p.evaluate(
     `(() => { const s = [...document.querySelectorAll('select')].find(s => s.labels[0]?.textContent === 'Status'); Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, 'voicemail'); s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`,

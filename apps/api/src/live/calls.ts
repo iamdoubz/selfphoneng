@@ -84,6 +84,8 @@ export class CallTracker {
       case 'Newstate':
       case 'NewCallerid':
       case 'NewConnectedLine':
+        // Only Newchannel creates: Asterisk can send a NewCallerid after a channel's Hangup.
+        if (!this.channels.has(name)) return;
         this.upsert(m);
         break;
       case 'Newexten': {
@@ -116,7 +118,7 @@ export class CallTracker {
       case 'VarSet': {
         const v = field(m, 'Variable') ?? '';
         const value = field(m, 'Value') ?? '';
-        if (!/^(?:__)?SP_(?:DID|DIRECTION|REC)$/.test(v) || !linkedid) return;
+        if (!/^(?:__)?SP_(?:DID|DIRECTION|REC)$/.test(v) || !this.byLinkedid(linkedid).length) return;
         const x = this.extraOf(linkedid);
         if (v.endsWith('DID')) x.did = value || x.did;
         else if (v.endsWith('DIRECTION'))
