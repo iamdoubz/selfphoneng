@@ -860,7 +860,7 @@ The `SpEmergency` event triggers notifications (04 §5.3, 06 §6). For the
 ```ini
 [sp-emergency-alert]
 ; Originated by the api: Channel PJSIP/<notify ext>, Context sp-emergency-alert, Exten <caller ext>
-exten => _X.,1,Answer()
+exten => _X!,1,Answer()        ; X! also matches a one-digit "0" (caller unknown, or a test)
  same => n,Wait(1)
  same => n,Playback(beep&beep&beep)
  same => n,Playback(extension)

@@ -75,6 +75,19 @@ exten => s,1,Set(PJSIP_HEADER(add,Call-Info)=<sip:\${SP_EXT}>\\;answer-after=0)
  same => n,Set(PJSIP_HEADER(add,Alert-Info)=info=alert-autoanswer)
  same => n,Return()
 
+; ─── 911 alert ring-out. Originated by the api (04 §5.3): Channel PJSIP/<notify ext>,
+; Exten = the extension that dialed 911.
+[sp-emergency-alert]
+exten => _X!,1,Answer()                ; X! also matches "0" (caller unknown)
+ same => n,Wait(1)
+ same => n,Playback(beep&beep&beep)
+ same => n,Playback(extension)
+ same => n,SayDigits(\${EXTEN})
+ same => n,Playback(beep&beep&beep)
+ same => n,Playback(extension)
+ same => n,SayDigits(\${EXTEN})
+ same => n,Hangup()
+
 [sp-vm-direct]
 exten => _X.,1,Answer()
  same => n,VoiceMail(\${EXTEN}@default,u)

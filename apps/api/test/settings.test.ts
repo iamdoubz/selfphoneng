@@ -24,6 +24,14 @@ describe.skipIf(!hasTestDb)('settings service', () => {
     await expect(setSetting(db, 'backup.time', '25:00')).rejects.toThrow();
   });
 
+  it('a nullable setting can be set and cleared again (JSON null, not SQL NULL)', async () => {
+    const id = '11111111-1111-4111-8111-111111111111';
+    await setSetting(db, 'emergency.defaultCallerIdDidId', id);
+    expect(await getSetting(db, 'emergency.defaultCallerIdDidId')).toBe(id);
+    await setSetting(db, 'emergency.defaultCallerIdDidId', null);
+    expect(await getSetting(db, 'emergency.defaultCallerIdDidId')).toBeNull();
+  });
+
   it('makes sms.webhookToken once and keeps it', async () => {
     const a = await getSetting(db, 'sms.webhookToken');
     expect(a).toMatch(/^[A-Za-z0-9]{32}$/);

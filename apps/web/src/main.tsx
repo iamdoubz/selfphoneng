@@ -13,6 +13,7 @@ import { DashboardPage } from './pages/admin/DashboardPage.tsx';
 import { TrunksPage } from './pages/admin/TrunksPage.tsx';
 import { NumbersPage } from './pages/admin/NumbersPage.tsx';
 import { OutboundPage } from './pages/admin/OutboundPage.tsx';
+import { SettingsPage } from './pages/admin/SettingsPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
 import './index.css';
 
@@ -22,23 +23,28 @@ const router = createBrowserRouter([
   {
     path: '/admin',
     element: <RequireAuth role="admin">{(user) => <AdminLayout user={user} />}</RequireAuth>,
-    children: ADMIN_PAGES.map((p) => ({
-      ...(p.path ? { path: p.path } : { index: true }),
-      element:
-        p.path === '' ? (
-          <DashboardPage />
-        ) : p.path === 'users' ? (
-          <RequireAuth>{(user) => <UsersPage currentUserId={user.id} />}</RequireAuth>
-        ) : p.path === 'outbound' ? (
-          <OutboundPage />
-        ) : p.path === 'numbers' ? (
-          <NumbersPage />
-        ) : p.path === 'trunks' ? (
-          <TrunksPage />
-        ) : (
-          <ComingSoon label={p.label} milestone={p.milestone ?? ''} />
-        ),
-    })),
+    children: [
+      ...ADMIN_PAGES.map((p) => ({
+        ...(p.path ? { path: p.path } : { index: true }),
+        element:
+          p.path === '' ? (
+            <DashboardPage />
+          ) : p.path === 'users' ? (
+            <RequireAuth>{(user) => <UsersPage currentUserId={user.id} />}</RequireAuth>
+          ) : p.path === 'settings' ? (
+            <SettingsPage />
+          ) : p.path === 'outbound' ? (
+            <OutboundPage />
+          ) : p.path === 'numbers' ? (
+            <NumbersPage />
+          ) : p.path === 'trunks' ? (
+            <TrunksPage />
+          ) : (
+            <ComingSoon label={p.label} milestone={p.milestone ?? ''} />
+          ),
+      })),
+      { path: 'settings/:tab', element: <SettingsPage /> },
+    ],
   },
   { path: '/me/*', element: <RequireAuth>{(user) => <MePage user={user} />}</RequireAuth> },
   {

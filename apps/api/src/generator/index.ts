@@ -15,6 +15,7 @@ import { renderGlobals, renderLocalNumbers } from './dialplan/local.ts';
 import { PENDING_CONTEXTS } from './dialplan/pending.ts';
 import { renderDids, renderTrunkEntries } from './dialplan/inbound.ts';
 import { renderOutbound } from './dialplan/outbound.ts';
+import { renderEmergency } from './dialplan/emergency.ts';
 
 export { renderTransports };
 
@@ -48,6 +49,7 @@ const BODIES: Partial<Record<GeneratedFileName, (snap: Snapshot) => string>> = {
       renderTrunkEntries(snap),
       renderDids(snap),
       renderOutbound(snap),
+      renderEmergency(snap),
       PENDING_CONTEXTS,
     ]
       .filter(Boolean)

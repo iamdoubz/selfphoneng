@@ -12,6 +12,7 @@ const PING_MS = 30_000;
 type Client = {
   ws: WebSocket;
   admin: boolean;
+  userId: string;
   /** `${type}:${key}` → latest message, so many updates of one thing collapse into one. */
   pending: Map<string, LiveMessage>;
   alive: boolean;
@@ -31,11 +32,18 @@ export async function liveRoutes(app: FastifyInstance) {
       ? `extension:${m.data.number}` // a removal replaces a pending update and vice versa
       : m.type === 'trunk.updated' || m.type === 'trunk.removed'
         ? `trunk:${m.data.trunkId}`
-        : m.type;
+        : m.type === 'emergency.call'
+          ? `emergency:${m.data.at}:${m.data.ext}` // never merge two 911 calls
+          : m.type;
+
+  const maySee = (c: Client, m: LiveMessage) =>
+    c.admin ||
+    (m.type === 'emergency.call'
+      ? m.data.audienceUserIds.includes(c.userId)
+      : !m.type.startsWith('trunk.'));
 
   app.live.on('message', (m) => {
-    const adminOnly = m.type.startsWith('trunk.');
-    for (const c of clients) if (c.admin || !adminOnly) c.pending.set(keyOf(m), m);
+    for (const c of clients) if (maySee(c, m)) c.pending.set(keyOf(m), m);
   });
 
   const viewFor = (c: Client, m: LiveMessage): LiveMessage =>
@@ -76,7 +84,13 @@ export async function liveRoutes(app: FastifyInstance) {
     const found = token ? await getSessionUser(app.db, token) : null;
     // Browsers can't read an HTTP 401 on an upgrade, so open and close with 4401 (04 §5.2).
     if (!found || found.user.mustChangePassword) return ws.close(4401, 'unauthorized');
-    const c: Client = { ws, admin: found.user.role === 'admin', pending: new Map(), alive: true };
+    const c: Client = {
+      ws,
+      admin: found.user.role === 'admin',
+      userId: found.user.id,
+      pending: new Map(),
+      alive: true,
+    };
     clients.add(c);
     ws.on('pong', () => (c.alive = true));
     ws.on('close', () => clients.delete(c));

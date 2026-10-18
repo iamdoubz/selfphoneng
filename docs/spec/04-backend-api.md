@@ -344,8 +344,10 @@ Reports, history, system:
 | GET | `/api/reports/summary?from&to` | totals per day, per direction, missed count, average talk time |
 | GET | `/api/reports/queues?from&to` | per queue: offered, answered, abandoned, avg wait, % within SLA |
 | GET | `/api/audit-log` | |
-| GET/PATCH | `/api/settings` | whole settings object; PATCH merges known keys only |
+| GET/PATCH | `/api/settings` | whole settings object; PATCH merges known keys only. `smtp` comes back as `{host, port, secure, username, from, hasPassword}` and is written with an optional `password` (empty keeps the stored one). `system.*`, `sms.webhookToken` and `setup.completed` are read-only. References (DIDs, extensions, destinations) are checked, and a transport a trunk uses can't be turned off |
 | POST | `/api/settings/smtp/test` | `{to}` sends a test email |
+| POST | `/api/settings/emergency/test` | runs 04 §5.3 steps 2–4 with `TEST` in front (email, ring-out, banner); records nothing and dials nothing (06 §6.5). Returns `{notified}` |
+| GET | `/api/system/warnings` | `{items: [{code, message, link}]}` for the dashboard banner: `restart_required`, `e911_cid_missing` (a trunk exists, no default E911 caller ID), `e911_address_unconfirmed` (that DID has no `e911_address`), `smtp_missing`. "Trunk down" comes from live state in the browser |
 | POST | `/api/settings/network/detect-public-ip` | |
 | GET | `/api/system/status` | `{ db: ok, ami: connected, asteriskVersion, uptime, trunks: [...], disk: {free, total}, restartRequired, lastGeneratorRun }` |
 | GET | `/api/system/generated-files` | names + contents of generated files, **passwords masked** (debug view) |

@@ -29,7 +29,7 @@ export const ADMIN_PAGES = [
   { path: 'reports', label: 'Reports', milestone: 'M11' },
   { path: 'sms', label: 'SMS', milestone: 'M9' },
   { path: 'blocked', label: 'Blocked numbers', milestone: 'M6' },
-  { path: 'settings', label: 'Settings', milestone: 'M3' },
+  { path: 'settings', label: 'Settings', milestone: null },
   { path: 'system', label: 'System', milestone: 'M11' },
 ] as const;
 
@@ -129,6 +129,7 @@ export function AdminLayout({ user }: { user: AuthUser }) {
             Reconnecting…
           </p>
         )}
+        <EmergencyBanner />
         <main className="flex-1 p-4 md:p-6">
           <Outlet />
         </main>
@@ -143,5 +144,38 @@ export function ComingSoon({ label, milestone }: { label: string; milestone: str
       <h1 className="mb-2 text-xl font-semibold">{label}</h1>
       <p className="text-sm text-zinc-500">Coming in {milestone}.</p>
     </section>
+  );
+}
+
+/** 911 was dialed: impossible to miss, stays until dismissed (04 §5.3). */
+function EmergencyBanner() {
+  const calls = useLive((s) => s.emergencies);
+  if (!calls.length) return null;
+  const dismiss = (at: string) =>
+    useLive.setState((s) => ({ emergencies: s.emergencies.filter((c) => c.at !== at) }));
+  return (
+    <div role="alert" className="flex flex-col gap-1 bg-red-600 px-4 py-2 text-sm text-white">
+      {calls.map((c) => (
+        <div key={c.at + c.ext} className="flex flex-wrap items-center gap-x-3">
+          <strong>
+            {c.test
+              ? `TEST of the 911 alerts (${c.name})`
+              : `911 dialed from extension ${c.ext || '?'} (${c.name})`}
+          </strong>
+          <span>
+            {new Date(c.at).toLocaleTimeString()}
+            {c.location ? ` · ${c.location}` : ''}
+          </span>
+          <span className="flex-1" />
+          <button
+            type="button"
+            onClick={() => dismiss(c.at)}
+            className="rounded border border-white/60 px-2 py-0.5 text-xs hover:bg-white/10"
+          >
+            Dismiss
+          </button>
+        </div>
+      ))}
+    </div>
   );
 }

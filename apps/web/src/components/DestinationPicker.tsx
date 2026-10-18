@@ -32,7 +32,7 @@ export function DestinationPicker({
     if (k === 'hangup') onChange({ type: 'hangup' });
     else if (k === 'external') typed(number);
     else if (extId) onChange({ type: k, id: extId });
-    else onChange(exts.data?.[0] ? { type: k, id: exts.data[0].id } : null);
+    else onChange(null); // the admin picks the user: never guess
   }
 
   function typed(v: string) {

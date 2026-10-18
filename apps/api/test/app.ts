@@ -16,6 +16,7 @@ import { EventEmitter } from 'node:events';
 import { createGenerator } from '../src/generator/index.ts';
 import { LiveState } from '../src/live/state.ts';
 import type { AmiMessage } from '../src/ami/events.ts';
+import type { Mail } from '../src/services/mail.ts';
 import { createTestDb } from './db.ts';
 
 /** Stand-in for AmiClient: records commands; flip `connected` to simulate Asterisk going away. */
@@ -70,6 +71,14 @@ export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) 
   const genDir = mkdtempSync(join(tmpdir(), 'sp-gen-'));
   const live = new LiveState(t.db, ami);
   app.decorate('live', live);
+  app.decorate('ami', ami);
+  /** Every email the app sent; set mail.fail to make sending throw. */
+  const mails: Mail[] = [];
+  const mail = { fail: null as string | null };
+  app.decorate('sendMail', async (m: Mail) => {
+    if (mail.fail) throw new Error(mail.fail);
+    mails.push(m);
+  });
   app.decorate(
     'generator',
     createGenerator({
@@ -116,6 +125,8 @@ export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) 
     app,
     db: t.db,
     ami,
+    mails,
+    mail,
     live,
     genDir,
     login,

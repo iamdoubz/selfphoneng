@@ -9,6 +9,8 @@ import { createDb, runMigrations } from './db/client.ts';
 import { createGenerator } from './generator/index.ts';
 import { ensureInitialAdmin } from './services/bootstrap.ts';
 import { LiveState } from './live/state.ts';
+import { smtpMailer } from './services/mail.ts';
+import { watchEmergencies } from './services/emergency.ts';
 
 let config;
 try {
@@ -44,6 +46,10 @@ const generator = createGenerator({
   },
 });
 app.decorate('generator', generator);
+app.decorate('ami', ami);
+const sendMail = smtpMailer(db);
+app.decorate('sendMail', sendMail);
+watchEmergencies({ db, ami, live, send: sendMail, log: app.log }, ami);
 app.decorate('live', live);
 
 await runMigrations(db);

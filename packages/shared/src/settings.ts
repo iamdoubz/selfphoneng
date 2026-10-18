@@ -82,3 +82,24 @@ export const SettingsSchemas = {
 
 export type SettingKey = keyof typeof SettingsSchemas;
 export type SettingValue<K extends SettingKey> = z.output<(typeof SettingsSchemas)[K]>;
+
+/** PATCH /api/settings `smtp`: the password is write-only (empty keeps the stored one). */
+export const SmtpInputSchema = z.object({
+  host: z.string().trim().min(1, 'Required'),
+  port: z.number().int().min(1).max(65535),
+  secure: z.boolean(),
+  username: z.string().trim(),
+  password: z.string().max(256).optional(),
+  from: z.string().trim().min(3, 'Like "Phone system <pbx@example.com>"'),
+});
+export type SmtpInput = z.input<typeof SmtpInputSchema>;
+
+/** GET /api/settings: every key, secrets replaced by hasPassword. */
+export type SettingsDto = {
+  [K in Exclude<SettingKey, 'smtp' | 'sms.webhookToken'>]: SettingValue<K>;
+} & {
+  smtp: (Omit<SmtpInput, 'password'> & { hasPassword: boolean }) | null;
+};
+
+/** GET /api/system/warnings: shown as the dashboard banner (05 §2). */
+export type Warning = { code: string; message: string; link: string };

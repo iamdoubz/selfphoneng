@@ -9,6 +9,8 @@ import { sql } from 'drizzle-orm';
 import type { Config } from './config.ts';
 import type { Db } from './db/client.ts';
 import type { Generator } from './generator/index.ts';
+import type { AmiClient } from './ami/client.ts';
+import { settingsRoutes } from './routes/settings.ts';
 import { errorHandler, forbidden, notFound, sendError } from './errors.ts';
 import { authRoutes } from './routes/auth.ts';
 import { userRoutes } from './routes/users.ts';
@@ -25,6 +27,8 @@ declare module 'fastify' {
     config: Config;
     /** Decorated by the caller (index.ts, tests) before ready(): it needs app.log. */
     generator: Generator;
+    /** Decorated by the caller too (tests pass a fake). */
+    ami: Pick<AmiClient, 'action' | 'isConnected'>;
   }
 }
 
@@ -85,6 +89,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.register(trunkRoutes);
   app.register(didRoutes);
   app.register(outboundRouteRoutes);
+  app.register(settingsRoutes);
   app.register(liveRoutes);
 
   if (existsSync(publicDir)) {

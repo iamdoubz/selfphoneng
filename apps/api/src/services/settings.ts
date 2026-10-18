@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Typed key/value settings (spec 02 §3). Missing rows return the key's default.
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { SettingsSchemas, type SettingKey, type SettingValue } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
 import { settings } from '../db/schema.ts';
@@ -44,7 +44,9 @@ export async function setSetting<K extends SettingKey>(
   key: K,
   value: SettingValue<K>,
 ): Promise<void> {
-  const v = SettingsSchemas[key].parse(value);
+  // A plain null would bind as SQL NULL (the column is NOT NULL); store the JSON value null.
+  const parsed = SettingsSchemas[key].parse(value);
+  const v = parsed === null ? sql`'null'::jsonb` : parsed;
   await db
     .insert(settings)
     .values({ key, value: v })

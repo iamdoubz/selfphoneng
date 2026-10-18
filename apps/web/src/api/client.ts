@@ -14,6 +14,7 @@ import type {
   OutboundRouteDto,
   OutboundRouteUpdate,
   RouteTestResult,
+  SettingsDto,
   SipCredentials,
   TrunkCreate,
   TrunkDto,
@@ -22,6 +23,7 @@ import type {
   UserCreate,
   UserDto,
   UserUpdate,
+  Warning,
 } from '@selfphoneng/shared';
 
 export class ApiError extends Error {
@@ -112,4 +114,16 @@ export const routesApi = {
   reorder: (ids: string[]) => api<{ ok: true }>('POST', '/api/outbound-routes/reorder', { ids }),
   test: (extensionId: string, number: string) =>
     api<RouteTestResult>('POST', '/api/outbound-routes/test', { extensionId, number }),
+};
+
+export const settingsApi = {
+  get: () => api<SettingsDto>('GET', '/api/settings'),
+  patch: (s: Record<string, unknown>) => api<SettingsDto>('PATCH', '/api/settings', s),
+  testEmail: (to: string) => api<{ ok: true }>('POST', '/api/settings/smtp/test', { to }),
+  testEmergency: () =>
+    api<{ notified: { kind: string; to: string; ok: boolean; error?: string }[] }>(
+      'POST',
+      '/api/settings/emergency/test',
+    ),
+  warnings: () => api<{ items: Warning[] }>('GET', '/api/system/warnings').then((r) => r.items),
 };

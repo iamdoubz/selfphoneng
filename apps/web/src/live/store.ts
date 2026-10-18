@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Live data from /api/live (05 §1): one WebSocket per tab, reconnecting with backoff.
 import { create } from 'zustand';
-import type { ExtensionLive, LiveMessage, TrunkLive } from '@selfphoneng/shared';
+import type { EmergencyCall, ExtensionLive, LiveMessage, TrunkLive } from '@selfphoneng/shared';
 
 type LiveStore = {
   /** WebSocket state: 'connecting' before the first snapshot. */
@@ -10,6 +10,8 @@ type LiveStore = {
   extensions: Record<string, ExtensionLive>;
   /** Admins only (empty for users). */
   trunks: Record<string, TrunkLive>;
+  /** 911 alerts received while this tab was open, newest last; dismissed ones are removed. */
+  emergencies: EmergencyCall[];
 };
 
 export const useLive = create<LiveStore>(() => ({
@@ -17,6 +19,7 @@ export const useLive = create<LiveStore>(() => ({
   amiConnected: false,
   extensions: {},
   trunks: {},
+  emergencies: [],
 }));
 
 function apply(m: LiveMessage) {
@@ -41,6 +44,8 @@ function apply(m: LiveMessage) {
         const { [m.data.trunkId]: _gone, ...rest } = s.trunks;
         return { trunks: rest };
       }
+      case 'emergency.call':
+        return { emergencies: [...s.emergencies, m.data] };
       case 'ami.status':
         return { amiConnected: m.data.connected };
       default:

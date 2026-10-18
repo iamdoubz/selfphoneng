@@ -32,6 +32,18 @@ export type TrunkLive = {
   lastChange: string;
 };
 
+/** 911 was dialed (or the notifications were tested). */
+export type EmergencyCall = {
+  ext: string;
+  name: string;
+  location: string | null;
+  callerId: string;
+  at: string;
+  test: boolean;
+  /** Non-admin users who get it too (their extension is a notify extension). */
+  audienceUserIds: string[];
+};
+
 export type LiveSnapshot = {
   extensions: ExtensionLive[];
   /** Admins only. */
@@ -46,6 +58,7 @@ export type LiveMessage =
   | { type: 'extension.removed'; data: { number: string } }
   | { type: 'trunk.updated'; data: TrunkLive }
   | { type: 'trunk.removed'; data: { trunkId: string } }
+  | { type: 'emergency.call'; data: EmergencyCall }
   | { type: 'ami.status'; data: { connected: boolean } }
   | {
       type: 'system.configApplied';

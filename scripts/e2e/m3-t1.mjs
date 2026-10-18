@@ -116,5 +116,6 @@ try {
   process.exitCode = 1;
 } finally {
   await p.close();
-  docker('rm', '-f', PROVIDER);
+  // The provider keeps running (until m2-live.mjs down): if it went away, the next container
+  // could get its IP and be taken for the trunk by the IP identify.
 }

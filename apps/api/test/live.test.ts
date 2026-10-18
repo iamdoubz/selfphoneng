@@ -184,4 +184,32 @@ describe.skipIf(!hasTestDb)('/api/live WebSocket', () => {
     admin.ws.terminate();
     user.ws.terminate();
   });
+
+  it('a 911 alert reaches admins and notify users only; trunk status reaches admins only', async () => {
+    const admin = await open(await t.login(ADMIN.email, ADMIN.password));
+    const notifyUser = await t.addUser('desk@example.com', 'desk-password-123');
+    const desk = await open(await t.login('desk@example.com', 'desk-password-123'));
+    const other = await open(await t.login('u@example.com', 'user-password-123'));
+    await until(() => [admin, desk, other].every((c) => c.msgs.length === 1));
+    const call = {
+      ext: '101',
+      name: 'Dan',
+      location: null,
+      callerId: '13125551234',
+      at: new Date().toISOString(),
+      test: false,
+      audienceUserIds: [notifyUser.id],
+    };
+    t.live.emit('message', { type: 'emergency.call', data: call });
+    t.live.emit('message', {
+      type: 'trunk.updated',
+      data: { trunkId: 'x', registration: 'registered', reachable: true, lastChange: call.at },
+    });
+    await until(() => admin.msgs.length === 3 && desk.msgs.length === 2);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(desk.msgs[1]).toMatchObject({ type: 'emergency.call', data: { ext: '101' } });
+    expect(desk.msgs).toHaveLength(2); // no trunk.updated
+    expect(other.msgs).toHaveLength(1); // just the snapshot
+    for (const c of [admin, desk, other]) c.ws.terminate();
+  });
 });

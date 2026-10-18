@@ -418,6 +418,56 @@ async function main() {
     log('class check: ss-noservice');
     await ami.command('channel request hangup all');
 
+    // M3-T4: 911 from a caller with no class at all still goes out, with the E911 caller ID, and
+    // the dialplan tells the api. (The fake provider answers it; nothing real is dialed.)
+    const userEvents: Record<string, string | string[]>[] = [];
+    ami.on('event:UserEvent', (m) => userEvents.push(m));
+    await ami.command('channel originate Local/911@sp-from-ext application Wait 5');
+    await waitFor(
+      'the provider to receive 911',
+      async () =>
+        /LAST_IN=to=911 /.test(
+          docker('exec', PROVIDER, 'asterisk', '-rx', 'dialplan show globals').out,
+        ),
+      15,
+    );
+    const e911 = /LAST_IN=(.*)/.exec(
+      docker('exec', PROVIDER, 'asterisk', '-rx', 'dialplan show globals').out,
+    )?.[1];
+    log(`provider received: ${e911}`);
+    if (!new RegExp(`rpid=.*sip:${DID}@`).test(e911 ?? ''))
+      problems.push(`911 without the E911 caller ID ${DID}: ${e911}`);
+    // AMI delivers the UserEvent asynchronously: it can arrive after the trunk call has started.
+    await waitFor(
+      'SpEmergency on AMI',
+      async () => userEvents.some((m) => m.UserEvent === 'SpEmergency'),
+      10,
+    ).catch(() => {});
+    const ev = userEvents.find((m) => m.UserEvent === 'SpEmergency');
+    if (!ev || ev.CallerId !== DID || ev.Dialed !== '911')
+      problems.push(`no SpEmergency UserEvent with CallerId ${DID}: ${JSON.stringify(userEvents)}`);
+    await ami.command('channel request hangup all');
+    // The alert ring-out the api originates: 101 answers and hears beeps and the extension.
+    await ami.action({
+      Action: 'Originate',
+      Channel: 'PJSIP/101',
+      Context: 'sp-emergency-alert',
+      Exten: '102',
+      Priority: '1',
+      CallerID: '"EMERGENCY 911" <102>',
+      Async: 'true',
+    });
+    await waitFor(
+      'the alert to play on 101',
+      async () =>
+        /sp-emergency-alert!102!.*!Up!(Playback|SayDigits|Wait)/.test(
+          await ami.command('core show channels concise'),
+        ),
+      15,
+    );
+    log('911: out with the E911 caller ID, SpEmergency raised, alert plays on 101');
+    await ami.command('channel request hangup all');
+
     // eslint-disable-next-line no-control-regex -- strips Asterisk's ANSI colors
     const plainLog = docker('logs', PBX).out.replace(/\x1b\[[0-9;]*m/g, '');
     const errors = plainLog.split('\n').filter((l) => /ERROR\[/.test(l));
@@ -441,7 +491,7 @@ async function main() {
     process.exit(1);
   }
   console.log(
-    'ok   trunks (registration, rejection, qualify, inbound DID → 101, outbound with DID caller ID, class check)',
+    'ok   trunks (registration, rejection, qualify, inbound DID → 101, outbound with DID caller ID, class check, 911)',
   );
 }
 

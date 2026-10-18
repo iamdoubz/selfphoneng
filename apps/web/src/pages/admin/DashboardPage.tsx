@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Dashboard (05 §2). Telephony link, trunks and extensions online. Calls, queues and the
-// warnings banner arrive with their features (M3-T4, M7, M8).
+// Dashboard (05 §2). Warnings, telephony link, trunks and extensions online. Calls and queues
+// arrive with their features (M7, M8).
+import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
+import { settingsApi } from '../../api/client.ts';
 import { StatusDot, statusLabel } from '../../components/StatusDot.tsx';
 import { useLive } from '../../live/store.ts';
 
@@ -27,6 +30,11 @@ export function DashboardPage() {
   return (
     <section className="flex flex-col gap-6">
       <h1 className="text-xl font-semibold">Dashboard</h1>
+      <Warnings
+        trunkDown={trunkList.some(
+          (t) => t.registration === 'rejected' || (!t.reachable && t.registration !== 'registered'),
+        )}
+      />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Card title="Extensions online">
           {status === 'connecting' ? '…' : `${online} / ${list.length}`}
@@ -75,5 +83,41 @@ export function DashboardPage() {
         )}
       </div>
     </section>
+  );
+}
+
+function Warnings({ trunkDown }: { trunkDown: boolean }) {
+  const warnings = useQuery({
+    queryKey: ['warnings'],
+    queryFn: settingsApi.warnings,
+    refetchInterval: 30_000,
+  });
+  const items = [
+    ...(trunkDown
+      ? [
+          {
+            code: 'trunk_down',
+            message: 'A trunk is not connected to the provider.',
+            link: '/admin/trunks',
+          },
+        ]
+      : []),
+    ...(warnings.data ?? []),
+  ];
+  if (!items.length) return null;
+  return (
+    <ul
+      aria-label="Warnings"
+      className="flex flex-col gap-1 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/50 dark:text-red-100"
+    >
+      {items.map((w) => (
+        <li key={w.code}>
+          {w.message}{' '}
+          <Link to={w.link} className="font-medium underline">
+            Fix
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }

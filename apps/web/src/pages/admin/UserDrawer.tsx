@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// User + extension editor (05 §2). Tabs so far: General, Phone, Calling, Credentials.
-// Voicemail (M4), Emergency (M3-T4) and Forwarding (M6) arrive with their features.
+// User + extension editor (05 §2). Tabs so far: General, Phone, Calling, Emergency, Credentials.
+// Emergency too. Voicemail (M4) and Forwarding (M6) arrive with their features.
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
@@ -21,7 +21,7 @@ import { CLASS_LABEL } from './OutboundPage.tsx';
 import { Dialog } from '../../components/Dialog.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
-type Tab = 'general' | 'phone' | 'calling' | 'credentials';
+type Tab = 'general' | 'phone' | 'calling' | 'emergency' | 'credentials';
 
 const GeneralSchema = z.object({
   displayName: z.string().trim().min(1, 'Required').max(100),
@@ -55,6 +55,7 @@ export function UserDrawer({
     { id: 'general', label: 'General', enabled: true },
     { id: 'phone', label: 'Phone', enabled: Boolean(ext.data) },
     { id: 'calling', label: 'Calling', enabled: Boolean(ext.data) },
+    { id: 'emergency', label: 'Emergency', enabled: Boolean(ext.data) },
     { id: 'credentials', label: 'Credentials', enabled: Boolean(ext.data) },
   ];
 
@@ -106,6 +107,7 @@ export function UserDrawer({
       )}
       {tab === 'phone' && ext.data && <PhoneTab ext={ext.data} onSaved={() => onSaved()} />}
       {tab === 'calling' && ext.data && <CallingTab ext={ext.data} onSaved={() => onSaved()} />}
+      {tab === 'emergency' && ext.data && <EmergencyTab ext={ext.data} onSaved={() => onSaved()} />}
       {tab === 'credentials' && ext.data && <CredentialsTab ext={ext.data} />}
     </Dialog>
   );
@@ -492,6 +494,58 @@ function CallingTab({ ext, onSaved }: { ext: ExtensionDto; onSaved: () => void }
             ))}
           </select>
         )}
+      </Field>
+    </form>
+  );
+}
+
+function EmergencyTab({ ext, onSaved }: { ext: ExtensionDto; onSaved: () => void }) {
+  const qc = useQueryClient();
+  const dids = useQuery({ queryKey: ['dids'], queryFn: didsApi.list });
+  const [error, setError] = useState<string>();
+  const form = useForm({
+    defaultValues: {
+      emergencyCallerIdDidId: ext.emergencyCallerIdDidId ?? '',
+      emergencyLocation: ext.emergencyLocation ?? '',
+    },
+  });
+  const onSubmit = form.handleSubmit(async (v) => {
+    setError(undefined);
+    try {
+      await extensionsApi.update(ext.id, {
+        emergencyCallerIdDidId: v.emergencyCallerIdDidId || null,
+        emergencyLocation: v.emergencyLocation.trim() || null,
+      });
+      await qc.invalidateQueries({ queryKey: ['extension', ext.id] });
+      onSaved();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  });
+  return (
+    <form id="user-emergency-form" onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+      {error && <Alert>{error}</Alert>}
+      <Field
+        label="Emergency caller ID"
+        hint="A number whose E911 address at voip.ms is where this person works. Default: the company emergency caller ID."
+      >
+        {(a) => (
+          <select {...a} {...form.register('emergencyCallerIdDidId')} className={inputClass}>
+            <option value="">Company default</option>
+            {dids.data?.map((d) => (
+              <option key={d.id} value={d.id}>
+                {formatNumber(d.number)}
+                {d.label ? ` (${d.label})` : ''}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+      <Field
+        label="Location"
+        hint="For example: 2nd floor, room 210. Goes into the alert email; 911 can't receive it."
+      >
+        {(a) => <input {...a} {...form.register('emergencyLocation')} className={inputClass} />}
       </Field>
     </form>
   );

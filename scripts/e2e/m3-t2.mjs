@@ -61,6 +61,10 @@ try {
     `[...document.querySelectorAll('select[aria-label="When someone calls this number: user"] option')].some(o => o.textContent.includes('Dan Doe'))`,
     'user list',
   );
+  const danId = await p.evaluate(
+    `[...document.querySelectorAll('select[aria-label="When someone calls this number: user"] option')].find(o => o.textContent.includes('Dan Doe')).value`,
+  );
+  await choose('When someone calls this number: user', danId);
   await p.shot('m3-t2-01-form');
   await p.evaluate(`document.querySelector('dialog button[form=did-form]').click(), true`);
   await p.waitFor(
