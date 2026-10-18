@@ -23,11 +23,8 @@ jobs:
     env:
       TEST_DATABASE_URL: postgres://selfphoneng:ci@postgres:5432/selfphoneng
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4 # version comes from package.json "packageManager"
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6 # version comes from package.json "packageManager"
       # Sound and greeting tests convert real audio (skipped without ffmpeg).
       - run: apt-get update -qq && apt-get install -y -qq --no-install-recommends ffmpeg
       - run: pnpm install --frozen-lockfile
@@ -38,6 +35,6 @@ jobs:
   images:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -f apps/api/Dockerfile -t selfphoneng-api:ci .
       - run: docker build -t selfphoneng-asterisk:ci asterisk
