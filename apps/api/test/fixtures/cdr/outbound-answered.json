@@ -1,0 +1,28 @@
+[
+  {
+    "Event": "Cdr",
+    "Privilege": "cdr,all",
+    "AccountCode": "",
+    "Source": "13125551234",
+    "Destination": "13125550000",
+    "DestinationContext": "sp-route-aaaaaaaa-0000-4000-8000-000000000001",
+    "CallerID": "\"Alice\" <13125551234>",
+    "Channel": "PJSIP/101-0000000b",
+    "DestinationChannel": "PJSIP/trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37-0000000c",
+    "LastApplication": "Dial",
+    "LastData": "PJSIP/13125550000@trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37,120",
+    "StartTime": "2026-10-18 19:34:01",
+    "AnswerTime": "2026-10-18 19:34:01",
+    "EndTime": "2026-10-18 19:34:06",
+    "Duration": "5",
+    "BillableSeconds": "5",
+    "Disposition": "ANSWERED",
+    "AMAFlags": "DOCUMENTATION",
+    "UniqueID": "1792352041.27",
+    "UserField": "",
+    "LinkedID": "1792352041.27",
+    "sp_did": "",
+    "sp_direction": "outbound",
+    "sp_recording": ""
+  }
+]

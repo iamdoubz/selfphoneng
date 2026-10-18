@@ -1,0 +1,28 @@
+[
+  {
+    "Event": "Cdr",
+    "Privilege": "cdr,all",
+    "AccountCode": "",
+    "Source": "103",
+    "Destination": "104",
+    "DestinationContext": "sp-from-ext",
+    "CallerID": "\"Carol\" <103>",
+    "Channel": "PJSIP/103-00000004",
+    "DestinationChannel": "",
+    "LastApplication": "Hangup",
+    "LastData": "",
+    "StartTime": "2026-10-18 19:33:19",
+    "AnswerTime": "2026-10-18 19:33:19",
+    "EndTime": "2026-10-18 19:33:19",
+    "Duration": "0",
+    "BillableSeconds": "0",
+    "Disposition": "ANSWERED",
+    "AMAFlags": "DOCUMENTATION",
+    "UniqueID": "1792351999.7",
+    "UserField": "",
+    "LinkedID": "1792351999.7",
+    "sp_did": "",
+    "sp_direction": "",
+    "sp_recording": ""
+  }
+]

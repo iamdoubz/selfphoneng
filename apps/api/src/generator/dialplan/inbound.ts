@@ -52,6 +52,8 @@ export function renderTrunkEntries(snap: Snapshot): string {
           `[${ctx}]`,
           `exten => s,1,Goto(${ctx},unknown,1)`,
           'exten => _[+0-9a-zA-Z].,1,Set(__SP_DIRECTION=inbound)',
+          // cdr_manager [mappings] read CDR variables, not channel ones (04 §5.4).
+          ' same => n,Set(CDR(SP_DIRECTION)=inbound)',
           ' same => n,Gosub(sp-sub-normalize,s,1(${EXTEN}))',
           ' same => n,Set(SP_IN=${GOSUB_RETVAL})',
           ' same => n,GotoIf($["${SP_IN}" != "" & ${DIALPLAN_EXISTS(sp-did-exists,${SP_IN},1)}]?caller)',
@@ -85,6 +87,7 @@ export function renderDids(snap: Snapshot): string {
     inbound.push(
       `; DID ${num}${d.label ? ` "${s.name(d.label)}"` : ''}`,
       `exten => ${num},1,Set(__SP_DID=${num})`,
+      ` same => n,Set(CDR(SP_DID)=${num})`,
       ...(prefix ? [` same => n,Set(CALLERID(name)=${prefix} \${CALLERID(name)})`] : []),
       // TODO(M7): record_inbound (announcement + sp-sub-record).
       ` same => n,${destApp(d.destination, snap)}`,

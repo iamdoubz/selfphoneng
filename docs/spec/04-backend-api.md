@@ -223,6 +223,19 @@ Trunk channel: `^PJSIP/trunk-([0-9a-f-]{36})-`.
   (inbound to user, inbound to ring group, IVR → voicemail, queue abandon,
   outbound, transfer, park) into `test/fixtures/cdr/*.json` and write a test per scenario.
 
+As built (M7-T1):
+- `apps/api/test/asterisk/cdr-record.ts` records 8 scenarios against our config, the fake
+  provider and baresip phones: internal answered / to voicemail / to an unavailable phone, inbound
+  to a user / ring group / IVR timeout → voicemail, outbound answered, blind transfer. Queue
+  abandon and park come with M8. `test/cdr.test.ts` checks each one.
+- `cdr_manager.conf` [mappings] read **CDR variables**, not channel variables: the dialplan sets
+  `CDR(SP_DID)` in `sp-inbound` and `CDR(SP_DIRECTION)` at the trunk entry, in outbound routes and
+  in emergency calls. `linkedid` must be mapped too (01 §3.15); times are UTC (`usegmtime`).
+- **from** is the caller's extension when the first leg is a phone (not the caller ID it sends
+  outside); otherwise `src`. An outbound call has no `answered_by` (no extension answered).
+- Aggregation runs 5 s after a linkedid's last Cdr event; on every AMI connect, linkedids older
+  than a minute without a `calls` row are aggregated (instead of the nightly job).
+
 ### 5.5 AstDB sync (`services/astdb.ts`)
 
 On every AMI connect, PostgreSQL wins:

@@ -1,0 +1,28 @@
+[
+  {
+    "Event": "Cdr",
+    "Privilege": "cdr,all",
+    "AccountCode": "",
+    "Source": "13125559999",
+    "Destination": "102",
+    "DestinationContext": "sp-vm-direct",
+    "CallerID": "\"Mobile\" <13125559999>",
+    "Channel": "PJSIP/trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37-0000000a",
+    "DestinationChannel": "",
+    "LastApplication": "VoiceMail",
+    "LastData": "102@default,u",
+    "StartTime": "2026-10-18 19:33:48",
+    "AnswerTime": "2026-10-18 19:33:48",
+    "EndTime": "2026-10-18 19:33:57",
+    "Duration": "9",
+    "BillableSeconds": "9",
+    "Disposition": "ANSWERED",
+    "AMAFlags": "DOCUMENTATION",
+    "UniqueID": "1792352028.25",
+    "UserField": "",
+    "LinkedID": "1792352028.25",
+    "sp_did": "13125551236",
+    "sp_direction": "inbound",
+    "sp_recording": ""
+  }
+]

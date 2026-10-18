@@ -19,6 +19,7 @@ export function renderEmergency(snap: Snapshot): string {
       ' same => n,UserEvent(SpEmergency,Ext: ${SP_EXT},CallerId: ${CID},Dialed: 911)',
       ' same => n,ExecIf($["${CID}" != ""]?Set(CALLERID(num)=${CID}))',
       ' same => n,Set(__SP_DIRECTION=outbound)',
+      ' same => n,Set(CDR(SP_DIRECTION)=outbound)',
       ...trunks.map((t) => ` same => n,Dial(PJSIP/911@trunk-${s.ident(t.id)})`),
       ' same => n,Hangup()',
     ].join('\n') + '\n'

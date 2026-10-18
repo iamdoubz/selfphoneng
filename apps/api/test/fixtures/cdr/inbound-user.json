@@ -1,0 +1,28 @@
+[
+  {
+    "Event": "Cdr",
+    "Privilege": "cdr,all",
+    "AccountCode": "",
+    "Source": "13125559999",
+    "Destination": "101",
+    "DestinationContext": "sp-local-numbers",
+    "CallerID": "\"Mobile\" <13125559999>",
+    "Channel": "PJSIP/trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37-00000005",
+    "DestinationChannel": "PJSIP/101-00000006",
+    "LastApplication": "Dial",
+    "LastData": "PJSIP/101/sip:101-0x5f231650d0b0@172.21.0.4:5070,25,tx",
+    "StartTime": "2026-10-18 19:33:26",
+    "AnswerTime": "2026-10-18 19:33:26",
+    "EndTime": "2026-10-18 19:33:32",
+    "Duration": "5",
+    "BillableSeconds": "5",
+    "Disposition": "ANSWERED",
+    "AMAFlags": "DOCUMENTATION",
+    "UniqueID": "1792352006.9",
+    "UserField": "",
+    "LinkedID": "1792352006.9",
+    "sp_did": "13125551234",
+    "sp_direction": "inbound",
+    "sp_recording": ""
+  }
+]

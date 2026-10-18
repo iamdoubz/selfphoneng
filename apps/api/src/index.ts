@@ -14,6 +14,7 @@ import { watchEmergencies } from './services/emergency.ts';
 import { watchVoicemail } from './services/voicemail.ts';
 import { syncAstDb } from './services/astdb.ts';
 import { watchToggles } from './services/toggles.ts';
+import { watchCdr } from './services/cdr.ts';
 import { getSetting } from './services/settings.ts';
 import { todayIn } from './generator/load.ts';
 
@@ -56,6 +57,7 @@ const sendMail = smtpMailer(db);
 app.decorate('sendMail', sendMail);
 watchEmergencies({ db, ami, live, send: sendMail, log: app.log }, ami);
 watchToggles({ db, ami, live, log: app.log }, ami);
+const history = watchCdr({ db, log: app.log }, ami);
 const voicemail = watchVoicemail(
   {
     db,
@@ -93,6 +95,7 @@ ami.on('connected', () => {
     await generator.apply({ trigger: 'startup', force: true });
     await live.loadFromAsterisk();
     await voicemail.scanAll();
+    await history.catchUp();
   })().catch((err) => app.log.error({ err }, 'startup sync failed'));
 });
 ami.start();
@@ -116,6 +119,7 @@ for (const sig of ['SIGTERM', 'SIGINT'] as const) {
   process.once(sig, () => {
     generator.cancelPending();
     clearInterval(dayTimer);
+    history.stop();
     ami.stop();
     void app
       .close()

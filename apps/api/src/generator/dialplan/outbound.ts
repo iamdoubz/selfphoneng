@@ -33,6 +33,7 @@ export function renderOutbound(snap: Snapshot): string {
     const route = [
       `[sp-route-${id}]`,
       'exten => _X.,1,Set(__SP_DIRECTION=outbound)',
+      ' same => n,Set(CDR(SP_DIRECTION)=outbound)',
       ` same => n,GotoIf($[\${IF($["\${SP_CLASS}" = ""]?0:\${SP_CLASS})} < ${CLASS_RANK[r.requiredClass]}]?denied)`,
       ' same => n,ExecIf($["${SP_RECMODE}" = "outbound" | "${SP_RECMODE}" = "all"]?Gosub(sp-sub-record,s,1))',
       ' ; caller ID: route override > user > the DID a forwarded call came in on > default',

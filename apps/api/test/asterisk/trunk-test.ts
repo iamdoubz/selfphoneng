@@ -16,6 +16,8 @@ import { AmiClient } from '../../src/ami/client.ts';
 import { GENERATED_FILES, render } from '../../src/generator/index.ts';
 import type { Snapshot } from '../../src/generator/load.ts';
 
+import { providerDialplan, providerPjsip } from './provider.ts';
+
 const IMAGE = process.env.ASTERISK_IMAGE ?? 'selfphoneng-asterisk';
 const RECORD = process.argv.includes('--record')
   ? process.argv[process.argv.indexOf('--record') + 1]
@@ -152,51 +154,6 @@ function phoneFiles(dir: string) {
   );
 }
 
-/** The fake voip.ms: one sub-account that may register. */
-const PROVIDER_PJSIP = `[transport-udp]
-type = transport
-protocol = udp
-bind = 0.0.0.0:5060
-
-[${SUB.user}]
-type = endpoint
-context = provider-in
-disallow = all
-allow = ulaw
-auth = ${SUB.user}-auth
-aors = ${SUB.user}
-
-[${SUB.user}-auth]
-type = auth
-auth_type = userpass
-username = ${SUB.user}
-password = ${SUB.pass}
-
-[${SUB.user}]
-type = aor
-max_contacts = 1
-remove_existing = yes
-`;
-
-/**
- * provider-out: a mobile phone calls one of our DIDs. Like voip.ms, the Request-URI user is the
- * 10-digit DID (06 §3), sent to the sub-account's registered contact. Echo() returns the audio.
- */
-const PROVIDER_DIALPLAN = `[provider-out]
-exten => _X.,1,Set(CALLERID(all)="Mobile" <${MOBILE}>)
- same => n,Dial(PJSIP/\${EXTEN}@${SUB.user},30)
-
-[provider-echo]
-exten => s,1,Answer()
- same => n,Echo()
-
-; Our outbound calls arrive here: remember what the provider saw, then echo the audio.
-[provider-in]
-exten => _X.,1,Set(GLOBAL(LAST_IN)=to=\${EXTEN} from=\${CALLERID(num)} rpid=\${PJSIP_HEADER(read,Remote-Party-ID)})
- same => n,Answer()
- same => n,Echo()
-`;
-
 async function waitFor(what: string, fn: () => Promise<boolean>, seconds = 60) {
   for (let i = 0; i < seconds; i++) {
     if (await fn()) return;
@@ -217,9 +174,9 @@ async function main() {
     writeFileSync(
       join(provConf, f),
       f === 'pjsip_selfphoneng.conf'
-        ? PROVIDER_PJSIP
+        ? providerPjsip(SUB)
         : f === 'extensions_selfphoneng.conf'
-          ? PROVIDER_DIALPLAN
+          ? providerDialplan(MOBILE, SUB)
           : '',
     );
   }

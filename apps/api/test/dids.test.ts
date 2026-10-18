@@ -88,7 +88,7 @@ describe.skipIf(!hasTestDb)('DIDs API', () => {
     const conf = dialplan();
     expect(conf).toContain('[sp-did-exists]\nexten => 13125551234,1,NoOp()');
     expect(conf).toContain(
-      'exten => 13125551234,1,Set(__SP_DID=13125551234)\n same => n,Goto(sp-local-numbers,101,1)',
+      'exten => 13125551234,1,Set(__SP_DID=13125551234)\n same => n,Set(CDR(SP_DID)=13125551234)\n same => n,Goto(sp-local-numbers,101,1)',
     );
     expect(conf).toContain(`[sp-from-trunk-${trunkId}]`);
   });

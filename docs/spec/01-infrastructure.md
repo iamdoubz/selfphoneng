@@ -502,12 +502,16 @@ endbeforehexten = yes
 ; cdr_manager.conf
 [general]
 enabled = yes
+usegmtime = yes            ; times in UTC: the api parses them without guessing a time zone
 [mappings]
+linkedid => LinkedID       ; groups every leg of one call; not in the event by default
 SP_DID => sp_did
 SP_DIRECTION => sp_direction
 SP_REC => sp_recording
 ```
 The api turns `Cdr` AMI events into rows in `cdr` (see `04-backend-api.md` §5.4).
+Without the `linkedid` mapping, Asterisk 24's `Cdr` event has `UniqueID` but no `LinkedID`, and
+its times have no zone (checked on 24.0.0-rc2, M7-T1).
 
 ## 4. Networking and NAT
 
