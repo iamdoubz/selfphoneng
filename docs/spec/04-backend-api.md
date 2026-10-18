@@ -231,6 +231,8 @@ As built (M7-T1):
 - `cdr_manager.conf` [mappings] read **CDR variables**, not channel variables: the dialplan sets
   `CDR(SP_DID)` in `sp-inbound` and `CDR(SP_DIRECTION)` at the trunk entry, in outbound routes and
   in emergency calls. `linkedid` must be mapped too (01 §3.15); times are UTC (`usegmtime`).
+- **rang** also includes the owner of the mailbox a `VoiceMail` leg recorded into (DND, IVR →
+  voicemail): the call was for them, so it shows in their history and as missed (M7-T2).
 - **from** is the caller's extension when the first leg is a phone (not the caller ID it sends
   outside); otherwise `src`. An outbound call has no `answered_by` (no extension answered).
 - Aggregation runs 5 s after a linkedid's last Cdr event; on every AMI connect, linkedids older

@@ -86,7 +86,7 @@ const SCENARIOS: Record<string, Expected> = {
     toNumber: '13125551236',
     did: '13125551236',
     answeredBy: null,
-    rang: [],
+    rang: ['102'], // its mailbox took the call
     talkSeconds: 0,
   },
   'outbound-answered': {

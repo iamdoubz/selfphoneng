@@ -1,0 +1,97 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// My calls (05 §4): my call history; click the other number to call back (the softphone when it's
+// on, else my desk phone rings first). "Add to contacts" arrives with contacts (M10).
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { useState } from 'react';
+import type { MyCallDto } from '@selfphoneng/shared';
+import { meApi } from '../../api/client.ts';
+import { Alert, Button } from '../../components/ui.tsx';
+import { softphone } from '../../softphone/SoftphoneEngine.ts';
+import { DIRECTION_TEXT, StatusBadge, fmtDuration, fmtNumber } from '../admin/CallsPage.tsx';
+
+/** The other side of the call, from where I sit. */
+export const otherParty = (c: MyCallDto) =>
+  c.myRole === 'out'
+    ? { number: c.toNumber, name: null }
+    : { number: c.fromNumber, name: c.fromName };
+
+export function useCallBack() {
+  const [note, setNote] = useState<string | null>(null);
+  const call = (number: string) => {
+    setNote(null);
+    const p =
+      softphone.state.reg === 'registered'
+        ? softphone.call(number).then(() => null)
+        : meApi.clickToCall(number).then(() => 'Your desk phone is ringing. Pick it up to call.');
+    p.then(setNote, (e: Error) => setNote(e.message));
+  };
+  return { call, note };
+}
+
+export function MyCallsPage() {
+  const list = useInfiniteQuery({
+    queryKey: ['me', 'calls'],
+    queryFn: ({ pageParam }) => meApi.calls(pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+  const { call, note } = useCallBack();
+  const calls = list.data?.pages.flatMap((p) => p.items) ?? [];
+  return (
+    <section aria-labelledby="calls-h" className="flex flex-col gap-3">
+      <h2 id="calls-h" className="text-lg font-semibold">
+        Calls
+      </h2>
+      {list.isError && <Alert>{list.error.message}</Alert>}
+      {note && (
+        <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">
+          {note}
+        </p>
+      )}
+      {list.data && calls.length === 0 && <p className="text-sm text-zinc-500">No calls yet.</p>}
+      <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        {calls.map((c) => {
+          const other = otherParty(c);
+          return (
+            <li
+              key={c.id}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm"
+            >
+              <span className="w-36 text-zinc-500">{new Date(c.startedAt).toLocaleString()}</span>
+              <span className="w-10">{c.myRole === 'out' ? 'Out' : 'In'}</span>
+              <span
+                className={`min-w-0 flex-1 ${c.missedByMe ? 'font-semibold text-red-700 dark:text-red-400' : ''}`}
+              >
+                {other.name && <span>{other.name} </span>}
+                {other.number ? (
+                  <button
+                    type="button"
+                    className="text-sky-700 underline dark:text-sky-400"
+                    aria-label={`Call back ${fmtNumber(other.number)}`}
+                    onClick={() => call(other.number!)}
+                  >
+                    {fmtNumber(other.number)}
+                  </button>
+                ) : (
+                  'Unknown'
+                )}
+                {c.direction !== 'internal' && (
+                  <span className="text-zinc-500"> · {DIRECTION_TEXT[c.direction]}</span>
+                )}
+              </span>
+              <StatusBadge status={c.status} />
+              <span className="w-12 text-right tabular-nums">{fmtDuration(c.talkSeconds)}</span>
+            </li>
+          );
+        })}
+      </ul>
+      {list.hasNextPage && (
+        <div>
+          <Button onClick={() => void list.fetchNextPage()} disabled={list.isFetchingNextPage}>
+            Load more
+          </Button>
+        </div>
+      )}
+    </section>
+  );
+}

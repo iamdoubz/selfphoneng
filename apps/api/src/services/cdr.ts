@@ -79,7 +79,14 @@ export function summarize(rows: CdrRow[]): CallSummary {
         : 'internal');
   const did = rows.find((r) => r.spDid)?.spDid ?? null;
   const caller = extOf(first.channel);
-  const rang = [...new Set(rows.map((r) => extOf(r.dstchannel)).filter((x): x is string => !!x))];
+  // Whose phones rang, plus whose mailbox took the call (DND, IVR → voicemail): it was for them.
+  const mailbox = (r: CdrRow) =>
+    r.lastapp === 'VoiceMail' ? (/^(\d+)@/.exec(r.lastdata ?? '')?.[1] ?? null) : null;
+  const rang = [
+    ...new Set(
+      rows.flatMap((r) => [extOf(r.dstchannel), mailbox(r)]).filter((x): x is string => !!x),
+    ),
+  ];
   const answeredRow = rows.find((r) => r.disposition === 'ANSWERED' && extOf(r.dstchannel));
   const trunkAnswered = rows.find((r) => r.disposition === 'ANSWERED' && isTrunk(r.dstchannel));
   const answeredBy = answeredRow ? extOf(answeredRow.dstchannel) : null;

@@ -111,3 +111,9 @@ dialplan.
 a caller ID over AMI. It checks the closed path; `*31N` from an admin's phone (220) forcing open;
 the menu keys; and a number blocked on **Blocked numbers** being rejected (cause 21) while other
 callers still get through.
+
+`m7-t2.mjs` (after `m1-t4.mjs`, with the Asterisk image rebuilt for `cdr_manager.conf`) makes real
+calls: 231 → 230 answered, then 231 → 230 while 230 is on DND (voicemail). It waits for them to
+reach `calls` through the AMI `Cdr` events. It then checks the admin Call history (status filter,
+expanded legs, CSV export), and as user `hist@example.com` (230): the missed call on Home,
+`/me/calls`, and **Call back**, which rings 230's desk phone first and then 231.

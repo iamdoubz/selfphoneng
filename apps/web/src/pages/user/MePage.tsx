@@ -12,6 +12,8 @@ import { subscribeLive, useLive } from '../../live/store.ts';
 import { SoftphoneDock } from '../../softphone/SoftphoneDock.tsx';
 import { PresencePanel } from '../../softphone/PresencePanel.tsx';
 import { VoicemailPage, callerOf, isNew, mmss } from './VoicemailPage.tsx';
+import { MyCallsPage, otherParty, useCallBack } from './MyCallsPage.tsx';
+import { fmtNumber } from '../admin/CallsPage.tsx';
 import { DndSwitch, MeSettingsPage, showTarget, useMe } from './MeSettingsPage.tsx';
 
 const link = 'text-sky-700 underline dark:text-sky-400';
@@ -64,6 +66,9 @@ export function MePage({ user }: { user: AuthUser }) {
         <NavLink to="/me" end className={tab}>
           Home
         </NavLink>
+        <NavLink to="/me/calls" className={tab}>
+          Calls
+        </NavLink>
         <NavLink to="/me/voicemail" className={tab}>
           Voicemail
         </NavLink>
@@ -98,6 +103,7 @@ export function MePage({ user }: { user: AuthUser }) {
         <div className="flex min-w-0 flex-col gap-6">
           <Routes>
             <Route index element={<Home user={user} />} />
+            <Route path="calls" element={<MyCallsPage />} />
             <Route path="voicemail" element={<VoicemailPage />} />
             <Route path="settings" element={<MeSettingsPage />} />
             <Route path="people" element={<PresencePanel me={me} />} />
@@ -119,6 +125,7 @@ function Home({ user }: { user: AuthUser }) {
     <div className="flex flex-col gap-6">
       <p>Hi {user.displayName}.</p>
       {user.extension && <StatusCard />}
+      {user.extension && <MissedCalls />}
       <section aria-labelledby="new-vm" className="flex flex-col gap-2">
         <h2 id="new-vm" className="text-lg font-semibold">
           New voicemails
@@ -171,6 +178,52 @@ function StatusCard() {
           Change
         </Link>
       </p>
+    </section>
+  );
+}
+
+/** Missed calls from the last page of my history (05 §4 Home). */
+function MissedCalls() {
+  const calls = useQuery({ queryKey: ['me', 'calls', 'home'], queryFn: () => meApi.calls() });
+  const { call, note } = useCallBack();
+  const missed = calls.data?.items.filter((c) => c.missedByMe).slice(0, 5) ?? [];
+  return (
+    <section aria-labelledby="missed-h" className="flex flex-col gap-2">
+      <h2 id="missed-h" className="text-lg font-semibold">
+        Missed calls
+      </h2>
+      {calls.data && missed.length === 0 && <p className="text-sm text-zinc-500">None.</p>}
+      {note && (
+        <p role="status" className="text-sm text-zinc-500">
+          {note}
+        </p>
+      )}
+      <ul className="flex flex-col gap-1 text-sm">
+        {missed.map((c) => {
+          const o = otherParty(c);
+          return (
+            <li key={c.id}>
+              <span className="font-semibold">{o.name ?? fmtNumber(o.number)}</span>{' '}
+              <span className="text-zinc-500">{new Date(c.startedAt).toLocaleString()}</span>{' '}
+              {o.number && (
+                <button
+                  type="button"
+                  className={link}
+                  onClick={() => call(o.number!)}
+                  aria-label={`Call back ${fmtNumber(o.number)}`}
+                >
+                  Call back
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {calls.data && calls.data.items.length > 0 && (
+        <Link className={`${link} text-sm`} to="/me/calls">
+          All my calls
+        </Link>
+      )}
     </section>
   );
 }

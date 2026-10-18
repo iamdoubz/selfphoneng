@@ -24,7 +24,7 @@ export const ADMIN_PAGES = [
   { path: 'sounds', label: 'Sounds & music', milestone: null },
   { path: 'devices', label: 'Phones', milestone: 'M10' },
   { path: 'contacts', label: 'Contacts', milestone: 'M10' },
-  { path: 'calls', label: 'Call history', milestone: 'M7' },
+  { path: 'calls', label: 'Call history', milestone: null },
   { path: 'recordings', label: 'Recordings', milestone: 'M7' },
   { path: 'reports', label: 'Reports', milestone: 'M11' },
   { path: 'sms', label: 'SMS', milestone: 'M9' },

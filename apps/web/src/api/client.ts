@@ -6,6 +6,10 @@ import type {
   AnnouncementUpdate,
   BlockedCreate,
   BlockedDto,
+  CallDetailDto,
+  CallDto,
+  CallFilter,
+  MyCallDto,
   AuthUser,
   DidCreate,
   DidDto,
@@ -185,6 +189,8 @@ export const systemApi = {
 };
 
 export const meApi = {
+  calls: (cursor?: string) =>
+    api<ListResponse<MyCallDto>>('GET', `/api/me/calls${cursor ? `?cursor=${cursor}` : ''}`),
   get: () => api<MeDto>('GET', '/api/me'),
   update: (m: MeUpdate) => api<MeDto>('PATCH', '/api/me', m),
   webrtc: () => api<WebRtcCreds>('GET', '/api/me/webrtc'),
@@ -262,4 +268,16 @@ export const blockedApi = {
   list: () => api<ListResponse<BlockedDto>>('GET', '/api/blocked-numbers').then((r) => r.items),
   create: (b: BlockedCreate) => api<BlockedDto>('POST', '/api/blocked-numbers', b),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/blocked-numbers/${id}`),
+};
+
+/** Filters as a query string (empty values left out). */
+export const callQuery = (f: CallFilter) =>
+  new URLSearchParams(
+    Object.entries(f).filter(([, v]) => v !== undefined && v !== '') as [string, string][],
+  ).toString();
+
+export const callsApi = {
+  list: (f: CallFilter) => api<ListResponse<CallDto>>('GET', `/api/calls?${callQuery(f)}`),
+  get: (id: string) => api<CallDetailDto>('GET', `/api/calls/${id}`),
+  csvUrl: (f: CallFilter) => `/api/calls/export.csv?${callQuery({ ...f, cursor: undefined })}`,
 };

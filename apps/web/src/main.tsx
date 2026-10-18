@@ -19,6 +19,7 @@ import { RingGroupsPage } from './pages/admin/RingGroupsPage.tsx';
 import { IvrsPage } from './pages/admin/IvrsPage.tsx';
 import { OfficeHoursPage } from './pages/admin/OfficeHoursPage.tsx';
 import { BlockedPage } from './pages/admin/BlockedPage.tsx';
+import { CallsPage } from './pages/admin/CallsPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
 import { SetupPage } from './pages/SetupPage.tsx';
 import './index.css';
@@ -56,6 +57,8 @@ const router = createBrowserRouter([
             <OfficeHoursPage />
           ) : p.path === 'blocked' ? (
             <BlockedPage />
+          ) : p.path === 'calls' ? (
+            <CallsPage />
           ) : (
             <ComingSoon label={p.label} milestone={p.milestone ?? ''} />
           ),
