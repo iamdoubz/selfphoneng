@@ -63,6 +63,7 @@ export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) 
     INITIAL_ADMIN_PASSWORD: ADMIN.password,
     AMI_SECRET: 'ami-secret-123',
     LOG_LEVEL: 'fatal',
+    SOUNDS_DIR: mkdtempSync(join(tmpdir(), 'sp-sounds-')),
   });
   setSecretKey(config.APP_SECRET);
   const pub = mkdtempSync(join(tmpdir(), 'sp-public-'));

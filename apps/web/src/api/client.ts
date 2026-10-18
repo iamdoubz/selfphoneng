@@ -17,6 +17,7 @@ import type {
   RouteTestResult,
   SettingsDto,
   SipCredentials,
+  SoundDto,
   TrunkCreate,
   TrunkDto,
   TrunkTestResult,
@@ -52,6 +53,25 @@ async function api<T>(method: string, url: string, body?: unknown): Promise<T> {
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
+  if (!res.ok) {
+    const e = data?.error ?? {};
+    throw new ApiError(res.status, e.code ?? 'internal', e.message ?? res.statusText, e.details);
+  }
+  return data as T;
+}
+
+/** Audio uploads: the file itself is the body (no multipart), with its own Content-Type. */
+async function upload<T>(method: string, url: string, body: Blob): Promise<T> {
+  const res = await fetch(url, {
+    method,
+    credentials: 'same-origin',
+    headers: {
+      'X-Requested-With': 'selfphoneng',
+      'Content-Type': body.type || 'application/octet-stream',
+    },
+    body,
+  });
+  const data = await res.json().catch(() => null);
   if (!res.ok) {
     const e = data?.error ?? {};
     throw new ApiError(res.status, e.code ?? 'internal', e.message ?? res.statusText, e.details);
@@ -157,20 +177,20 @@ export const meApi = {
   greetings: () => api<Record<GreetingKind, boolean>>('GET', '/api/me/greetings'),
   greetingUrl: (kind: GreetingKind) => `/api/me/greetings/${kind}/audio`,
   /** The raw recording or file is the body; the server converts it with ffmpeg. */
-  putGreeting: async (kind: GreetingKind, audio: Blob) => {
-    const res = await fetch(`/api/me/greetings/${kind}`, {
-      method: 'PUT',
-      credentials: 'same-origin',
-      headers: {
-        'X-Requested-With': 'selfphoneng',
-        'Content-Type': audio.type || 'application/octet-stream',
-      },
-      body: audio,
-    });
-    if (!res.ok) {
-      const e = (await res.json().catch(() => null))?.error ?? {};
-      throw new ApiError(res.status, e.code ?? 'internal', e.message ?? res.statusText, e.details);
-    }
-  },
+  putGreeting: (kind: GreetingKind, audio: Blob) =>
+    upload<{ ok: true }>('PUT', `/api/me/greetings/${kind}`, audio),
   deleteGreeting: (kind: GreetingKind) => api<{ ok: true }>('DELETE', `/api/me/greetings/${kind}`),
+};
+
+export const soundsApi = {
+  list: () => api<ListResponse<SoundDto>>('GET', '/api/sounds').then((r) => r.items),
+  audioUrl: (id: string) => `/api/sounds/${id}/audio`,
+  upload: (name: string, file: File) =>
+    upload<SoundDto>(
+      'POST',
+      `/api/sounds?${new URLSearchParams({ name, filename: file.name })}`,
+      file,
+    ),
+  rename: (id: string, name: string) => api<SoundDto>('PATCH', `/api/sounds/${id}`, { name }),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/sounds/${id}`),
 };

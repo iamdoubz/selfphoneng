@@ -1,34 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // M4-T3: /api/me/voicemail and /api/me/greetings (04 §5.6, §7.3).
-import { spawnSync } from 'node:child_process';
 import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { setSetting } from '../src/services/settings.ts';
+import { hasFfmpeg, silenceWav } from './audio.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
-
-const hasFfmpeg = spawnSync('ffmpeg', ['-version']).status === 0;
-
-/** 8 kHz mono silence as a wav file. */
-function silenceWav(seconds = 1) {
-  const data = Buffer.alloc(8000 * 2 * seconds);
-  const h = Buffer.alloc(44);
-  h.write('RIFF', 0);
-  h.writeUInt32LE(36 + data.length, 4);
-  h.write('WAVEfmt ', 8);
-  h.writeUInt32LE(16, 16);
-  h.writeUInt16LE(1, 20);
-  h.writeUInt16LE(1, 22);
-  h.writeUInt32LE(8000, 24);
-  h.writeUInt32LE(16000, 28);
-  h.writeUInt16LE(2, 32);
-  h.writeUInt16LE(16, 34);
-  h.write('data', 36);
-  h.writeUInt32LE(data.length, 40);
-  return Buffer.concat([h, data]);
-}
 
 type Inject = (
   method: string,

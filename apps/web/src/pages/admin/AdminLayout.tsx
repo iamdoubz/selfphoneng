@@ -21,7 +21,7 @@ export const ADMIN_PAGES = [
   { path: 'hours', label: 'Office hours', milestone: 'M6' },
   { path: 'conferences', label: 'Conferences', milestone: 'M8' },
   { path: 'paging', label: 'Paging', milestone: 'M8' },
-  { path: 'sounds', label: 'Sounds & music', milestone: 'M6' },
+  { path: 'sounds', label: 'Sounds & music', milestone: null },
   { path: 'devices', label: 'Phones', milestone: 'M10' },
   { path: 'contacts', label: 'Contacts', milestone: 'M10' },
   { path: 'calls', label: 'Call history', milestone: 'M7' },

@@ -335,7 +335,7 @@ Admin resources (all `requireAdmin`; standard CRUD = `GET /x`, `POST /x`, `GET /
 | `/api/announcements` | |
 | `/api/conferences` | |
 | `/api/paging-groups` | |
-| `/api/sounds` | upload is multipart `POST /api/sounds`, `GET /:id/audio`, `POST /tts` (M12) |
+| `/api/sounds` | upload is `POST /api/sounds?name=&filename=` with the raw file as the body (like greetings, no multipart), `GET /:id/audio`, `PATCH /:id {name}`, `DELETE /:id` (409 with `usedBy`: IVR greeting/invalid sound, announcements, the recording notice), `POST /tts` (M12). M6 lists prompts only; MOH classes and files come with M8 |
 | `/api/moh-classes` | |
 | `/api/devices` | `GET /:id/config-preview` (rendered provisioning file, passwords masked) |
 | `/api/blocked-numbers` | |

@@ -74,3 +74,8 @@ a second tab (`cdp.mjs` `newTab()`).
 calls 172 and measures the time from Asterisk's hint changing to the dot changing (must be < 1 s).
 Then a second browser, as a new user with desk phone 174 and the softphone off, clicks **Call** on
 172: 174 must ring first (Asterisk channel order), then the two are connected.
+
+`m6-t1.mjs` needs m2-live started with a sounds dir (`m2-live.mjs up <confDir> <vmDir> <soundsDir>`)
+and the api with `SOUNDS_DIR=<soundsDir>`. It drops a generated wav on **Sounds & music**, uploads it,
+checks that Asterisk can play `custom/<id>`, renames it, and deletes it, which is refused while it's
+the recording notice. `cdp.mjs` `fill()`/`click()` take an optional selector to search within.

@@ -14,6 +14,7 @@ import { TrunksPage } from './pages/admin/TrunksPage.tsx';
 import { NumbersPage } from './pages/admin/NumbersPage.tsx';
 import { OutboundPage } from './pages/admin/OutboundPage.tsx';
 import { SettingsPage } from './pages/admin/SettingsPage.tsx';
+import { SoundsPage } from './pages/admin/SoundsPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
 import { SetupPage } from './pages/SetupPage.tsx';
 import './index.css';
@@ -41,6 +42,8 @@ const router = createBrowserRouter([
             <NumbersPage />
           ) : p.path === 'trunks' ? (
             <TrunksPage />
+          ) : p.path === 'sounds' ? (
+            <SoundsPage />
           ) : (
             <ComingSoon label={p.label} milestone={p.milestone ?? ''} />
           ),

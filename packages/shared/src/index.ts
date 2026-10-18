@@ -11,3 +11,4 @@ export * from './trunks.ts';
 export * from './dids.ts';
 export * from './outbound.ts';
 export * from './voicemail.ts';
+export * from './sounds.ts';

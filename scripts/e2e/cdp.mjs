@@ -104,9 +104,9 @@ async function attach(wsUrl, { width, height, shotsDir }) {
     goto: (url) => send('Page.navigate', { url }),
     path: () => evaluate('location.pathname'),
     /** Sets an input/select found by its <label> text, the way a user typing would (React sees it). */
-    fill: (label, value) =>
+    fill: (label, value, within = 'body') =>
       evaluate(`(() => {
-        const l = [...document.querySelectorAll('label')].find(l => l.textContent.trim().startsWith(${JSON.stringify(label)}) && l.htmlFor && document.getElementById(l.htmlFor)?.offsetParent !== null);
+        const l = [...document.querySelector(${JSON.stringify(within)}).querySelectorAll('label')].find(l => l.textContent.trim().startsWith(${JSON.stringify(label)}) && l.htmlFor && document.getElementById(l.htmlFor)?.offsetParent !== null);
         if (!l) throw new Error('no visible field ' + ${JSON.stringify(label)});
         const el = document.getElementById(l.htmlFor);
         const proto = el.tagName === 'SELECT' ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
