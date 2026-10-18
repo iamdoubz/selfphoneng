@@ -62,6 +62,7 @@ function snapshot(): Snapshot {
     settings,
     dids: [],
     trunks: [],
+    routes: [],
     extensions: [ext('101', 'Alice'), ext('102', 'Bob')],
   };
 }

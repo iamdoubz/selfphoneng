@@ -3,21 +3,117 @@
     "routing.defaultCallerIdDidId": "11111111-1111-4111-8111-111111111111",
     "emergency.defaultCallerIdDidId": "11111111-1111-4111-8111-111111111111"
   },
-  "extensions": [{ "number": "101", "name": "Dan Doe" }],
-  "trunks": [{ "id": "7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37" }],
+  "extensions": [
+    {
+      "number": "101",
+      "name": "Dan Doe"
+    }
+  ],
+  "trunks": [
+    {
+      "id": "7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37",
+      "maxChannels": 2
+    }
+  ],
   "dids": [
     {
       "id": "11111111-1111-4111-8111-111111111111",
       "number": "13125551234",
       "label": "Main line",
-      "destination": { "type": "user", "id": "00000000-0000-4000-8000-000000000000" }
+      "destination": {
+        "type": "user",
+        "id": "00000000-0000-4000-8000-000000000000"
+      }
     },
     {
       "id": "22222222-2222-4222-8222-222222222222",
       "number": "13125559876",
       "label": "Sales; line",
       "callerIdNamePrefix": "SALES:",
-      "destination": { "type": "external", "number": "13125550000" }
+      "destination": {
+        "type": "external",
+        "number": "13125550000"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "id": "aaaaaaaa-0000-4000-8000-000000000001",
+      "name": "Local/National (NANP)",
+      "position": 1,
+      "patterns": [
+        {
+          "match": "NXXNXXXXXX",
+          "strip": 0,
+          "prepend": "1"
+        },
+        {
+          "match": "1NXXNXXXXXX",
+          "strip": 0,
+          "prepend": ""
+        }
+      ],
+      "requiredClass": "national",
+      "trunkIds": ["7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37"]
+    },
+    {
+      "id": "aaaaaaaa-0000-4000-8000-000000000002",
+      "name": "Toll-free",
+      "position": 0,
+      "patterns": [
+        {
+          "match": "1800NXXXXXX",
+          "strip": 0,
+          "prepend": ""
+        },
+        {
+          "match": "1888NXXXXXX",
+          "strip": 0,
+          "prepend": ""
+        },
+        {
+          "match": "1877NXXXXXX",
+          "strip": 0,
+          "prepend": ""
+        },
+        {
+          "match": "1866NXXXXXX",
+          "strip": 0,
+          "prepend": ""
+        },
+        {
+          "match": "1855NXXXXXX",
+          "strip": 0,
+          "prepend": ""
+        },
+        {
+          "match": "1844NXXXXXX",
+          "strip": 0,
+          "prepend": ""
+        },
+        {
+          "match": "1833NXXXXXX",
+          "strip": 0,
+          "prepend": ""
+        }
+      ],
+      "requiredClass": "local",
+      "trunkIds": ["7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37"]
+    },
+    {
+      "id": "aaaaaaaa-0000-4000-8000-000000000003",
+      "name": "International",
+      "position": 2,
+      "enabled": false,
+      "patterns": [
+        {
+          "match": "011.",
+          "strip": 0,
+          "prepend": ""
+        }
+      ],
+      "requiredClass": "international",
+      "trunkIds": ["7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37"]
     }
   ]
 }

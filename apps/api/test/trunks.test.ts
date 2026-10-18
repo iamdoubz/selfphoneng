@@ -9,7 +9,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { TrunkCreateSchema, type LiveMessage } from '@selfphoneng/shared';
 import { AmiParser, field } from '../src/ami/events.ts';
 import { decrypt } from '../src/crypto/secrets.ts';
-import { auditLog, dids, trunks } from '../src/db/schema.ts';
+import { auditLog, dids, outboundRoutes, trunks } from '../src/db/schema.ts';
 import { trunkOfObject } from '../src/live/state.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
@@ -156,15 +156,31 @@ describe.skipIf(!hasTestDb)('trunks API', () => {
     await req('PATCH', `/api/trunks/${id}`, { enabled: true });
   });
 
-  it('refuses to delete a trunk that a phone number uses', async () => {
+  it('the first trunk gets the default outbound rules (international off)', async () => {
+    const routes = (await req('GET', '/api/outbound-routes')).json().items;
+    expect(routes.map((r: { name: string; enabled: boolean }) => [r.name, r.enabled])).toEqual([
+      ['Toll-free', true],
+      ['Local and national (US/Canada)', true],
+      ['International', false],
+    ]);
+    expect(routes.every((r: { trunkIds: string[] }) => r.trunkIds[0] === id)).toBe(true);
+  });
+
+  it('refuses to delete a trunk that a phone number or an outbound rule uses', async () => {
     const [d] = await t.db
       .insert(dids)
       .values({ number: '13125551234', trunkId: id, destination: { type: 'hangup' } })
       .returning();
     const r = await req('DELETE', `/api/trunks/${id}`);
     expect(r.statusCode).toBe(409);
-    expect(r.json().error.message).toContain('number 13125551234');
+    expect(r.json().error.details.usedBy).toEqual([
+      'number (312) 555-1234',
+      'outbound rule "Toll-free"',
+      'outbound rule "Local and national (US/Canada)"',
+      'outbound rule "International"',
+    ]);
     await t.db.delete(dids).where(eq(dids.id, d!.id));
+    await t.db.delete(outboundRoutes);
     expect((await req('DELETE', `/api/trunks/${id}`)).statusCode).toBe(200);
     await settle();
     expect(pjsip()).not.toContain('trunk-');

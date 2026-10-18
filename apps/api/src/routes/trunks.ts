@@ -7,6 +7,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
   TrunkCreateSchema,
+  formatNumber,
   TrunkUpdateSchema,
   type ListResponse,
   type TrunkDto,
@@ -19,6 +20,7 @@ import { requireAdmin } from '../auth/guards.ts';
 import { encrypt } from '../crypto/secrets.ts';
 import { audit } from '../services/audit.ts';
 import { getSetting } from '../services/settings.ts';
+import { createDefaultRoutes } from '../services/outbound.ts';
 
 type TrunkRow = typeof trunks.$inferSelect;
 
@@ -106,7 +108,7 @@ export async function trunkRoutes(app: FastifyInstance) {
       summary: `Created trunk ${created.name}`,
       diff: { after: toDto(created) },
     });
-    // TODO(M3-T3): create the default outbound routes with the first trunk (06 §4).
+    await createDefaultRoutes(db, created.id); // only when there are no routes yet (06 §4)
     app.generator.requestApply('api-change');
     return reply.code(201).send(toDto(created));
   });
@@ -167,7 +169,7 @@ export async function trunkRoutes(app: FastifyInstance) {
     const t = await getTrunk(db, id);
     const usedBy = [
       ...(await db.select({ n: dids.number }).from(dids).where(eq(dids.trunkId, id))).map(
-        (r) => `number ${r.n}`,
+        (r) => `number ${formatNumber(r.n)}`,
       ),
       ...(
         await db

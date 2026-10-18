@@ -32,6 +32,7 @@ const PHONES = 'sp-trunk-phones';
 const EXT_ID = '00000000-0000-4000-8000-000000000101';
 const PHONE_PASS = 'TrunkTest101xxxxxxxxxxxx';
 const DID = '13125551234';
+const DID_ID = '11111111-1111-4111-8111-111111111111';
 const MOBILE = '3125559999'; // the outside caller, 10 digits as voip.ms sends them
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -47,6 +48,7 @@ function snapshot(): Snapshot {
       .filter((k) => k !== 'sms.webhookToken')
       .map((k) => [k, SettingsSchemas[k].parse(undefined)]),
   ) as Snapshot['settings'];
+  settings['routing.defaultCallerIdDidId'] = DID_ID;
   const trunk = (id: string, name: string, password: string) => ({
     id,
     name,
@@ -68,7 +70,7 @@ function snapshot(): Snapshot {
     settings,
     dids: [
       {
-        id: '11111111-1111-4111-8111-111111111111',
+        id: DID_ID,
         number: DID,
         trunkId: GOOD,
         label: 'Main line',
@@ -97,6 +99,21 @@ function snapshot(): Snapshot {
       },
     ],
     trunks: [trunk(GOOD, 'voip.ms', SUB.pass), trunk(BAD, 'wrong password', 'NotThePassword1')],
+    routes: [
+      {
+        id: 'aaaaaaaa-0000-4000-8000-000000000001',
+        name: 'Local and national',
+        position: 0,
+        enabled: true,
+        patterns: [
+          { match: 'NXXNXXXXXX', strip: 0, prepend: '1' },
+          { match: '1NXXNXXXXXX', strip: 0, prepend: '' },
+        ],
+        requiredClass: 'national',
+        trunkIds: [GOOD],
+        callerId: null,
+      },
+    ],
   };
 }
 
@@ -167,8 +184,11 @@ exten => _X.,1,Set(CALLERID(all)="Mobile" <${MOBILE}>)
 exten => s,1,Answer()
  same => n,Echo()
 
+; Our outbound calls arrive here: remember what the provider saw, then echo the audio.
 [provider-in]
-exten => _X.,1,Hangup()
+exten => _X.,1,Set(GLOBAL(LAST_IN)=to=\${EXTEN} from=\${CALLERID(num)} rpid=\${PJSIP_HEADER(read,Remote-Party-ID)})
+ same => n,Answer()
+ same => n,Echo()
 `;
 
 async function waitFor(what: string, fn: () => Promise<boolean>, seconds = 60) {
@@ -230,6 +250,26 @@ async function main() {
       `${conf}:/etc/asterisk/selfphoneng`,
       IMAGE,
     );
+  /** Holds the call 10 s, then both legs (101 and the trunk) must have RTP both ways. */
+  async function checkAudio(what: string) {
+    await sleep(10_000);
+    const stats = await ami.command('pjsip show channelstats');
+    // The ChannelId column is cut at 18 characters: "trunk-7d3e9a52-1c4".
+    const rows = stats.split('\n').filter((l) => /^\s*\S+ (101-[0-9a-f]{8}|trunk-\S+) /.test(l));
+    if (rows.length !== 2) problems.push(`${what}: expected the 101 and trunk legs in:\n${stats}`);
+    for (const r of rows) {
+      const cols = r.trim().split(/\s+/);
+      const ulaw = cols.indexOf('ulaw');
+      const rx = Number(cols[ulaw + 1]);
+      const tx = Number(cols[ulaw + 5]);
+      log(`${what} ${cols[1]}: rx ${rx}, tx ${tx}`);
+      if (!(rx > 250) || !(tx > 250))
+        problems.push(`${what}: one-way or no audio on ${cols[1]}: rx ${rx}, tx ${tx}`);
+    }
+    await ami.command('channel request hangup all');
+    for (let i = 0; i < 10 && /PJSIP\//.test(await ami.command('core show channels concise')); i++)
+      await sleep(500);
+  }
   const booted = async (name: string) =>
     waitFor(
       `${name} to boot`,
@@ -346,20 +386,36 @@ async function main() {
     if (!toPhone) problems.push('no DialBegin to PJSIP/101');
     else if (toPhone.CallerIDNum !== `1${MOBILE}`)
       problems.push(`101 saw caller ID ${toPhone.CallerIDNum}, expected 1${MOBILE} (normalized)`);
-    await sleep(10_000);
-    const stats = await ami.command('pjsip show channelstats');
-    // The ChannelId column is cut at 18 characters: "trunk-7d3e9a52-1c4".
-    const rows = stats.split('\n').filter((l) => /^\s*\S+ (101-[0-9a-f]{8}|trunk-\S+) /.test(l));
-    if (rows.length !== 2) problems.push(`expected the 101 and trunk legs in:\n${stats}`);
-    for (const r of rows) {
-      const cols = r.trim().split(/\s+/);
-      const ulaw = cols.indexOf('ulaw');
-      const rx = Number(cols[ulaw + 1]);
-      const tx = Number(cols[ulaw + 5]);
-      log(`${cols[1]}: rx ${rx}, tx ${tx}`);
-      if (!(rx > 250) || !(tx > 250))
-        problems.push(`one-way or no audio on ${cols[1]}: rx ${rx}, tx ${tx}`);
-    }
+    await checkAudio('inbound');
+
+    // M3-T3: 101 dials a 10-digit number; it leaves as 11 digits with the DID as caller ID.
+    const bothUp = async () => {
+      const up = (await ami.command('core show channels concise'))
+        .split('\n')
+        .filter((l) => l.includes('!Up!'));
+      return (
+        up.some((l) => l.startsWith('PJSIP/101-')) && up.some((l) => l.startsWith('PJSIP/trunk-'))
+      );
+    };
+    await ami.command(`channel originate PJSIP/101 extension 3125550000@sp-from-ext`);
+    await waitFor('the outbound call to connect', bothUp, 30);
+    const seen = docker('exec', PROVIDER, 'asterisk', '-rx', 'dialplan show globals').out;
+    const lastIn = /LAST_IN=(.*)/.exec(seen)?.[1] ?? '';
+    log(`provider received: ${lastIn}`);
+    if (!lastIn.startsWith('to=13125550000 '))
+      problems.push(`provider saw ${lastIn}, expected to=13125550000`);
+    if (!new RegExp(`rpid=.*sip:${DID}@`).test(lastIn))
+      problems.push(`caller ID ${DID} not in Remote-Party-ID: ${lastIn}`);
+    await checkAudio('outbound');
+
+    // A caller whose class is too low (a Local channel has no SP_CLASS) hears "no service".
+    await ami.command('channel originate Local/13125550000@sp-from-ext application Wait 10');
+    await waitFor(
+      'ss-noservice',
+      async () => /Playback!ss-noservice/.test(await ami.command('core show channels concise')),
+      10,
+    );
+    log('class check: ss-noservice');
     await ami.command('channel request hangup all');
 
     // eslint-disable-next-line no-control-regex -- strips Asterisk's ANSI colors
@@ -384,7 +440,9 @@ async function main() {
     for (const p of problems) console.log(`     ${p}`);
     process.exit(1);
   }
-  console.log('ok   trunks (registration, rejection, qualify, inbound DID call to 101 with audio)');
+  console.log(
+    'ok   trunks (registration, rejection, qualify, inbound DID → 101, outbound with DID caller ID, class check)',
+  );
 }
 
 await main();

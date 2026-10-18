@@ -8,7 +8,4 @@ exten => pending,1,Hangup()
 
 [sp-featurecodes]       ; M6-T7 (03 §6.13)
 exten => pending,1,Hangup()
-
-[sp-outbound-routes]    ; M3-T3 (03 §6.12)
-exten => pending,1,Hangup()
 `;

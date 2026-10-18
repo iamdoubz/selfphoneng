@@ -10,6 +10,10 @@ import type {
   ExtensionUpdate,
   ListResponse,
   NumberKind,
+  OutboundRouteCreate,
+  OutboundRouteDto,
+  OutboundRouteUpdate,
+  RouteTestResult,
   SipCredentials,
   TrunkCreate,
   TrunkDto,
@@ -96,4 +100,16 @@ export const didsApi = {
   create: (d: DidCreate) => api<DidDto>('POST', '/api/dids', d),
   update: (id: string, d: DidUpdate) => api<DidDto>('PATCH', `/api/dids/${id}`, d),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/dids/${id}`),
+};
+
+export const routesApi = {
+  list: () =>
+    api<ListResponse<OutboundRouteDto>>('GET', '/api/outbound-routes').then((r) => r.items),
+  create: (r: OutboundRouteCreate) => api<OutboundRouteDto>('POST', '/api/outbound-routes', r),
+  update: (id: string, r: OutboundRouteUpdate) =>
+    api<OutboundRouteDto>('PATCH', `/api/outbound-routes/${id}`, r),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/outbound-routes/${id}`),
+  reorder: (ids: string[]) => api<{ ok: true }>('POST', '/api/outbound-routes/reorder', { ids }),
+  test: (extensionId: string, number: string) =>
+    api<RouteTestResult>('POST', '/api/outbound-routes/test', { extensionId, number }),
 };

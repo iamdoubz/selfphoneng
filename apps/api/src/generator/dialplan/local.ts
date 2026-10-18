@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // sp-local-numbers (03 §6.6) and the globals file (03 §6.3).
+import { CLASS_RANK } from '@selfphoneng/shared';
 import { byNumber, type Snapshot } from '../load.ts';
 import * as s from '../sanitize.ts';
-
-const CLASS_NUMBER = { internal: 0, local: 1, national: 2, international: 3 } as const;
 
 // TODO(M4): voicemail on. Until then every user gets ARG3 = 0 (09 M2-T4).
 const VOICEMAIL_READY = false;
@@ -42,8 +41,7 @@ export function renderGlobals(snap: Snapshot): string {
     'SP_REC_ANNOUNCE=', // M7: recordings.announcementSoundId → sound name
   ];
   const exts = [...snap.extensions].sort(byNumber);
-  for (const e of exts)
-    lines.push(`SP_CLASS_${s.digits(e.number)}=${CLASS_NUMBER[e.outboundClass]}`);
+  for (const e of exts) lines.push(`SP_CLASS_${s.digits(e.number)}=${CLASS_RANK[e.outboundClass]}`);
   for (const e of exts) if (e.isAdmin) lines.push(`SP_TCADMIN_${s.digits(e.number)}=1`);
   return lines.join('\n') + '\n';
 }

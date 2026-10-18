@@ -20,6 +20,7 @@ export function loadCase(name: string): Snapshot {
     extensions?: Partial<Snapshot['extensions'][number]>[];
     dids?: Partial<Snapshot['dids'][number]>[];
     trunks?: Partial<Snapshot['trunks'][number]>[];
+    routes?: Partial<Snapshot['routes'][number]>[];
   };
   const settings = Object.fromEntries(
     (Object.keys(SettingsSchemas) as SettingKey[])
@@ -37,6 +38,17 @@ export function loadCase(name: string): Snapshot {
       ...d,
       id: d.id!,
       number: d.number!,
+    })),
+    routes: (raw.routes ?? []).map((r, i) => ({
+      name: `Route ${i + 1}`,
+      position: i,
+      enabled: true,
+      patterns: [],
+      requiredClass: 'national',
+      trunkIds: [],
+      callerId: null,
+      ...r,
+      id: r.id!,
     })),
     trunks: (raw.trunks ?? []).map((t) => ({
       name: 'voip.ms',

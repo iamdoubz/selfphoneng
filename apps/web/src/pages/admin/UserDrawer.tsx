@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// User + extension editor (05 §2). Tabs so far: General, Phone, Credentials.
-// Voicemail (M4), Calling and Emergency (M3) and Forwarding (M6) arrive with their features.
+// User + extension editor (05 §2). Tabs so far: General, Phone, Calling, Credentials.
+// Voicemail (M4), Emergency (M3-T4) and Forwarding (M6) arrive with their features.
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
@@ -8,17 +8,20 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import {
   ExtensionUpdateSchema,
+  OUTBOUND_CLASSES,
+  formatNumber,
   InternalNumber,
   RoleSchema,
   type ExtensionDto,
   type SipCredentials,
   type UserDto,
 } from '@selfphoneng/shared';
-import { extensionsApi, usersApi } from '../../api/client.ts';
+import { didsApi, extensionsApi, usersApi } from '../../api/client.ts';
+import { CLASS_LABEL } from './OutboundPage.tsx';
 import { Dialog } from '../../components/Dialog.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
-type Tab = 'general' | 'phone' | 'credentials';
+type Tab = 'general' | 'phone' | 'calling' | 'credentials';
 
 const GeneralSchema = z.object({
   displayName: z.string().trim().min(1, 'Required').max(100),
@@ -51,6 +54,7 @@ export function UserDrawer({
   const tabs: { id: Tab; label: string; enabled: boolean }[] = [
     { id: 'general', label: 'General', enabled: true },
     { id: 'phone', label: 'Phone', enabled: Boolean(ext.data) },
+    { id: 'calling', label: 'Calling', enabled: Boolean(ext.data) },
     { id: 'credentials', label: 'Credentials', enabled: Boolean(ext.data) },
   ];
 
@@ -101,6 +105,7 @@ export function UserDrawer({
         />
       )}
       {tab === 'phone' && ext.data && <PhoneTab ext={ext.data} onSaved={() => onSaved()} />}
+      {tab === 'calling' && ext.data && <CallingTab ext={ext.data} onSaved={() => onSaved()} />}
       {tab === 'credentials' && ext.data && <CredentialsTab ext={ext.data} />}
     </Dialog>
   );
@@ -429,5 +434,65 @@ function CredentialsTab({ ext }: { ext: ExtensionDto }) {
         {done && <p className="mt-2 text-green-700 dark:text-green-400">New password saved.</p>}
       </div>
     </div>
+  );
+}
+
+function CallingTab({ ext, onSaved }: { ext: ExtensionDto; onSaved: () => void }) {
+  const qc = useQueryClient();
+  const dids = useQuery({ queryKey: ['dids'], queryFn: didsApi.list });
+  const [error, setError] = useState<string>();
+  const form = useForm({
+    defaultValues: {
+      outboundClass: ext.outboundClass,
+      outboundCallerIdDidId: ext.outboundCallerIdDidId ?? '',
+    },
+  });
+  const onSubmit = form.handleSubmit(async (v) => {
+    setError(undefined);
+    try {
+      await extensionsApi.update(ext.id, {
+        outboundClass: v.outboundClass,
+        outboundCallerIdDidId: v.outboundCallerIdDidId || null,
+      });
+      await qc.invalidateQueries({ queryKey: ['extension', ext.id] });
+      onSaved();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  });
+  return (
+    <form id="user-calling-form" onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+      {error && <Alert>{error}</Alert>}
+      <Field
+        label="Calling permission"
+        hint="Which outside numbers they may dial. 911 always works, whatever this says."
+      >
+        {(a) => (
+          <select {...a} {...form.register('outboundClass')} className={inputClass}>
+            {OUTBOUND_CLASSES.map((c) => (
+              <option key={c} value={c}>
+                {CLASS_LABEL[c]}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+      <Field
+        label="Outbound caller ID"
+        hint="The number people see when they call out. Default: the company's main number."
+      >
+        {(a) => (
+          <select {...a} {...form.register('outboundCallerIdDidId')} className={inputClass}>
+            <option value="">Company default</option>
+            {dids.data?.map((d) => (
+              <option key={d.id} value={d.id}>
+                {formatNumber(d.number)}
+                {d.label ? ` (${d.label})` : ''}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+    </form>
   );
 }

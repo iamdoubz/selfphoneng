@@ -14,7 +14,7 @@ export const ADMIN_PAGES = [
   { path: 'users', label: 'Users & Extensions', milestone: null },
   { path: 'trunks', label: 'Trunks', milestone: null },
   { path: 'numbers', label: 'Phone numbers', milestone: null },
-  { path: 'outbound', label: 'Outbound rules', milestone: 'M3' },
+  { path: 'outbound', label: 'Outbound rules', milestone: null },
   { path: 'ring-groups', label: 'Ring groups', milestone: 'M6' },
   { path: 'queues', label: 'Queues', milestone: 'M8' },
   { path: 'ivrs', label: 'Digital receptionist', milestone: 'M6' },

@@ -699,11 +699,23 @@ music_on_hold_when_empty = yes
 
 ### 6.12 Outbound routes
 
+Asterisk sorts the patterns inside one context by how specific they are, not by file order, so
+"routes in position order" needs one context per route, included in position order (an include
+is searched only after the ones before it; verified by the load test and `outbound.test.ts`).
+Duplicate patterns inside a route are dropped (a duplicate extension is a load error). When
+there are no enabled routes, `sp-outbound-routes` holds `exten => pending,1,Hangup()`.
+
 ```ini
 [sp-outbound-routes]
-; one line per pattern, routes in position order; disabled routes skipped
+; one include per enabled route, in position order
+include => sp-or-{id}        ; route name
+include => sp-or-{id2}
+
+[sp-or-{id}]
 exten => _NXXNXXXXXX,1,Goto(sp-route-{id},1${EXTEN:0},1)     ; strip=0 prepend=1
 exten => _1NXXNXXXXXX,1,Goto(sp-route-{id},${EXTEN:0},1)
+
+[sp-or-{id2}]
 exten => _011.,1,Goto(sp-route-{id2},${EXTEN},1)
 
 [sp-route-{id}]
@@ -718,23 +730,26 @@ exten => _X.,1,Set(__SP_DIRECTION=outbound)
  same => n,ExecIf($["${CID}" != ""]?Set(CALLERID(num)=${CID}))
  ; trunk 1 (with optional channel limit)
  same => n,Set(GROUP(sptrunk)={trunk1id})
- same => n,GotoIf($[${GROUP_COUNT({trunk1id}@sptrunk)} > {max_channels}]?t2)   ; only if max_channels
+ same => n,GotoIf($[${GROUP_COUNT({trunk1id}@sptrunk)} > {max_channels}]?t1)   ; only if max_channels (last trunk: ?busy)
  same => n,Dial(PJSIP/${EXTEN}@trunk-{trunk1id},120)
  same => n,GotoIf($["${DIALSTATUS}" != "CHANUNAVAIL" & "${DIALSTATUS}" != "CONGESTION"]?done)
- same => n(t2),Dial(PJSIP/${EXTEN}@trunk-{trunk2id},120)                       ; repeat per trunk
+ same => n(t1),Set(GROUP(sptrunk)={trunk2id})                                   ; repeat per trunk
+ same => n,Dial(PJSIP/${EXTEN}@trunk-{trunk2id},120)
+ same => n,GotoIf($["${DIALSTATUS}" != "CHANUNAVAIL" & "${DIALSTATUS}" != "CONGESTION"]?done)
+ same => n(busy),Playback(all-circuits-busy-now)                               ; every trunk full, down or off
  same => n(done),Hangup()
  same => n(denied),Playback(ss-noservice)
  same => n,Hangup()
 ```
-Default routes created by the setup wizard (06 §4):
+Default routes, created with the first trunk (06 §4), in this order. Toll-free comes first because
+`1NXXNXXXXXX` also matches `1800…` and the first matching route wins:
 
 | Name | Patterns | Required class |
 |---|---|---|
-| Local/National (NANP) | `NXXNXXXXXX` (prepend `1`), `1NXXNXXXXXX` | national |
 | Toll-free | `1800NXXXXXX`, `1888NXXXXXX`, `1877NXXXXXX`, `1866NXXXXXX`, `1855NXXXXXX`, `1844NXXXXXX`, `1833NXXXXXX` | local |
+| Local/National (NANP) | `NXXNXXXXXX` (prepend `1`), `1NXXNXXXXXX` | national |
 | International | `011.` | international — **created disabled** |
 
-Pattern note: Asterisk sorts patterns by how specific they are, so toll-free can sit next to national safely.
 
 ### 6.13 Feature codes `sp-featurecodes`
 

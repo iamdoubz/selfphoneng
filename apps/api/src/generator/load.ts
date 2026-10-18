@@ -3,10 +3,10 @@
 import { eq } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { Db } from '../db/client.ts';
-import { dids, extensions, trunks, users } from '../db/schema.ts';
+import { dids, extensions, outboundRoutes, trunks, users } from '../db/schema.ts';
 import { decrypt } from '../crypto/secrets.ts';
 import { getAllSettings } from '../services/settings.ts';
-import type { Destination } from '@selfphoneng/shared';
+import type { Destination, OutboundClass, RoutePattern } from '@selfphoneng/shared';
 
 export type SnapExtension = {
   id: string;
@@ -36,6 +36,17 @@ export type SnapDid = {
   callerIdNamePrefix: string | null;
 };
 
+export type SnapRoute = {
+  id: string;
+  name: string;
+  position: number;
+  enabled: boolean;
+  patterns: RoutePattern[];
+  requiredClass: OutboundClass;
+  trunkIds: string[];
+  callerId: string | null; // the override DID's number
+};
+
 export type SnapTrunk = {
   id: string;
   name: string;
@@ -60,6 +71,7 @@ export type Snapshot = {
   extensions: SnapExtension[];
   dids: SnapDid[];
   trunks: SnapTrunk[];
+  routes: SnapRoute[];
 };
 
 export function todayIn(timezone: string, now = new Date()): string {
@@ -94,10 +106,22 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
     })
     .from(dids);
   const trunkRows = await db.select().from(trunks);
+  const routeRows = await db.select().from(outboundRoutes);
+  const didNumber = new Map(didRows.map((d) => [d.id, d.number]));
   return {
     today: todayIn(settings['general.timezone'], now),
     settings,
     dids: didRows.map((d) => ({ ...d, destination: d.destination as Destination })),
+    routes: routeRows.map((r) => ({
+      id: r.id,
+      name: r.name,
+      position: r.position,
+      enabled: r.enabled,
+      patterns: r.patterns as RoutePattern[],
+      requiredClass: r.requiredClass,
+      trunkIds: r.trunkIds,
+      callerId: r.callerIdDidId ? (didNumber.get(r.callerIdDidId) ?? null) : null,
+    })),
     trunks: trunkRows.map((t) => ({
       id: t.id,
       name: t.name,

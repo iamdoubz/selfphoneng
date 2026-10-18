@@ -12,6 +12,7 @@ import { UsersPage } from './pages/admin/UsersPage.tsx';
 import { DashboardPage } from './pages/admin/DashboardPage.tsx';
 import { TrunksPage } from './pages/admin/TrunksPage.tsx';
 import { NumbersPage } from './pages/admin/NumbersPage.tsx';
+import { OutboundPage } from './pages/admin/OutboundPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
 import './index.css';
 
@@ -28,6 +29,8 @@ const router = createBrowserRouter([
           <DashboardPage />
         ) : p.path === 'users' ? (
           <RequireAuth>{(user) => <UsersPage currentUserId={user.id} />}</RequireAuth>
+        ) : p.path === 'outbound' ? (
+          <OutboundPage />
         ) : p.path === 'numbers' ? (
           <NumbersPage />
         ) : p.path === 'trunks' ? (

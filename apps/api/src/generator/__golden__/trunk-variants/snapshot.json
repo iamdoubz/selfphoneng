@@ -1,5 +1,7 @@
 {
-  "settings": { "sip.tcpEnabled": true },
+  "settings": {
+    "sip.tcpEnabled": true
+  },
   "trunks": [
     {
       "id": "a1b2c3d4-0000-4000-8000-000000000001",
@@ -21,12 +23,53 @@
       "password": "p@ss w0rd!#",
       "fromUser": "15551230000",
       "fromDomain": "example.net",
-      "codecs": ["g722", "ulaw"]
+      "codecs": ["g722", "ulaw"],
+      "maxChannels": 4
     },
     {
       "id": "a1b2c3d4-0000-4000-8000-000000000003",
       "name": "Old provider",
       "enabled": false
+    }
+  ],
+  "routes": [
+    {
+      "id": "bbbbbbbb-0000-4000-8000-000000000002",
+      "name": "Second; [evil]",
+      "position": 5,
+      "patterns": [
+        {
+          "match": "9NXXNXXXXXX",
+          "strip": 1,
+          "prepend": "1"
+        },
+        {
+          "match": "9NXXNXXXXXX",
+          "strip": 1,
+          "prepend": "1"
+        }
+      ],
+      "requiredClass": "local",
+      "trunkIds": [
+        "a1b2c3d4-0000-4000-8000-000000000002",
+        "a1b2c3d4-0000-4000-8000-000000000003",
+        "a1b2c3d4-0000-4000-8000-000000000001"
+      ],
+      "callerId": "15551230000"
+    },
+    {
+      "id": "bbbbbbbb-0000-4000-8000-000000000001",
+      "name": "First",
+      "position": 1,
+      "patterns": [
+        {
+          "match": "1[2-9]XXNXXXXXX",
+          "strip": 0,
+          "prepend": ""
+        }
+      ],
+      "requiredClass": "national",
+      "trunkIds": ["a1b2c3d4-0000-4000-8000-000000000003"]
     }
   ]
 }

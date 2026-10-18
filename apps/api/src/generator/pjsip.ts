@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // pjsip_selfphoneng.conf (03 §5) and rtp_selfphoneng.conf (03 §4).
+import { CLASS_RANK } from '@selfphoneng/shared';
 import { byNumber, type SnapExtension, type SnapTrunk, type Snapshot } from './load.ts';
 import * as s from './sanitize.ts';
-
-const CLASS_NUMBER = { internal: 0, local: 1, national: 2, international: 3 } as const;
 
 const section = (title: string, lines: (string | false | null | undefined)[]) =>
   [`[${title}]`, ...lines.filter((l): l is string => typeof l === 'string')].join('\n');
@@ -76,7 +75,7 @@ function extensionSections(e: SnapExtension): string {
   const mailbox = e.voicemailEnabled ? `mailboxes = ${num}@default` : null;
   const vars = [
     `set_var = SP_EXT=${num}`,
-    `set_var = SP_CLASS=${CLASS_NUMBER[e.outboundClass]}`,
+    `set_var = SP_CLASS=${CLASS_RANK[e.outboundClass]}`,
     e.outboundCallerId && `set_var = SP_OUTCID=${s.digits(e.outboundCallerId)}`,
     e.emergencyCallerId && `set_var = SP_E911CID=${s.digits(e.emergencyCallerId)}`,
     `set_var = SP_RECMODE=${e.recordMode}`,
