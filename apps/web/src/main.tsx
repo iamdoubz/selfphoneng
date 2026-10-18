@@ -15,11 +15,13 @@ import { NumbersPage } from './pages/admin/NumbersPage.tsx';
 import { OutboundPage } from './pages/admin/OutboundPage.tsx';
 import { SettingsPage } from './pages/admin/SettingsPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
+import { SetupPage } from './pages/SetupPage.tsx';
 import './index.css';
 
 const router = createBrowserRouter([
   { path: '/login', Component: LoginPage },
   { path: '/change-password', Component: ChangePasswordPage },
+  { path: '/setup', element: <RequireAuth role="admin">{() => <SetupPage />}</RequireAuth> },
   {
     path: '/admin',
     element: <RequireAuth role="admin">{(user) => <AdminLayout user={user} />}</RequireAuth>,

@@ -41,3 +41,7 @@ over its IP would be identified as the trunk.
 
 `pnpm test:asterisk` (golden-file load test, `call-test.ts` with 30 s two-way audio between two
 baresip phones, and `trunk-test.ts` with registration against a fake provider) needs no api at all.
+
+`m3-t5.mjs` is the M3-T5 acceptance and needs its own fresh database: it signs in with the
+initial password, walks all ten wizard steps against a fake voip.ms, then proves an inbound call
+to the DID rings the new user's softphone and an outbound call leaves with the DID as caller ID.

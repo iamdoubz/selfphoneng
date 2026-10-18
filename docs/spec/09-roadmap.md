@@ -125,7 +125,7 @@ Legend: 📖 read · 🔨 build · ✅ done when
 🔨 Emergency contexts, `SpEmergency` handler (email, ring-out, banner, `emergency_events`), test-notification button, dashboard warnings.
 ✅ Unit/golden tests show 911 bypasses class/limits. The test-notification button sends the email and rings the notify extension. **Do not dial 911.**
 
-**M3-T5 Setup wizard (steps 1–6, 9, 10)**
+**M3-T5 Setup wizard (steps 1–10; steps 7–8 with the M3 destination choices, see 05 §2.1)**
 📖 05 §2.1
 ✅ A fresh install can be taken to "inbound and outbound calls work" using only the wizard.
 

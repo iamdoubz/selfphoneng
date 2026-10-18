@@ -13,7 +13,7 @@ import {
 } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
 import { dids, extensions, trunks } from '../db/schema.ts';
-import { badRequest } from '../errors.ts';
+import { HttpError, badRequest } from '../errors.ts';
 import { requireAdmin } from '../auth/guards.ts';
 import { encrypt } from '../crypto/secrets.ts';
 import { audit } from '../services/audit.ts';
@@ -169,6 +169,32 @@ export async function settingsRoutes(app: FastifyInstance) {
       diff: { after: notified },
     });
     return { notified };
+  });
+
+  /** The server's public IPv4, as an outside service sees it (only sent when asked). */
+  app.post('/api/settings/network/detect-public-ip', async () => {
+    for (const url of ['https://api.ipify.org', 'https://ifconfig.me/ip']) {
+      const ip = await fetch(url, { signal: AbortSignal.timeout(5000) })
+        .then((r) => (r.ok ? r.text() : ''))
+        .catch(() => '');
+      if (z.ipv4().safeParse(ip.trim()).success) return { ip: ip.trim() };
+    }
+    throw new HttpError(502, 'unavailable', "Couldn't detect the public IP. Enter it by hand.");
+  });
+
+  // First-run wizard (05 §2.1).
+  app.get('/api/setup/status', async () => ({
+    completed: await getSetting(db, 'setup.completed'),
+  }));
+  app.post('/api/setup/complete', async (req) => {
+    await setSetting(db, 'setup.completed', true);
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'setup_complete',
+      summary: 'Finished the setup wizard',
+    });
+    return { ok: true };
   });
 
   /** Things an admin should fix, for the dashboard banner (05 §2). */

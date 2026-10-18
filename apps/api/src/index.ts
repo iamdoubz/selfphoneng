@@ -6,7 +6,7 @@ import { buildApp } from './app.ts';
 import { ConfigError, loadConfig } from './config.ts';
 import { setSecretKey } from './crypto/secrets.ts';
 import { createDb, runMigrations } from './db/client.ts';
-import { createGenerator } from './generator/index.ts';
+import { clearRestartIfRestarted, createGenerator } from './generator/index.ts';
 import { ensureInitialAdmin } from './services/bootstrap.ts';
 import { LiveState } from './live/state.ts';
 import { smtpMailer } from './services/mail.ts';
@@ -68,6 +68,8 @@ await live.loadFromDb();
 // state (after the apply, so hints for new extensions exist). TODO(M6): sync AstDB first (04 §5.5).
 ami.on('connected', () => {
   void (async () => {
+    if (await clearRestartIfRestarted(db, ami))
+      app.log.info('asterisk restarted: restart no longer required');
     await generator.apply({ trigger: 'startup', force: true });
     await live.loadFromAsterisk();
   })().catch((err) => app.log.error({ err }, 'startup sync failed'));

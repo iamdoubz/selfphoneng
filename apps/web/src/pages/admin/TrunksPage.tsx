@@ -155,6 +155,34 @@ function TrunkDrawer({
   onClose: () => void;
   onSaved: (t: TrunkDto) => void;
 }) {
+  return (
+    <Dialog
+      open
+      drawer
+      onClose={onClose}
+      title={trunk ? `Edit ${trunk.name}` : 'New trunk'}
+      footer={
+        <>
+          <Button onClick={onClose}>Close</Button>
+          <Button variant="primary" type="submit" form="trunk-form">
+            {trunk ? 'Save' : 'Create trunk'}
+          </Button>
+        </>
+      }
+    >
+      <TrunkForm trunk={trunk} onSaved={onSaved} />
+    </Dialog>
+  );
+}
+
+/** The trunk form (id "trunk-form"); the caller renders the submit button. Also used by /setup. */
+export function TrunkForm({
+  trunk,
+  onSaved,
+}: {
+  trunk: TrunkDto | null;
+  onSaved: (t: TrunkDto) => void;
+}) {
   const [error, setError] = useState<string>();
   const [saved, setSaved] = useState(false);
   const form = useForm<FormValues>({
@@ -215,233 +243,216 @@ function TrunkDrawer({
   });
 
   return (
-    <Dialog
-      open
-      drawer
-      onClose={onClose}
-      title={trunk ? `Edit ${trunk.name}` : 'New trunk'}
-      footer={
-        <>
-          <Button onClick={onClose}>{saved ? 'Close' : 'Cancel'}</Button>
-          <Button variant="primary" type="submit" form="trunk-form">
-            {trunk ? 'Save' : 'Create trunk'}
-          </Button>
-        </>
-      }
-    >
-      <form id="trunk-form" onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-        {error && <Alert>{error}</Alert>}
-        {saved && (
-          <p role="status" className="text-sm text-green-700 dark:text-green-400">
-            Saved. The phone system picks it up within a few seconds.
-          </p>
+    <form id="trunk-form" onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+      {error && <Alert>{error}</Alert>}
+      {saved && (
+        <p role="status" className="text-sm text-green-700 dark:text-green-400">
+          Saved. The phone system picks it up within a few seconds.
+        </p>
+      )}
+      {trunk && <TestPanel trunk={trunk} />}
+      <Field label="Provider">
+        {(a) => (
+          <select {...a} {...form.register('provider')} className={inputClass}>
+            <option value="voipms">voip.ms</option>
+            <option value="generic">Other SIP provider</option>
+          </select>
         )}
-        {trunk && <TestPanel trunk={trunk} />}
-        <Field label="Provider">
-          {(a) => (
-            <select {...a} {...form.register('provider')} className={inputClass}>
-              <option value="voipms">voip.ms</option>
-              <option value="generic">Other SIP provider</option>
-            </select>
-          )}
-        </Field>
-        {voipms && <VoipmsChecklist />}
-        <Field label="Name" error={errors.name?.message}>
-          {(a) => <input {...a} {...form.register('name')} className={inputClass} />}
-        </Field>
-        <Field
-          label="Server"
-          error={errors.serverHost?.message}
-          hint={voipms ? 'The voip.ms POP your sub-account and numbers use.' : undefined}
-        >
-          {(a) => (
-            <>
+      </Field>
+      {voipms && <VoipmsChecklist />}
+      <Field label="Name" error={errors.name?.message}>
+        {(a) => <input {...a} {...form.register('name')} className={inputClass} />}
+      </Field>
+      <Field
+        label="Server"
+        error={errors.serverHost?.message}
+        hint={voipms ? 'The voip.ms POP your sub-account and numbers use.' : undefined}
+      >
+        {(a) => (
+          <>
+            <input
+              {...a}
+              {...form.register('serverHost')}
+              list={voipms ? 'voipms-servers' : undefined}
+              placeholder={voipms ? 'chicago1.voip.ms' : 'sip.example.com'}
+              autoComplete="off"
+              className={inputClass}
+            />
+            <datalist id="voipms-servers">
+              {VOIPMS_SERVERS.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+          </>
+        )}
+      </Field>
+      <Field label="Sign-in">
+        {(a) => (
+          <select {...a} {...form.register('authMode')} className={inputClass}>
+            <option value="registration">Username and password (registration)</option>
+            <option value="ip">IP address (the provider knows this server's IP)</option>
+          </select>
+        )}
+      </Field>
+      {authMode === 'registration' && (
+        <>
+          <Field
+            label={voipms ? 'Sub-account username' : 'Username'}
+            error={errors.username?.message}
+            hint={voipms ? 'Like 123456_pbx.' : undefined}
+          >
+            {(a) => (
               <input
                 {...a}
-                {...form.register('serverHost')}
-                list={voipms ? 'voipms-servers' : undefined}
-                placeholder={voipms ? 'chicago1.voip.ms' : 'sip.example.com'}
+                {...form.register('username')}
                 autoComplete="off"
                 className={inputClass}
               />
-              <datalist id="voipms-servers">
-                {VOIPMS_SERVERS.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
-            </>
-          )}
-        </Field>
-        <Field label="Sign-in">
+            )}
+          </Field>
+          <Field
+            label="Password"
+            error={errors.password?.message}
+            hint={trunk?.hasPassword ? 'Leave empty to keep the current password.' : undefined}
+          >
+            {(a) => (
+              <input
+                {...a}
+                {...form.register('password')}
+                type="password"
+                autoComplete="new-password"
+                className={inputClass}
+              />
+            )}
+          </Field>
+        </>
+      )}
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Transport">
           {(a) => (
-            <select {...a} {...form.register('authMode')} className={inputClass}>
-              <option value="registration">Username and password (registration)</option>
-              <option value="ip">IP address (the provider knows this server's IP)</option>
+            <select
+              {...a}
+              value={transport}
+              onChange={(e) => setTransport(e.target.value as FormValues['transport'])}
+              className={inputClass}
+            >
+              <option value="udp">UDP</option>
+              <option value="tcp">TCP</option>
+              <option value="tls">TLS (encrypted)</option>
             </select>
           )}
         </Field>
-        {authMode === 'registration' && (
-          <>
-            <Field
-              label={voipms ? 'Sub-account username' : 'Username'}
-              error={errors.username?.message}
-              hint={voipms ? 'Like 123456_pbx.' : undefined}
-            >
+        <Field label="Port" error={errors.serverPort?.message}>
+          {(a) => (
+            <input
+              {...a}
+              {...form.register('serverPort', { valueAsNumber: true })}
+              type="number"
+              className={inputClass}
+            />
+          )}
+        </Field>
+      </div>
+      <fieldset className="flex flex-col gap-1">
+        <legend className="text-sm font-medium">Codecs</legend>
+        <div className="flex gap-4">
+          {CODECS.map((c) => (
+            <label key={c} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" value={c} {...form.register('codecs')} className="size-4" />
+              {c === 'ulaw' ? 'G.711 µ-law' : c === 'alaw' ? 'G.711 A-law' : 'G.722 (HD)'}
+            </label>
+          ))}
+        </div>
+        {errors.codecs && (
+          <p className="text-xs text-red-600 dark:text-red-400">{errors.codecs.message}</p>
+        )}
+      </fieldset>
+      <Field
+        label="Max simultaneous calls"
+        error={errors.maxChannels?.message}
+        hint="Empty for no limit."
+      >
+        {(a) => (
+          <input
+            {...a}
+            {...form.register('maxChannels')}
+            inputMode="numeric"
+            className={inputClass}
+          />
+        )}
+      </Field>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" {...form.register('enabled')} className="size-4" />
+        Enabled
+      </label>
+
+      <details className="rounded-md border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+        <summary className="cursor-pointer font-medium">Advanced</summary>
+        <div className="mt-3 flex flex-col gap-4">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              {...form.register('srtp')}
+              disabled={transport !== 'tls'}
+              className="size-4"
+            />
+            Encrypt audio (SRTP, needs TLS)
+          </label>
+          <Field
+            label="From user"
+            error={errors.fromUser?.message}
+            hint="Defaults to the username."
+          >
+            {(a) => <input {...a} {...form.register('fromUser')} className={inputClass} />}
+          </Field>
+          <Field
+            label="From domain"
+            error={errors.fromDomain?.message}
+            hint="Defaults to the server."
+          >
+            {(a) => <input {...a} {...form.register('fromDomain')} className={inputClass} />}
+          </Field>
+        </div>
+      </details>
+
+      {voipms && (
+        <details className="rounded-md border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+          <summary className="cursor-pointer font-medium">voip.ms API (optional)</summary>
+          <div className="mt-3 flex flex-col gap-4">
+            <p className="text-zinc-500">
+              Needed for SMS and importing your numbers. In the voip.ms portal: Main Menu → SOAP and
+              REST/JSON API. Enable it, set an API password, and allow this server's public IP
+              address.
+            </p>
+            <Field label="API username (your voip.ms email)">
               {(a) => (
                 <input
                   {...a}
-                  {...form.register('username')}
+                  {...form.register('voipmsApiUsername')}
+                  type="email"
                   autoComplete="off"
                   className={inputClass}
                 />
               )}
             </Field>
             <Field
-              label="Password"
-              error={errors.password?.message}
-              hint={trunk?.hasPassword ? 'Leave empty to keep the current password.' : undefined}
+              label="API password"
+              hint={trunk?.hasApiPassword ? 'Leave empty to keep the current password.' : undefined}
             >
               {(a) => (
                 <input
                   {...a}
-                  {...form.register('password')}
+                  {...form.register('voipmsApiPassword')}
                   type="password"
                   autoComplete="new-password"
                   className={inputClass}
                 />
               )}
             </Field>
-          </>
-        )}
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Transport">
-            {(a) => (
-              <select
-                {...a}
-                value={transport}
-                onChange={(e) => setTransport(e.target.value as FormValues['transport'])}
-                className={inputClass}
-              >
-                <option value="udp">UDP</option>
-                <option value="tcp">TCP</option>
-                <option value="tls">TLS (encrypted)</option>
-              </select>
-            )}
-          </Field>
-          <Field label="Port" error={errors.serverPort?.message}>
-            {(a) => (
-              <input
-                {...a}
-                {...form.register('serverPort', { valueAsNumber: true })}
-                type="number"
-                className={inputClass}
-              />
-            )}
-          </Field>
-        </div>
-        <fieldset className="flex flex-col gap-1">
-          <legend className="text-sm font-medium">Codecs</legend>
-          <div className="flex gap-4">
-            {CODECS.map((c) => (
-              <label key={c} className="flex items-center gap-2 text-sm">
-                <input type="checkbox" value={c} {...form.register('codecs')} className="size-4" />
-                {c === 'ulaw' ? 'G.711 µ-law' : c === 'alaw' ? 'G.711 A-law' : 'G.722 (HD)'}
-              </label>
-            ))}
-          </div>
-          {errors.codecs && (
-            <p className="text-xs text-red-600 dark:text-red-400">{errors.codecs.message}</p>
-          )}
-        </fieldset>
-        <Field
-          label="Max simultaneous calls"
-          error={errors.maxChannels?.message}
-          hint="Empty for no limit."
-        >
-          {(a) => (
-            <input
-              {...a}
-              {...form.register('maxChannels')}
-              inputMode="numeric"
-              className={inputClass}
-            />
-          )}
-        </Field>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" {...form.register('enabled')} className="size-4" />
-          Enabled
-        </label>
-
-        <details className="rounded-md border border-zinc-200 p-3 text-sm dark:border-zinc-800">
-          <summary className="cursor-pointer font-medium">Advanced</summary>
-          <div className="mt-3 flex flex-col gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                {...form.register('srtp')}
-                disabled={transport !== 'tls'}
-                className="size-4"
-              />
-              Encrypt audio (SRTP, needs TLS)
-            </label>
-            <Field
-              label="From user"
-              error={errors.fromUser?.message}
-              hint="Defaults to the username."
-            >
-              {(a) => <input {...a} {...form.register('fromUser')} className={inputClass} />}
-            </Field>
-            <Field
-              label="From domain"
-              error={errors.fromDomain?.message}
-              hint="Defaults to the server."
-            >
-              {(a) => <input {...a} {...form.register('fromDomain')} className={inputClass} />}
-            </Field>
           </div>
         </details>
-
-        {voipms && (
-          <details className="rounded-md border border-zinc-200 p-3 text-sm dark:border-zinc-800">
-            <summary className="cursor-pointer font-medium">voip.ms API (optional)</summary>
-            <div className="mt-3 flex flex-col gap-4">
-              <p className="text-zinc-500">
-                Needed for SMS and importing your numbers. In the voip.ms portal: Main Menu → SOAP
-                and REST/JSON API. Enable it, set an API password, and allow this server's public IP
-                address.
-              </p>
-              <Field label="API username (your voip.ms email)">
-                {(a) => (
-                  <input
-                    {...a}
-                    {...form.register('voipmsApiUsername')}
-                    type="email"
-                    autoComplete="off"
-                    className={inputClass}
-                  />
-                )}
-              </Field>
-              <Field
-                label="API password"
-                hint={
-                  trunk?.hasApiPassword ? 'Leave empty to keep the current password.' : undefined
-                }
-              >
-                {(a) => (
-                  <input
-                    {...a}
-                    {...form.register('voipmsApiPassword')}
-                    type="password"
-                    autoComplete="new-password"
-                    className={inputClass}
-                  />
-                )}
-              </Field>
-            </div>
-          </details>
-        )}
-      </form>
-    </Dialog>
+      )}
+    </form>
   );
 }
 

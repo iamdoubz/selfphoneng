@@ -66,6 +66,17 @@ to the next one. Steps can be skipped where noted.
 9. Emergency: default E911 caller ID DID (required if a trunk exists), notification emails. Shows the 06 §6 text about registering the address at voip.ms.
 10. Done: shows "Dial *43 from any phone for an echo test" and links to the softphone.
 
+Implementation notes (M3):
+- Admins are sent to `/setup` until `setup.completed` is true; "Skip setup" completes it.
+- Step 1 is already done by the forced password change at first sign-in, so it only confirms.
+- Step 3 changes the SIP transports; on a fresh install the wizard restarts telephony right away
+  (`POST /api/system/asterisk/restart?now=true`). `restartRequired` clears on the next AMI
+  connect once Asterisk's uptime shows it started after the change.
+- M3 also ships steps 7 and 8 because "calls work using only the wizard" needs a user and a
+  routed number. Step 8 offers a user or an outside number; "everyone" and "an IVR" arrive in M6.
+  Step 10 does not mention *43 or the softphone until M6/M5 build them.
+- The first phone number added becomes `routing.defaultCallerIdDidId` when none is set.
+
 ## 3. Shared components (`src/components/`)
 
 - **DestinationPicker**: a type select (User, Voicemail of user, Ring group, Queue,

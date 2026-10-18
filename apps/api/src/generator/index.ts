@@ -6,7 +6,8 @@ import { join } from 'node:path';
 import type { FastifyBaseLogger } from 'fastify';
 import type { AmiClient } from '../ami/client.ts';
 import type { Db } from '../db/client.ts';
-import { generatorRuns } from '../db/schema.ts';
+import { eq } from 'drizzle-orm';
+import { generatorRuns, settings } from '../db/schema.ts';
 import { getSetting, setSetting } from '../services/settings.ts';
 import { loadSnapshot, type Snapshot } from './load.ts';
 import { renderPjsip, renderRtp, renderTransports } from './pjsip.ts';
@@ -240,3 +241,24 @@ export function createGenerator(deps: GeneratorDeps) {
 }
 
 export type Generator = ReturnType<typeof createGenerator>;
+
+/**
+ * On an AMI (re)connect: if Asterisk started after the change that needed a restart, it has
+ * loaded the new transports, so the restart is no longer required (01 §4.3).
+ */
+export async function clearRestartIfRestarted(
+  db: Db,
+  ami: Pick<AmiClient, 'command'>,
+  now = Date.now(),
+): Promise<boolean> {
+  if (!(await getSetting(db, 'system.restartRequired'))) return false;
+  const uptime = /System uptime:\s*(\d+)/.exec(await ami.command('core show uptime seconds'))?.[1];
+  const [row] = await db
+    .select({ at: settings.updatedAt })
+    .from(settings)
+    .where(eq(settings.key, 'system.restartRequired'));
+  if (uptime === undefined || !row) return false;
+  if (now - Number(uptime) * 1000 <= row.at.getTime()) return false;
+  await setSetting(db, 'system.restartRequired', false);
+  return true;
+}

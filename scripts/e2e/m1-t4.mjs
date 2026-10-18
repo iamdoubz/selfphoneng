@@ -32,7 +32,10 @@ try {
   await p.fill('New password', NEW_PW);
   await p.fill('Repeat new password', NEW_PW);
   await p.click('Change password');
-  await p.waitFor(`location.pathname === '/admin'`, 'admin dashboard after change');
+  // A fresh install opens the setup wizard (05 §2.1); this flow skips it (m3-t5.mjs walks it).
+  await p.waitFor(`location.pathname === '/setup'`, 'setup wizard after change');
+  await p.click('Skip setup');
+  await p.waitFor(`location.pathname === '/admin'`, 'admin dashboard after skipping setup');
   assert.match(await p.text(), /Extensions online/);
 
   await p.click('Users & Extensions');

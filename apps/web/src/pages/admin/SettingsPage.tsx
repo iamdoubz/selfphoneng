@@ -52,7 +52,7 @@ function useSave() {
   });
 }
 
-function EmailTab({ s }: { s: SettingsDto }) {
+export function EmailTab({ s }: { s: SettingsDto }) {
   const save = useSave();
   const [v, setV] = useState({
     host: s.smtp?.host ?? '',
@@ -188,7 +188,7 @@ function EmailTab({ s }: { s: SettingsDto }) {
   );
 }
 
-function EmergencyTab({ s }: { s: SettingsDto }) {
+export function EmergencyTab({ s }: { s: SettingsDto }) {
   const save = useSave();
   const dids = useQuery({ queryKey: ['dids'], queryFn: didsApi.list });
   const exts = useQuery({ queryKey: ['extensions'], queryFn: extensionsApi.list });

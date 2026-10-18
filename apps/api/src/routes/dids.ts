@@ -17,7 +17,7 @@ import { badRequest, conflict, notFound } from '../errors.ts';
 import { requireAdmin } from '../auth/guards.ts';
 import { audit } from '../services/audit.ts';
 import { assertDestinationExists, describeDestination } from '../services/destinations.ts';
-import { getSetting } from '../services/settings.ts';
+import { getSetting, setSetting } from '../services/settings.ts';
 
 type DidRow = typeof dids.$inferSelect;
 
@@ -77,6 +77,9 @@ export async function didRoutes(app: FastifyInstance) {
       if (isUniqueViolation(e)) throw conflict(`${formatNumber(body.number)} is already added`);
       throw e;
     }
+    // The first number becomes the company's outbound caller ID (otherwise the provider picks).
+    if ((await getSetting(db, 'routing.defaultCallerIdDidId')) === null)
+      await setSetting(db, 'routing.defaultCallerIdDidId', created.id);
     const dto = await toDto(db, created);
     await audit(db, {
       actorUserId: req.user!.id,

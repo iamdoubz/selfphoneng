@@ -127,3 +127,17 @@ export const settingsApi = {
     ),
   warnings: () => api<{ items: Warning[] }>('GET', '/api/system/warnings').then((r) => r.items),
 };
+
+export const systemApi = {
+  status: () =>
+    api<{ ami: { connected: boolean }; restartRequired: boolean; lanIps: string[] }>(
+      'GET',
+      '/api/system/status',
+    ),
+  restartAsterisk: (now: boolean) =>
+    api<{ ok: true }>('POST', `/api/system/asterisk/restart?now=${now}`),
+  detectPublicIp: () =>
+    api<{ ip: string }>('POST', '/api/settings/network/detect-public-ip').then((r) => r.ip),
+  setupStatus: () => api<{ completed: boolean }>('GET', '/api/setup/status'),
+  completeSetup: () => api<{ ok: true }>('POST', '/api/setup/complete'),
+};

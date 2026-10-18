@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Admin shell (05 §2): sidebar in spec order; unbuilt pages say which milestone brings them.
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router';
+import { Navigate, NavLink, Outlet, useNavigate } from 'react-router';
 import { APP_NAME, type AuthUser } from '@selfphoneng/shared';
-import { authApi } from '../../api/client.ts';
+import { authApi, systemApi } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
 import { Button } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
@@ -39,12 +39,16 @@ export function AdminLayout({ user }: { user: AuthUser }) {
   useEffect(subscribeLive, []);
   const qc = useQueryClient();
   const nav = useNavigate();
+  // The first-run wizard comes first until it's finished or skipped (05 §2.1).
+  const setup = useQuery({ queryKey: ['setup'], queryFn: systemApi.setupStatus });
 
   async function logout() {
     await authApi.logout().catch(() => undefined);
     qc.clear();
     nav('/login', { replace: true });
   }
+
+  if (setup.data && !setup.data.completed) return <Navigate to="/setup" replace />;
 
   const links = (
     <nav aria-label="Admin" className="flex-1 overflow-y-auto px-2 pb-4">

@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { patternRegex } from '@selfphoneng/shared';
-import { settings } from '../src/db/schema.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
 
@@ -78,7 +77,10 @@ describe.skipIf(!hasTestDb)('outbound routes API', () => {
         destination: { type: 'hangup' },
       })
     ).json().id;
-    await t.db.insert(settings).values({ key: 'routing.defaultCallerIdDidId', value: mainDid });
+    // The first number added became the default outbound caller ID on its own.
+    expect((await req('GET', '/api/settings')).json()['routing.defaultCallerIdDidId']).toBe(
+      mainDid,
+    );
     routes = (await req('GET', '/api/outbound-routes')).json().items;
   });
   afterAll(() => t?.close());
