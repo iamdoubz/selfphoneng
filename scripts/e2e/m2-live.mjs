@@ -37,6 +37,16 @@ if (cmd === 'up') {
     join(dir, 'manager.conf.template'),
     '[general]\nenabled = yes\nport = 5038\nbindaddr = 0.0.0.0\n\n[selfphoneng]\nsecret = ${AMI_SECRET}\npermit = 0.0.0.0/0.0.0.0\nread = all\nwrite = all\n',
   );
+  // The browser softphone (m5-*) runs on the host: SIP-over-WebSocket and a small RTP range are
+  // published on 127.0.0.1, and the api maps the container's ICE candidate to 127.0.0.1.
+  writeFileSync(
+    join(dir, 'http.conf'),
+    '[general]\nenabled = yes\nbindaddr = 0.0.0.0\nbindport = 8088\nenablestatic = no\n',
+  );
+  writeFileSync(
+    join(dir, 'rtp.conf'),
+    '[general]\nrtpstart = 10000\nrtpend = 10019\n#include selfphoneng/rtp_selfphoneng.conf\n',
+  );
   docker('rm', '-f', AST, PHONES);
   docker('network', 'create', NET);
   const r = docker(
@@ -49,12 +59,20 @@ if (cmd === 'up') {
     NET,
     '-p',
     '127.0.0.1:15038:5038',
+    '-p',
+    '127.0.0.1:18088:8088',
+    '-p',
+    '127.0.0.1:10000-10019:10000-10019/udp',
     '-e',
     'AMI_SECRET=m2-live-secret',
     '-v',
     `${conf}:/etc/asterisk/selfphoneng`,
     '-v',
     `${join(dir, 'manager.conf.template')}:/etc/asterisk/manager.conf.template:ro`,
+    '-v',
+    `${join(dir, 'http.conf')}:/etc/asterisk/http.conf:ro`,
+    '-v',
+    `${join(dir, 'rtp.conf')}:/etc/asterisk/rtp.conf:ro`,
     ...(vm ? ['-v', `${vm}:/var/spool/asterisk/voicemail`] : []),
     IMAGE,
   );

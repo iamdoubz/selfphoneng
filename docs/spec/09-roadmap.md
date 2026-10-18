@@ -158,6 +158,11 @@ Legend: 📖 read · 🔨 build · ✅ done when
 **M5-T1** `/api/me/webrtc`, reverse-proxy `/ws` (Caddy + nginx example), engine (05 §5.2).
 ✅ The browser registers (`pjsip show contacts` shows 101-web), and calls between browser and desk phone have two-way audio, both on the LAN and from a phone hotspot outside the LAN.
 
+> **⚠ Open real-network check (M5-T1).** Verified in Docker only (`scripts/e2e/m5-t1.mjs`:
+> register, browser ↔ softphone both directions, two-way audio). Still to do on the owner's
+> server behind the reverse proxy: a browser on the LAN and one on a phone hotspot, each with
+> two-way audio to a phone.
+
 **M5-T2** Dock UI, incoming dialog, hold/mute/DTMF, blind + attended transfer, one-tab leader election, audio device selection, notifications.
 ✅ A manual test script in `apps/web/TESTING.md` (12 steps) passes in Chrome and Firefox.
 

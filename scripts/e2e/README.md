@@ -57,3 +57,10 @@ same setup: it adds a user with extension 160 and a baresip phone with the mwi m
 messages, then as that user in the browser plays one (marks it read) and deletes another, each
 time checking the phone's MWI goes off within 5 s. It records the "no answer" greeting with a
 fake microphone and checks a caller hears it.
+
+`m5-t1.mjs <baseUrl> <adminEmail> <adminPassword> <shotsDir>` is the M5-T1 check in Docker: start
+the api with `WEBRTC_WS_URL=ws://127.0.0.1:18088/ws`. `m2-live.mjs up` publishes Asterisk's HTTP
+server on 127.0.0.1:18088 and RTP 10000–10019/udp. The script sets LAN IP = the container and public
+IP = 127.0.0.1 (so ICE offers 127.0.0.1), restarts telephony, then signs in as a new user, enables
+the softphone with a fake microphone, and checks two-way audio to a baresip phone (171) in both
+directions.

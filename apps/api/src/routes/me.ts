@@ -6,7 +6,14 @@ import { join } from 'node:path';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { GREETINGS, type ListResponse, type VoicemailDto } from '@selfphoneng/shared';
+import {
+  GREETINGS,
+  type ListResponse,
+  type VoicemailDto,
+  type WebRtcCreds,
+} from '@selfphoneng/shared';
+import { decrypt } from '../crypto/secrets.ts';
+import { getSetting } from '../services/settings.ts';
 import { requireAuth } from '../auth/guards.ts';
 import { extensions, voicemailMessages } from '../db/schema.ts';
 import { badRequest, HttpError, notFound } from '../errors.ts';
@@ -63,6 +70,30 @@ export async function meRoutes(app: FastifyInstance) {
     await app.ami.action({ Context: 'default', Mailbox: ext, ...fields });
     await app.voicemail.scan(ext);
   }
+
+  /** The browser softphone's identity: <ext>-web, same SIP password as the desk phone (03 §5.2). */
+  app.get('/api/me/webrtc', async (req): Promise<WebRtcCreds> => {
+    const [ext] = await db.select().from(extensions).where(eq(extensions.userId, req.user!.id));
+    if (!ext) throw notFound("You don't have an extension yet. Ask your admin.");
+    if (!ext.webrtcEnabled)
+      throw notFound('The browser softphone is turned off for your extension');
+    const host = app.config.PUBLIC_HOSTNAME;
+    const stun = await getSetting(db, 'network.stunServer');
+    const turn = await getSetting(db, 'network.turn');
+    return {
+      wsUrl: app.config.WEBRTC_WS_URL ?? `wss://${host}/ws`,
+      sipUri: `sip:${ext.number}-web@${host}`,
+      authUser: `${ext.number}-web`,
+      password: decrypt(ext.sipPasswordEnc),
+      displayName: ext.name,
+      iceServers: [
+        ...(stun ? [{ urls: `stun:${stun}` }] : []),
+        ...(turn
+          ? [{ urls: turn.url, username: turn.username, credential: decrypt(turn.credentialEnc) }]
+          : []),
+      ],
+    };
+  });
 
   app.get('/api/me/voicemail', async (req): Promise<ListResponse<VoicemailDto>> => {
     const ext = await myExtension(req.user!.id);

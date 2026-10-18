@@ -100,10 +100,12 @@ icesupport = yes
 stunaddr = {network.stunServer}          ; omit line when null
 {if network.lanIp and network.publicIp}
 [ice_host_candidates]
-{network.lanIp} => {network.publicIp}
+{network.lanIp} => {network.publicIp},include_local_address
 {/if}
 ```
 (`network.lanIp` is the server's own LAN address, see `02-data-model.md` §3.)
+`include_local_address` keeps the LAN host candidate next to the public one. Without it a browser
+on the LAN only gets the public address and needs hairpin NAT, which many routers lack (M5-T1).
 
 ## 5. `pjsip_selfphoneng.conf`
 
@@ -227,6 +229,8 @@ disallow = all
 allow = g722,ulaw                  ; NO opus: no open source transcoder in Asterisk (AGENTS rule 4)
 auth = 101-web-auth
 aors = 101-web
+from_domain = selfphoneng.invalid  ; else the From host is the machine's hostname; SIP.js drops
+                                   ; INVITEs whose host label starts with a digit (M5-T1)
 callerid = "Dan Doe" <101>
 mailboxes = 101@default
 mwi_subscribe_replaces_unsolicited = yes

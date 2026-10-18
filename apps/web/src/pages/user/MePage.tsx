@@ -9,6 +9,7 @@ import { authApi, meApi } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
 import { Alert, Button } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
+import { SoftphoneDock } from '../../softphone/SoftphoneDock.tsx';
 import { VoicemailPage, callerOf, isNew, mmss } from './VoicemailPage.tsx';
 
 const link = 'text-sky-700 underline dark:text-sky-400';
@@ -62,6 +63,7 @@ export function MePage({ user }: { user: AuthUser }) {
         <Route index element={<Home user={user} />} />
         <Route path="voicemail" element={<VoicemailPage />} />
       </Routes>
+      <SoftphoneDock />
     </main>
   );
 }

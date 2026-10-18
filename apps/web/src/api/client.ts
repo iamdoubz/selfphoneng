@@ -25,6 +25,7 @@ import type {
   UserDto,
   UserUpdate,
   VoicemailDto,
+  WebRtcCreds,
   Warning,
 } from '@selfphoneng/shared';
 
@@ -145,6 +146,7 @@ export const systemApi = {
 };
 
 export const meApi = {
+  webrtc: () => api<WebRtcCreds>('GET', '/api/me/webrtc'),
   voicemail: () => api<ListResponse<VoicemailDto>>('GET', '/api/me/voicemail').then((r) => r.items),
   audioUrl: (id: string, download = false) =>
     `/api/me/voicemail/${id}/audio${download ? '?download=1' : ''}`,

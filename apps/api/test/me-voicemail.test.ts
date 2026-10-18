@@ -5,6 +5,7 @@ import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { setSetting } from '../src/services/settings.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
 
@@ -141,6 +142,21 @@ describe.skipIf(!hasTestDb)('/api/me/voicemail and greetings', () => {
     t.ami.connected = false;
     expect((await dan('DELETE', `/api/me/voicemail/${m.id}`)).statusCode).toBe(503);
     t.ami.connected = true;
+  });
+
+  it('webrtc: creds for <ext>-web with ICE servers; 404 without an extension', async () => {
+    await setSetting(t.db, 'network.stunServer', 'stun.example.org:3478');
+    const r = await dan('GET', '/api/me/webrtc');
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toMatchObject({
+      wsUrl: 'wss://pbx.test/ws',
+      sipUri: 'sip:101-web@pbx.test',
+      authUser: '101-web',
+      displayName: 'Dan Doe',
+      iceServers: [{ urls: 'stun:stun.example.org:3478' }],
+    });
+    expect(r.json().password).toMatch(/^[A-Za-z0-9]{16,}$/);
+    expect((await eve('GET', '/api/me/webrtc')).statusCode).toBe(404);
   });
 
   it.skipIf(!hasFfmpeg)('greetings: upload any audio → 8 kHz wav; play; delete', async () => {

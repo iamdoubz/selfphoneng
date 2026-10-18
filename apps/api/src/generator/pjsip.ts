@@ -137,6 +137,9 @@ function extensionSections(e: SnapExtension): string {
         'allow = g722,ulaw', // no opus: no open source transcoder in Asterisk (AGENTS rule 4)
         `auth = ${num}-web-auth`,
         `aors = ${num}-web`,
+        // Otherwise the From domain is the machine's hostname, and SIP.js drops INVITEs whose host
+        // label starts with a digit (e.g. a Docker or VPS hostname). The browser ignores the domain.
+        'from_domain = selfphoneng.invalid',
         ...common,
       ]),
       section(`${num}-web-auth`, [
@@ -242,7 +245,8 @@ export function renderRtp(snap: Snapshot): string {
     lines.push(
       '',
       '[ice_host_candidates]',
-      `${s.ipv4(st['network.lanIp'])} => ${s.ipv4(st['network.publicIp'])}`,
+      // Keep the LAN candidate too: browsers on the LAN would otherwise need hairpin NAT.
+      `${s.ipv4(st['network.lanIp'])} => ${s.ipv4(st['network.publicIp'])},include_local_address`,
     );
   return lines.join('\n') + '\n';
 }

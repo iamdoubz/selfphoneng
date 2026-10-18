@@ -54,5 +54,15 @@ export type SipCredentials = {
   webUsername: string | null;
 };
 
+/** GET /api/me/webrtc: what the browser softphone registers with (05 §5.2). */
+export type WebRtcCreds = {
+  wsUrl: string;
+  sipUri: string;
+  authUser: string;
+  password: string;
+  displayName: string;
+  iceServers: { urls: string; username?: string; credential?: string }[];
+};
+
 export const NUMBER_KINDS = ['user', 'ringGroup', 'queue', 'ivr', 'conference', 'paging'] as const;
 export type NumberKind = (typeof NUMBER_KINDS)[number];

@@ -17,6 +17,8 @@ const EnvSchema = z.object({
   ASTERISK_CONFIG_DIR: z.string().default('/etc/asterisk/selfphoneng'),
   /** Asterisk's voicemail spool, shared with the api (04 §5.6). Dev: ../../data/voicemail */
   VOICEMAIL_DIR: z.string().default('/var/spool/asterisk/voicemail'),
+  /** The browser softphone's SIP WebSocket. Default wss://PUBLIC_HOSTNAME/ws (the reverse proxy). */
+  WEBRTC_WS_URL: z.url().optional(),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(8080),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   TRUST_PROXY: z.stringbool().default(true),
