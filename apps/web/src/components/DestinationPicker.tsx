@@ -4,10 +4,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { normalizeNumber, type Destination } from '@selfphoneng/shared';
-import { extensionsApi, ivrsApi, ringGroupsApi } from '../api/client.ts';
+import { extensionsApi, ivrsApi, ringGroupsApi, timeConditionsApi } from '../api/client.ts';
 import { inputClass } from './ui.tsx';
 
-type IdKind = 'user' | 'voicemail' | 'ring_group' | 'ivr';
+type IdKind = 'user' | 'voicemail' | 'ring_group' | 'ivr' | 'time_condition';
 type Kind = IdKind | 'external' | 'hangup';
 
 const KINDS: { kind: Kind; label: string }[] = [
@@ -15,6 +15,7 @@ const KINDS: { kind: Kind; label: string }[] = [
   { kind: 'voicemail', label: 'Voicemail of a user' },
   { kind: 'ring_group', label: 'Ring group' },
   { kind: 'ivr', label: 'Digital receptionist' },
+  { kind: 'time_condition', label: 'Office hours' },
   { kind: 'external', label: 'Forward to an outside number' },
   { kind: 'hangup', label: 'Hang up' },
 ];
@@ -24,6 +25,7 @@ const TARGET_NOUN: Record<IdKind, string> = {
   voicemail: 'user',
   ring_group: 'ring group',
   ivr: 'digital receptionist',
+  time_condition: 'office hours',
 };
 const isIdKind = (k: Kind): k is IdKind => k !== 'external' && k !== 'hangup';
 /** Kinds whose targets are the same rows: switching between them keeps the pick. */
@@ -44,19 +46,13 @@ export function DestinationPicker({
   exclude?: string;
 }) {
   const id = useId();
-  const exts = useQuery({ queryKey: ['extensions'], queryFn: extensionsApi.list });
-  const groups = useQuery({ queryKey: ['ring-groups'], queryFn: ringGroupsApi.list });
-  const ivrs = useQuery({ queryKey: ['ivrs'], queryFn: ivrsApi.list });
   const [kind, setKind] = useState<Kind>(value.type as Kind);
   const [number, setNumber] = useState(value.type === 'external' ? value.number : '');
   const [numberError, setNumberError] = useState<string>();
   const targetId = 'id' in value ? value.id : '';
 
-  const source = { user: exts, voicemail: exts, ring_group: groups, ivr: ivrs };
-  const targets = (k: IdKind) =>
-    (source[k].data ?? [])
-      .map((x) => ({ id: x.id, label: `${x.number} ${x.name}` }))
-      .filter((t) => t.id !== exclude);
+  const all = useTargets();
+  const targets = (k: IdKind) => (all[k] ?? []).filter((t) => t.id !== exclude);
 
   function pickKind(k: Kind) {
     setKind(k);
@@ -124,25 +120,38 @@ export function DestinationPicker({
           {numberError ?? error}
         </p>
       )}
-      {isIdKind(kind) && source[kind].data && targets(kind).length === 0 && (
+      {isIdKind(kind) && all[kind] && targets(kind).length === 0 && (
         <p className="text-xs text-zinc-500">Nothing to pick yet ({what}).</p>
       )}
     </fieldset>
   );
 }
 
-/** Client-side "Ring Dan Doe (101)" for destinations not saved yet (the API has its own). */
-export function useDescribeDestination() {
+/** Everything a destination can point at, per kind, as {id, label} ("101 Dan Doe"). */
+function useTargets() {
   const exts = useQuery({ queryKey: ['extensions'], queryFn: extensionsApi.list });
   const groups = useQuery({ queryKey: ['ring-groups'], queryFn: ringGroupsApi.list });
   const ivrs = useQuery({ queryKey: ['ivrs'], queryFn: ivrsApi.list });
+  const tcs = useQuery({ queryKey: ['time-conditions'], queryFn: timeConditionsApi.list });
+  const rows = (q: { data?: { id: string; name: string; number?: string }[] }) =>
+    q.data?.map((x) => ({ id: x.id, label: x.number ? `${x.number} ${x.name}` : x.name }));
+  return {
+    user: rows(exts),
+    voicemail: rows(exts),
+    ring_group: rows(groups),
+    ivr: rows(ivrs),
+    time_condition: rows(tcs),
+  } satisfies Record<IdKind, unknown>;
+}
+
+/** Client-side "Ring a user: 101 Dan Doe" for destinations not saved yet (the API has its own). */
+export function useDescribeDestination() {
+  const targets = useTargets();
   return (d: Destination): string => {
     if (d.type === 'hangup') return 'Hang up';
     if (d.type === 'external') return `Call ${d.number}`;
-    const rows = { user: exts, voicemail: exts, ring_group: groups, ivr: ivrs }[d.type as IdKind]
-      ?.data;
-    const t = rows?.find((x) => x.id === d.id);
     const what = KINDS.find((k) => k.kind === d.type)?.label ?? d.type;
-    return t ? `${what}: ${t.name} (${t.number})` : what;
+    const t = targets[d.type as IdKind]?.find((x) => x.id === d.id);
+    return t ? `${what}: ${t.label}` : what;
   };
 }

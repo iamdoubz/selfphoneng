@@ -1,0 +1,82 @@
+{
+  "today": "2026-10-17",
+  "extensions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000101",
+      "number": "101",
+      "name": "Dan Doe",
+      "sipPassword": "Ab3dEf9hIj2kLm4nOp6qRs8t",
+      "isAdmin": true
+    }
+  ],
+  "timeConditions": [
+    {
+      "id": "55555555-5555-4555-8555-555555555001",
+      "name": "Main office",
+      "openRanges": [
+        { "days": ["mon", "tue", "wed", "thu", "fri"], "start": "08:00", "end": "17:00" },
+        { "days": ["sat"], "start": "09:00", "end": "12:30" },
+        { "days": ["sun"], "start": "20:00", "end": "24:00" }
+      ],
+      "overrideDigit": 1,
+      "openDestination": { "type": "user", "id": "00000000-0000-4000-8000-000000000101" },
+      "closedDestination": { "type": "voicemail", "id": "00000000-0000-4000-8000-000000000101" },
+      "holidayDestination": { "type": "hangup" }
+    },
+    {
+      "id": "55555555-5555-4555-8555-555555555002",
+      "name": "Warehouse (no holidays)",
+      "timezone": "America/New_York",
+      "useHolidays": false,
+      "openRanges": [{ "days": ["mon"], "start": "06:00", "end": "14:00" }],
+      "openDestination": { "type": "user", "id": "00000000-0000-4000-8000-000000000101" },
+      "closedDestination": { "type": "hangup" }
+    }
+  ],
+  "holidays": [
+    {
+      "name": "Christmas Day",
+      "startDate": "2020-12-25",
+      "endDate": "2020-12-25",
+      "recurringYearly": true
+    },
+    {
+      "name": "Thanksgiving Day",
+      "startDate": "2026-11-26",
+      "endDate": "2026-11-26",
+      "recurringYearly": false
+    },
+    {
+      "name": "Independence Day (observed), past",
+      "startDate": "2026-07-03",
+      "endDate": "2026-07-03",
+      "recurringYearly": false
+    },
+    {
+      "name": "Christmas week",
+      "startDate": "2026-12-24",
+      "endDate": "2026-12-26",
+      "recurringYearly": false
+    },
+    {
+      "name": "New Year break",
+      "startDate": "2026-12-31",
+      "endDate": "2027-01-02",
+      "recurringYearly": false
+    },
+    {
+      "name": "Too far ahead",
+      "startDate": "2027-12-31",
+      "endDate": "2027-12-31",
+      "recurringYearly": false
+    }
+  ],
+  "dids": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "number": "13125551234",
+      "destination": { "type": "time_condition", "id": "55555555-5555-4555-8555-555555555001" }
+    }
+  ],
+  "trunks": [{ "id": "7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37" }]
+}

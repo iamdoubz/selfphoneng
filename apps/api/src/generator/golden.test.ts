@@ -23,6 +23,8 @@ describe('golden', () => {
         'voipms-basic',
         'ringgroups',
         'ivr',
+        'holidays',
+        'ivr-business-hours',
       ]),
     );
   });

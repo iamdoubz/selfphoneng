@@ -88,3 +88,9 @@ switches the group to "one at a time" with 5 s each and checks that 190 rings al
 greeting through the form's SoundPicker, sends key 1 to 193 and key 2 to 194, and then a Local
 channel sending DTMF presses 1, 2 and a wrong key (5): 193 or 194 rings, or "not a valid choice"
 plays and then the greeting again.
+
+`m6-t4.mjs` builds office hours in the UI. It paints Saturday 10–11 on the grid and checks that
+Force closed / Force open route a call to 196 / 195 and set or clear AstDB `SP/TCOVR/<id>`. `*321`
+and `*331` from the admin's own phone (197) must reach the database and the page, `*311` from a
+non-admin phone must get "no service", and the 2026 US federal holiday import must reach the
+dialplan.

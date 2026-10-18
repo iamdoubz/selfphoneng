@@ -663,6 +663,18 @@ Holiday rules:
 Override codes use `time_conditions.override_digit` (02). Feature codes `*31N` force open,
 `*32N` force closed, `*33N` automatic (§6.13).
 
+As built (M6-T4):
+- A range's `end` is exclusive ("closed at 17:00") but `GotoIfTime`'s end minute is inclusive, so
+  ranges render one minute short: `08:00-16:59`; `24:00` (end of day) renders `23:59`.
+- Holiday days are deduplicated and sorted by month/day; a range over New Year works.
+- `[sp-tc-override]` is always rendered, ending with `exten => _*3[123]X` → `ss-noservice` for
+  digits no office hours use. `*33N` plays `de-activated`.
+- The api's "open now" (`timeConditionStatus` in `packages/shared`) makes the same decision.
+- Holidays roll over by re-rendering when the company date changes (a 10-minute check in
+  `index.ts`) instead of a croner job at 00:05; M11-T4 can move it into the jobs.
+- Golden cases `holidays` and `ivr-business-hours`; `scripts/e2e/m6-t4.mjs` checks force
+  open/closed routing, `*321`/`*331` from an admin phone, and refusal for a non-admin.
+
 ### 6.11 Announcements, conferences, paging
 
 ```ini

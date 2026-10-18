@@ -9,6 +9,8 @@ import type {
   ExtensionDto,
   ExtensionUpdate,
   GreetingKind,
+  HolidayDto,
+  HolidayInput,
   IvrCreate,
   IvrDto,
   IvrUpdate,
@@ -24,6 +26,10 @@ import type {
   SettingsDto,
   SipCredentials,
   SoundDto,
+  TimeConditionCreate,
+  TimeConditionDto,
+  TimeConditionUpdate,
+  OverrideState,
   TrunkCreate,
   TrunkDto,
   TrunkTestResult,
@@ -214,4 +220,23 @@ export const ivrsApi = {
   create: (r: IvrCreate) => api<IvrDto>('POST', '/api/ivrs', r),
   update: (id: string, r: IvrUpdate) => api<IvrDto>('PATCH', `/api/ivrs/${id}`, r),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/ivrs/${id}`),
+};
+
+export const timeConditionsApi = {
+  list: () =>
+    api<ListResponse<TimeConditionDto>>('GET', '/api/time-conditions').then((r) => r.items),
+  create: (t: TimeConditionCreate) => api<TimeConditionDto>('POST', '/api/time-conditions', t),
+  update: (id: string, t: TimeConditionUpdate) =>
+    api<TimeConditionDto>('PATCH', `/api/time-conditions/${id}`, t),
+  override: (id: string, state: OverrideState) =>
+    api<TimeConditionDto>('POST', `/api/time-conditions/${id}/override`, { state }),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/time-conditions/${id}`),
+};
+
+export const holidaysApi = {
+  list: () => api<ListResponse<HolidayDto>>('GET', '/api/holidays').then((r) => r.items),
+  create: (h: HolidayInput) => api<HolidayDto>('POST', '/api/holidays', h),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/holidays/${id}`),
+  importUsFederal: (year: number) =>
+    api<{ added: number }>('POST', '/api/holidays/import-us-federal', { year }),
 };

@@ -12,6 +12,10 @@ import { LiveState } from './live/state.ts';
 import { smtpMailer } from './services/mail.ts';
 import { watchEmergencies } from './services/emergency.ts';
 import { watchVoicemail } from './services/voicemail.ts';
+import { syncAstDb } from './services/astdb.ts';
+import { watchToggles } from './services/toggles.ts';
+import { getSetting } from './services/settings.ts';
+import { todayIn } from './generator/load.ts';
 
 let config;
 try {
@@ -51,6 +55,7 @@ app.decorate('ami', ami);
 const sendMail = smtpMailer(db);
 app.decorate('sendMail', sendMail);
 watchEmergencies({ db, ami, live, send: sendMail, log: app.log }, ami);
+watchToggles({ db, log: app.log }, ami);
 const voicemail = watchVoicemail(
   {
     db,
@@ -84,6 +89,7 @@ ami.on('connected', () => {
   void (async () => {
     if (await clearRestartIfRestarted(db, ami))
       app.log.info('asterisk restarted: restart no longer required');
+    await syncAstDb(db, ami); // PostgreSQL wins (04 §5.5)
     await generator.apply({ trigger: 'startup', force: true });
     await live.loadFromAsterisk();
     await voicemail.scanAll();
@@ -91,9 +97,25 @@ ami.on('connected', () => {
 });
 ami.start();
 
+// Holidays roll over at midnight (03 §6.10): render again when the local date changes.
+// ponytail: a 10-minute check instead of croner; the M11 jobs can take this over.
+let lastDay = '';
+const regenerateOnNewDay = async () => {
+  const today = todayIn(await getSetting(db, 'general.timezone'));
+  if (lastDay && today !== lastDay) await generator.apply({ trigger: 'nightly', force: true });
+  lastDay = today;
+};
+void regenerateOnNewDay();
+const dayTimer = setInterval(
+  () =>
+    void regenerateOnNewDay().catch((err) => app.log.error({ err }, 'nightly regenerate failed')),
+  10 * 60_000,
+);
+
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {
   process.once(sig, () => {
     generator.cancelPending();
+    clearInterval(dayTimer);
     ami.stop();
     void app
       .close()

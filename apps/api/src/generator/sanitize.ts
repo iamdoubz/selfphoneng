@@ -18,6 +18,10 @@ export const digits = check(/^[0-9]+$/, 'digits', 32);
 export const dialable = check(/^[0-9*#+]+$/, 'dialable', 32);
 /** Outbound route patterns. */
 export const pattern = check(/^[0-9XZN.![\]-]+$/, 'pattern', 32);
+/** Office hours times "08:30"; "24:00" is the end of the day. */
+export const hhmm = check(/^(?:[01]\d|2[0-3]):[0-5]\d$|^24:00$/, 'time', 5);
+/** Day names as GotoIfTime wants them. */
+export const weekday = check(/^(?:mon|tue|wed|thu|fri|sat|sun)$/, 'weekday', 3);
 /** One IVR key. */
 export const ivrDigit = check(/^[0-9*#]$/, 'ivr digit', 1);
 /** Sound file names for Playback/Background. */

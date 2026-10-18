@@ -18,6 +18,7 @@ import { renderOutbound } from './dialplan/outbound.ts';
 import { renderEmergency } from './dialplan/emergency.ts';
 import { renderRingGroups } from './dialplan/ringgroups.ts';
 import { renderIvrs } from './dialplan/ivrs.ts';
+import { renderTimeConditions } from './dialplan/timeconditions.ts';
 import { renderVoicemail } from './voicemail.ts';
 
 export { renderTransports };
@@ -52,6 +53,7 @@ const BODIES: Partial<Record<GeneratedFileName, (snap: Snapshot) => string>> = {
       renderLocalNumbers(snap),
       renderRingGroups(snap),
       renderIvrs(snap),
+      renderTimeConditions(snap),
       renderTrunkEntries(snap),
       renderDids(snap),
       renderOutbound(snap),

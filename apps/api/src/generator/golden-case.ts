@@ -19,6 +19,8 @@ export function loadCase(name: string): Snapshot {
     routes?: Partial<Snapshot['routes'][number]>[];
     ringGroups?: Partial<Snapshot['ringGroups'][number]>[];
     ivrs?: Partial<Snapshot['ivrs'][number]>[];
+    timeConditions?: Partial<Snapshot['timeConditions'][number]>[];
+    holidays?: Snapshot['holidays'];
   };
   const settings = Object.fromEntries(
     (Object.keys(SettingsSchemas) as SettingKey[])
@@ -37,6 +39,19 @@ export function loadCase(name: string): Snapshot {
       id: d.id!,
       number: d.number!,
     })),
+    timeConditions: (raw.timeConditions ?? []).map((t, i) => ({
+      name: `Hours ${i + 1}`,
+      timezone: 'America/Chicago',
+      openRanges: [],
+      useHolidays: true,
+      overrideDigit: null,
+      openDestination: { type: 'hangup' as const },
+      closedDestination: { type: 'hangup' as const },
+      holidayDestination: null,
+      ...t,
+      id: t.id!,
+    })),
+    holidays: raw.holidays ?? [],
     ivrs: (raw.ivrs ?? []).map((r, i) => ({
       name: `Menu ${i + 1}`,
       greeting: 'custom/greeting',

@@ -233,6 +233,8 @@ On every AMI connect, PostgreSQL wins:
 5. For each time condition with `override_state`: `DBPut SP TCOVR/<id> <state>`.
 
 Keep one function per key type (`setDnd(ext, on)`, etc.). Routes call these after writing PostgreSQL.
+M6-T4 implements the sync and `setTcOverride`; DND/forwards (M6-T7), blocks (M6-T8) and queue
+pauses (M8) add their keys.
 
 ### 5.6 Voicemail watcher (`services/voicemail.ts`)
 

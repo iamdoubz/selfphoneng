@@ -6,18 +6,20 @@ import type { Db } from '../db/client.ts';
 import {
   dids,
   extensions,
+  holidays,
   ivrOptions,
   ivrs,
   outboundRoutes,
   ringGroupMembers,
   ringGroups,
   soundFiles,
+  timeConditions,
   trunks,
   users,
 } from '../db/schema.ts';
 import { decrypt } from '../crypto/secrets.ts';
 import { getAllSettings } from '../services/settings.ts';
-import type { Destination, OutboundClass, RoutePattern } from '@selfphoneng/shared';
+import type { Destination, OpenRange, OutboundClass, RoutePattern } from '@selfphoneng/shared';
 
 export type SnapExtension = {
   id: string;
@@ -104,6 +106,25 @@ export type SnapIvr = {
   invalidDestination: Destination;
 };
 
+export type SnapTimeCondition = {
+  id: string;
+  name: string;
+  timezone: string;
+  openRanges: OpenRange[];
+  useHolidays: boolean;
+  overrideDigit: number | null;
+  openDestination: Destination;
+  closedDestination: Destination;
+  holidayDestination: Destination | null;
+};
+
+export type SnapHoliday = {
+  name: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;
+  recurringYearly: boolean;
+};
+
 export type Snapshot = {
   /** "YYYY-MM-DD" in general.timezone; render() never reads the clock. */
   today: string;
@@ -114,6 +135,8 @@ export type Snapshot = {
   routes: SnapRoute[];
   ringGroups: SnapRingGroup[];
   ivrs: SnapIvr[];
+  timeConditions: SnapTimeCondition[];
+  holidays: SnapHoliday[];
 };
 
 export function todayIn(timezone: string, now = new Date()): string {
@@ -151,6 +174,8 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
   const routeRows = await db.select().from(outboundRoutes);
   const groupRows = await db.select().from(ringGroups);
   const ivrRows = await db.select().from(ivrs);
+  const tcRows = await db.select().from(timeConditions);
+  const holidayRows = await db.select().from(holidays);
   const optionRows = await db.select().from(ivrOptions);
   const soundName = new Map(
     (await db.select({ id: soundFiles.id, name: soundFiles.asteriskName }).from(soundFiles)).map(
@@ -167,6 +192,23 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
     today: todayIn(settings['general.timezone'], now),
     settings,
     dids: didRows.map((d) => ({ ...d, destination: d.destination as Destination })),
+    timeConditions: tcRows.map((t) => ({
+      id: t.id,
+      name: t.name,
+      timezone: t.timezone,
+      openRanges: t.openRanges as OpenRange[],
+      useHolidays: t.useHolidays,
+      overrideDigit: t.overrideDigit,
+      openDestination: t.openDestination as Destination,
+      closedDestination: t.closedDestination as Destination,
+      holidayDestination: t.holidayDestination as Destination | null,
+    })),
+    holidays: holidayRows.map((h) => ({
+      name: h.name,
+      startDate: h.startDate,
+      endDate: h.endDate,
+      recurringYearly: h.recurringYearly,
+    })),
     ivrs: ivrRows.map((r) => ({
       id: r.id,
       number: r.number,

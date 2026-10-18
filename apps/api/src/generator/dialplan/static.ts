@@ -88,13 +88,19 @@ exten => _X!,1,Answer()                ; X! also matches "0" (caller unknown)
  same => n,SayDigits(\${EXTEN})
  same => n,Hangup()
 
-; ─── Feature codes (03 §6.13). M4: voicemail only; M6-T7 adds the rest.
+; ─── Feature codes (03 §6.13). M4: voicemail; M6-T4: office hours overrides; M6-T7 adds the rest.
 [sp-featurecodes]
 exten => *97,1,Answer()                                     ; my voicemail
  same => n,VoiceMailMain(\${SP_EXT}@default)
  same => n,Hangup()
 exten => *98,1,Answer()                                     ; any voicemail (asks mailbox)
  same => n,VoiceMailMain(@default)
+ same => n,Hangup()
+; time condition overrides *31N open, *32N closed, *33N auto (admins only)
+exten => _*3[123]X,1,Answer()
+ same => n,GotoIf($["\${GLOBAL(SP_TCADMIN_\${SP_EXT})}" != "1"]?deny)
+ same => n,Goto(sp-tc-override,\${EXTEN},1)
+ same => n(deny),Playback(ss-noservice)
  same => n,Hangup()
 
 [sp-vm-direct]

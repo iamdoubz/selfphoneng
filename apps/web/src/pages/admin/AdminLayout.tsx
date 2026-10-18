@@ -18,7 +18,7 @@ export const ADMIN_PAGES = [
   { path: 'ring-groups', label: 'Ring groups', milestone: null },
   { path: 'queues', label: 'Queues', milestone: 'M8' },
   { path: 'ivrs', label: 'Digital receptionist', milestone: null },
-  { path: 'hours', label: 'Office hours', milestone: 'M6' },
+  { path: 'hours', label: 'Office hours', milestone: null },
   { path: 'conferences', label: 'Conferences', milestone: 'M8' },
   { path: 'paging', label: 'Paging', milestone: 'M8' },
   { path: 'sounds', label: 'Sounds & music', milestone: null },

@@ -17,6 +17,7 @@ import { SettingsPage } from './pages/admin/SettingsPage.tsx';
 import { SoundsPage } from './pages/admin/SoundsPage.tsx';
 import { RingGroupsPage } from './pages/admin/RingGroupsPage.tsx';
 import { IvrsPage } from './pages/admin/IvrsPage.tsx';
+import { OfficeHoursPage } from './pages/admin/OfficeHoursPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
 import { SetupPage } from './pages/SetupPage.tsx';
 import './index.css';
@@ -50,6 +51,8 @@ const router = createBrowserRouter([
             <RingGroupsPage />
           ) : p.path === 'ivrs' ? (
             <IvrsPage />
+          ) : p.path === 'hours' ? (
+            <OfficeHoursPage />
           ) : (
             <ComingSoon label={p.label} milestone={p.milestone ?? ''} />
           ),
