@@ -631,6 +631,9 @@ exten => t,1,Set(SP_IVR_TRIES=$[${SP_IVR_TRIES} + 1])
 ```
 Known behavior to mention in the UI: with direct dial on, option `1` waits up to
 3 s (digit timeout) when internal numbers also start with 1.
+Options are sorted by key; `#` and `*` work as extension names (checked by the `ivr` golden case
+loading into Asterisk 24). An option may point at its own IVR ("press 9 to hear this again"); the
+api drops an IVR's own options before checking references on delete (M6-T3).
 
 ### 6.10 Time conditions (business hours)
 

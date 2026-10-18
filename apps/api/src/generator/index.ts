@@ -17,6 +17,7 @@ import { renderDids, renderTrunkEntries } from './dialplan/inbound.ts';
 import { renderOutbound } from './dialplan/outbound.ts';
 import { renderEmergency } from './dialplan/emergency.ts';
 import { renderRingGroups } from './dialplan/ringgroups.ts';
+import { renderIvrs } from './dialplan/ivrs.ts';
 import { renderVoicemail } from './voicemail.ts';
 
 export { renderTransports };
@@ -50,6 +51,7 @@ const BODIES: Partial<Record<GeneratedFileName, (snap: Snapshot) => string>> = {
       STATIC_DIALPLAN,
       renderLocalNumbers(snap),
       renderRingGroups(snap),
+      renderIvrs(snap),
       renderTrunkEntries(snap),
       renderDids(snap),
       renderOutbound(snap),

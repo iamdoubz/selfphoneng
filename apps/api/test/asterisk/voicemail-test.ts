@@ -60,6 +60,7 @@ function snapshot(): Snapshot {
     trunks: [],
     routes: [],
     ringGroups: [],
+    ivrs: [],
     extensions: [ext('101', 'Alice'), ext('102', 'Bob')],
   };
 }

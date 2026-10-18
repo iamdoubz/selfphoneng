@@ -6,9 +6,12 @@ import type { Db } from '../db/client.ts';
 import {
   dids,
   extensions,
+  ivrOptions,
+  ivrs,
   outboundRoutes,
   ringGroupMembers,
   ringGroups,
+  soundFiles,
   trunks,
   users,
 } from '../db/schema.ts';
@@ -86,6 +89,21 @@ export type SnapRingGroup = {
   noAnswerDestination: Destination;
 };
 
+export type SnapIvr = {
+  id: string;
+  number: string;
+  name: string;
+  /** Asterisk sound names, e.g. custom/<id>. */
+  greeting: string;
+  invalidSound: string | null;
+  timeoutSeconds: number;
+  maxRetries: number;
+  allowDirectDial: boolean;
+  options: { digit: string; destination: Destination }[];
+  timeoutDestination: Destination;
+  invalidDestination: Destination;
+};
+
 export type Snapshot = {
   /** "YYYY-MM-DD" in general.timezone; render() never reads the clock. */
   today: string;
@@ -95,6 +113,7 @@ export type Snapshot = {
   trunks: SnapTrunk[];
   routes: SnapRoute[];
   ringGroups: SnapRingGroup[];
+  ivrs: SnapIvr[];
 };
 
 export function todayIn(timezone: string, now = new Date()): string {
@@ -131,6 +150,13 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
   const trunkRows = await db.select().from(trunks);
   const routeRows = await db.select().from(outboundRoutes);
   const groupRows = await db.select().from(ringGroups);
+  const ivrRows = await db.select().from(ivrs);
+  const optionRows = await db.select().from(ivrOptions);
+  const soundName = new Map(
+    (await db.select({ id: soundFiles.id, name: soundFiles.asteriskName }).from(soundFiles)).map(
+      (s) => [s.id, s.name],
+    ),
+  );
   const memberRows = await db
     .select({ groupId: ringGroupMembers.ringGroupId, number: extensions.number })
     .from(ringGroupMembers)
@@ -141,6 +167,21 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
     today: todayIn(settings['general.timezone'], now),
     settings,
     dids: didRows.map((d) => ({ ...d, destination: d.destination as Destination })),
+    ivrs: ivrRows.map((r) => ({
+      id: r.id,
+      number: r.number,
+      name: r.name,
+      greeting: soundName.get(r.greetingSoundId)!,
+      invalidSound: r.invalidSoundId ? (soundName.get(r.invalidSoundId) ?? null) : null,
+      timeoutSeconds: r.timeoutSeconds,
+      maxRetries: r.maxRetries,
+      allowDirectDial: r.allowDirectDial,
+      options: optionRows
+        .filter((o) => o.ivrId === r.id)
+        .map((o) => ({ digit: o.digit, destination: o.destination as Destination })),
+      timeoutDestination: r.timeoutDestination as Destination,
+      invalidDestination: r.invalidDestination as Destination,
+    })),
     ringGroups: groupRows.map((g) => ({
       id: g.id,
       number: g.number,

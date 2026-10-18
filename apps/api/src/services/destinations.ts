@@ -18,6 +18,7 @@ import {
 } from '../db/schema.ts';
 import { badRequest } from '../errors.ts';
 
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 type RefType = Exclude<Destination['type'], 'external' | 'hangup'>;
 
 const TABLES = {
@@ -72,7 +73,7 @@ export async function describeDestination(db: Db, d: Destination): Promise<strin
  * Every place a destination points at (type, id). Keep in sync with the column list in 02 §1.
  * `user` and `voicemail` both point at an extension, so asking for either finds both.
  */
-export async function findReferences(db: Db, type: RefType, id: string): Promise<string[]> {
+export async function findReferences(db: Db | Tx, type: RefType, id: string): Promise<string[]> {
   const types = type === 'user' || type === 'voicemail' ? ['user', 'voicemail'] : [type];
   const matches = (col: AnyPgColumn): SQL =>
     sql.join(

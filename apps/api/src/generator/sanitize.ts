@@ -18,6 +18,8 @@ export const digits = check(/^[0-9]+$/, 'digits', 32);
 export const dialable = check(/^[0-9*#+]+$/, 'dialable', 32);
 /** Outbound route patterns. */
 export const pattern = check(/^[0-9XZN.![\]-]+$/, 'pattern', 32);
+/** One IVR key. */
+export const ivrDigit = check(/^[0-9*#]$/, 'ivr digit', 1);
 /** Sound file names for Playback/Background. */
 export const sound = check(/^[a-z0-9/_-]+$/, 'sound', 100);
 /** Context-name parts (uuids), MOH class names. */

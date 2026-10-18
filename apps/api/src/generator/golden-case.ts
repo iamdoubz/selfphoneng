@@ -18,6 +18,7 @@ export function loadCase(name: string): Snapshot {
     trunks?: Partial<Snapshot['trunks'][number]>[];
     routes?: Partial<Snapshot['routes'][number]>[];
     ringGroups?: Partial<Snapshot['ringGroups'][number]>[];
+    ivrs?: Partial<Snapshot['ivrs'][number]>[];
   };
   const settings = Object.fromEntries(
     (Object.keys(SettingsSchemas) as SettingKey[])
@@ -35,6 +36,20 @@ export function loadCase(name: string): Snapshot {
       ...d,
       id: d.id!,
       number: d.number!,
+    })),
+    ivrs: (raw.ivrs ?? []).map((r, i) => ({
+      name: `Menu ${i + 1}`,
+      greeting: 'custom/greeting',
+      invalidSound: null,
+      timeoutSeconds: 5,
+      maxRetries: 3,
+      allowDirectDial: true,
+      options: [],
+      timeoutDestination: { type: 'hangup' as const },
+      invalidDestination: { type: 'hangup' as const },
+      ...r,
+      id: r.id!,
+      number: r.number!,
     })),
     ringGroups: (raw.ringGroups ?? []).map((g, i) => ({
       name: `Group ${i + 1}`,

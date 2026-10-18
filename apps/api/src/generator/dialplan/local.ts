@@ -24,7 +24,10 @@ export function renderLocalNumbers(snap: Snapshot): string {
   if (snap.ringGroups.length) lines.push('', '; ring groups');
   for (const g of [...snap.ringGroups].sort(byNumber))
     lines.push(`exten => ${s.digits(g.number)},1,Goto(sp-rg-${s.ident(g.id)},s,1)`);
-  // M6/M8: queues, IVRs, conferences and paging groups add one line each here.
+  if (snap.ivrs.length) lines.push('', '; digital receptionists');
+  for (const r of [...snap.ivrs].sort(byNumber))
+    lines.push(`exten => ${s.digits(r.number)},1,Goto(sp-ivr-${s.ident(r.id)},s,1)`);
+  // M8: queues, conferences and paging groups add one line each here.
   return lines.join('\n') + '\n';
 }
 

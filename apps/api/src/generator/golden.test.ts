@@ -22,6 +22,7 @@ describe('golden', () => {
         'hostile-names',
         'voipms-basic',
         'ringgroups',
+        'ivr',
       ]),
     );
   });

@@ -83,3 +83,8 @@ the recording notice. `cdp.mjs` `fill()`/`click()` take an optional selector to 
 `m6-t2.mjs` (after `m1-t4.mjs`) creates ring group 500 in the UI with members 190 (never answers)
 and 191 (auto-answer), and checks that a call from 192 rings both and is answered by 191. It then
 switches the group to "one at a time" with 5 s each and checks that 190 rings alone before 191.
+
+`m6-t3.mjs` (sounds dir like `m6-t1.mjs`) builds digital receptionist 600 in the UI. It uploads the
+greeting through the form's SoundPicker, sends key 1 to 193 and key 2 to 194, and then a Local
+channel sending DTMF presses 1, 2 and a wrong key (5): 193 or 194 rings, or "not a valid choice"
+plays and then the greeting again.

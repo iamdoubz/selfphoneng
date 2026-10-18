@@ -9,6 +9,9 @@ import type {
   ExtensionDto,
   ExtensionUpdate,
   GreetingKind,
+  IvrCreate,
+  IvrDto,
+  IvrUpdate,
   ListResponse,
   NumberKind,
   OutboundRouteCreate,
@@ -204,4 +207,11 @@ export const ringGroupsApi = {
   update: (id: string, g: RingGroupUpdate) =>
     api<RingGroupDto>('PATCH', `/api/ring-groups/${id}`, g),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/ring-groups/${id}`),
+};
+
+export const ivrsApi = {
+  list: () => api<ListResponse<IvrDto>>('GET', '/api/ivrs').then((r) => r.items),
+  create: (r: IvrCreate) => api<IvrDto>('POST', '/api/ivrs', r),
+  update: (id: string, r: IvrUpdate) => api<IvrDto>('PATCH', `/api/ivrs/${id}`, r),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/ivrs/${id}`),
 };

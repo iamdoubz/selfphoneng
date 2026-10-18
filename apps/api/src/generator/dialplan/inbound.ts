@@ -21,8 +21,12 @@ export function destApp(d: Destination, snap: Snapshot): string {
       return snap.ringGroups.some((g) => g.id === d.id)
         ? `Goto(sp-rg-${s.ident(d.id)},s,1)`
         : 'Hangup()';
+    case 'ivr':
+      return snap.ivrs.some((r) => r.id === d.id)
+        ? `Goto(sp-ivr-${s.ident(d.id)},s,1)`
+        : 'Hangup()';
     default:
-      // TODO(M6, M8): queues, IVRs, time conditions, conferences, announcements.
+      // TODO(M6, M8): queues, time conditions, conferences, announcements.
       return 'Hangup()';
   }
 }

@@ -1,0 +1,73 @@
+{
+  "extensions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000101",
+      "number": "101",
+      "name": "Dan Doe",
+      "sipPassword": "Ab3dEf9hIj2kLm4nOp6qRs8t"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000102",
+      "number": "102",
+      "name": "Sue Smith",
+      "sipPassword": "Bb3dEf9hIj2kLm4nOp6qRs8t"
+    }
+  ],
+  "ringGroups": [
+    {
+      "id": "22222222-2222-4222-8222-222222222500",
+      "number": "500",
+      "name": "Sales",
+      "members": ["101", "102"]
+    }
+  ],
+  "ivrs": [
+    {
+      "id": "33333333-3333-4333-8333-333333333600",
+      "number": "600",
+      "name": "Main menu",
+      "greeting": "custom/44444444-4444-4444-8444-444444444444",
+      "timeoutSeconds": 6,
+      "maxRetries": 2,
+      "options": [
+        {
+          "digit": "2",
+          "destination": { "type": "user", "id": "00000000-0000-4000-8000-000000000102" }
+        },
+        {
+          "digit": "1",
+          "destination": { "type": "ring_group", "id": "22222222-2222-4222-8222-222222222500" }
+        },
+        {
+          "digit": "9",
+          "destination": { "type": "ivr", "id": "33333333-3333-4333-8333-333333333600" }
+        },
+        {
+          "digit": "#",
+          "destination": { "type": "voicemail", "id": "00000000-0000-4000-8000-000000000101" }
+        },
+        { "digit": "0", "destination": { "type": "external", "number": "13125550000" } }
+      ],
+      "timeoutDestination": { "type": "voicemail", "id": "00000000-0000-4000-8000-000000000101" },
+      "invalidDestination": { "type": "hangup" }
+    },
+    {
+      "id": "33333333-3333-4333-8333-333333333601",
+      "number": "601",
+      "name": "After hours; no direct dial",
+      "greeting": "custom/44444444-4444-4444-8444-444444444445",
+      "invalidSound": "custom/44444444-4444-4444-8444-444444444446",
+      "allowDirectDial": false,
+      "timeoutDestination": { "type": "ivr", "id": "33333333-3333-4333-8333-333333333600" },
+      "invalidDestination": { "type": "ivr", "id": "33333333-3333-4333-8333-333333333600" }
+    }
+  ],
+  "dids": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "number": "13125551234",
+      "destination": { "type": "ivr", "id": "33333333-3333-4333-8333-333333333600" }
+    }
+  ],
+  "trunks": [{ "id": "7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37" }]
+}
