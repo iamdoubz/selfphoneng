@@ -30,7 +30,25 @@ export async function launch({ width = 1280, height = 800, shotsDir, args = [] }
       .then((l) => l.find((t) => t.type === 'page'))
       .catch(() => undefined);
   }
-  const ws = new WebSocket(info.webSocketDebuggerUrl);
+  const opts = { width, height, shotsDir };
+  const page = await attach(info.webSocketDebuggerUrl, opts);
+  /** Another tab in the same browser (same profile: storage, Web Locks, BroadcastChannel). */
+  page.newTab = async (url) => {
+    const t = await fetch(`http://127.0.0.1:${port}/json/new?${url}`, { method: 'PUT' }).then((r) =>
+      r.json(),
+    );
+    return attach(t.webSocketDebuggerUrl, opts);
+  };
+  const closeTab = page.close;
+  page.close = async () => {
+    await closeTab();
+    proc.kill();
+  };
+  return page;
+}
+
+async function attach(wsUrl, { width, height, shotsDir }) {
+  const ws = new WebSocket(wsUrl);
   await new Promise((r) => ws.addEventListener('open', r));
   let id = 0;
   const pending = new Map();
@@ -79,7 +97,7 @@ export async function launch({ width = 1280, height = 800, shotsDir, args = [] }
     }
     throw new Error(`timeout waiting for: ${what ?? expr}`);
   };
-  const page = {
+  return {
     evaluate,
     waitFor,
     consoleErrors,
@@ -110,10 +128,6 @@ export async function launch({ width = 1280, height = 800, shotsDir, args = [] }
       const r = await send('Page.captureScreenshot', { format: 'png' });
       writeFileSync(join(shotsDir, `${name}.png`), Buffer.from(r.data, 'base64'));
     },
-    close: async () => {
-      ws.close();
-      proc.kill();
-    },
+    close: async () => ws.close(),
   };
-  return page;
 }

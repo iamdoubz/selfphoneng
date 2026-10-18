@@ -153,6 +153,22 @@ class SoftphoneEngine {
 - Auto-answer header (paging): if the INVITE has `Call-Info: ...;answer-after=0`, answer after a short beep. (Paging only targets desk phones today. Implement the check anyway; it's 5 lines.)
 - Show call quality warnings if `RTCPeerConnection.getStats()` shows packet loss > 5% or jitter > 50 ms over 5 s.
 
+**As built (M5-T1/T2), differences from the above:**
+- One tab: the leader holds a **Web Lock** (`navigator.locks`, name `selfphoneng-softphone`), which
+  the browser frees if the tab dies; the BroadcastChannel only carries "Use here" (`leader.ts`).
+- Ringtone and auto-answer beep are **synthesized with WebAudio** (US ring 440+480 Hz, 2 s on /
+  4 s off) instead of a committed mp3, so there's no file or license to carry (`sounds.ts`).
+- DTMF falls back to **SIP INFO** (`application/dtmf-relay`) when Chrome's RTCDTMFSender reports
+  `canInsertDTMF = false`.
+- Transfers: after the REFER's NOTIFY reports 2xx, the browser sends BYE itself (RFC 5589); SIP.js
+  leaves the session up otherwise.
+- Name lookup is extensions (live presence) → the caller's display name → number; contacts join in
+  when they exist.
+- Not yet in the panel: DND toggle (M6), Record via `*1` and recent calls (M7).
+- `scripts/e2e/m5-t1.mjs` and `m5-t2.mjs` automate registration, audio, the incoming dialog, call
+  waiting, hold, DTMF, both transfers and "Use here" in headless Edge; `apps/web/TESTING.md` is the
+  manual run for Chrome and Firefox.
+
 ### 5.3 Softphone panel UI
 - Top: registration status (Registered / Connecting / Error with a reason) + DND toggle.
 - Number input with paste normalization + 12-key dialpad (also typing on the keyboard; Enter calls).

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The browser softphone (05 §5.2): SIP.js over WebSocket to Asterisk, no React in here.
-// React reads it through subscribe()/state (useSyncExternalStore in useSoftphone.ts).
+// React reads it through subscribe()/state (useSyncExternalStore in SoftphoneDock.tsx).
 import {
   Invitation,
   Inviter,
@@ -9,11 +9,14 @@ import {
   SessionState,
   UserAgent,
   Web,
+  type Notification as SipNotification,
   type Session,
 } from 'sip.js';
 import type { WebRtcCreds } from '@selfphoneng/shared';
+import { beep } from './sounds.ts';
 
-export type RegState = 'off' | 'connecting' | 'registered' | 'error';
+/** elsewhere: another tab of this browser has the softphone (one tab only, leader.ts). */
+export type RegState = 'off' | 'connecting' | 'registered' | 'error' | 'elsewhere';
 
 export type CallInfo = {
   id: string;
@@ -24,17 +27,38 @@ export type CallInfo = {
   /** incoming: ringing here; calling: ringing there; active: talking. */
   state: 'incoming' | 'calling' | 'active';
   answeredAt: number | null;
+  muted: boolean;
+  held: boolean;
+  /** Packet loss > 5 % or jitter > 50 ms over the last 5 s. */
+  poorQuality: boolean;
 };
 
-export type EngineState = { reg: RegState; error: string | null; calls: CallInfo[] };
+export type EngineState = {
+  reg: RegState;
+  error: string | null;
+  calls: CallInfo[];
+  inputDeviceId: string | null;
+  outputDeviceId: string | null;
+};
 
 const BACKOFF_S = [2, 4, 8, 16, 30];
 const MAX_CALLS = 2;
 
-type Tracked = { session: Session; info: CallInfo; audio: HTMLAudioElement };
+type Tracked = {
+  session: Session;
+  info: CallInfo;
+  audio: HTMLAudioElement;
+  stats?: ReturnType<typeof setInterval>;
+};
 
 export class SoftphoneEngine {
-  state: EngineState = { reg: 'off', error: null, calls: [] };
+  state: EngineState = {
+    reg: 'off',
+    error: null,
+    calls: [],
+    inputDeviceId: null,
+    outputDeviceId: null,
+  };
   private listeners = new Set<() => void>();
   private ua: UserAgent | null = null;
   private registerer: Registerer | null = null;
@@ -56,6 +80,10 @@ export class SoftphoneEngine {
 
   private publishCalls() {
     this.set({ calls: [...this.sessions.values()].map((t) => ({ ...t.info })) });
+  }
+
+  setElsewhere() {
+    this.set({ reg: 'elsewhere', error: null });
   }
 
   async start(creds: WebRtcCreds): Promise<void> {
@@ -138,15 +166,35 @@ export class SoftphoneEngine {
     this.set({ reg: 'off', error: null, calls: [] });
   }
 
-  async call(number: string): Promise<void> {
-    const target = UserAgent.makeURI(`sip:${encodeURIComponent(number)}@${this.host}`);
-    if (!this.ua || !target) throw new Error('Softphone is not started');
+  private constraints(): MediaStreamConstraints {
+    const id = this.state.inputDeviceId;
+    return { audio: id ? { deviceId: { exact: id } } : true, video: false };
+  }
+
+  private uri(number: string) {
+    const u = UserAgent.makeURI(`sip:${encodeURIComponent(number)}@${this.host}`);
+    if (!u) throw new Error(`Can't call ${number}`);
+    return u;
+  }
+
+  /** Puts every other talking call on hold first (call waiting, consult calls). */
+  private async holdOthers(except?: string) {
+    for (const t of this.sessions.values())
+      if (t.info.id !== except && t.info.state === 'active' && !t.info.held)
+        await this.hold(t.info.id, true);
+  }
+
+  /** Returns the new call's id. */
+  async call(number: string): Promise<string> {
+    if (!this.ua) throw new Error('Softphone is not started');
     if (this.sessions.size >= MAX_CALLS) throw new Error('Two calls already');
-    const inviter = new Inviter(this.ua, target, {
-      sessionDescriptionHandlerOptions: { constraints: { audio: true, video: false } },
+    await this.holdOthers();
+    const inviter = new Inviter(this.ua, this.uri(number), {
+      sessionDescriptionHandlerOptions: { constraints: this.constraints() },
     });
     this.track(inviter, 'out', number, null);
     await inviter.invite();
+    return inviter.id;
   }
 
   private incoming(inv: Invitation) {
@@ -160,13 +208,17 @@ export class SoftphoneEngine {
       inv.remoteIdentity.uri.user ?? '',
       inv.remoteIdentity.displayName || null,
     );
+    // Paging/intercom (03 sp-sub-autoanswer): answer after a short beep.
+    if (/answer-after=0/.test(inv.request.getHeader('Call-Info') ?? '') && this.sessions.size === 1)
+      void beep().then(() => this.answer(inv.id));
   }
 
   async answer(id: string): Promise<void> {
     const t = this.sessions.get(id);
     if (!(t?.session instanceof Invitation)) return;
+    await this.holdOthers(id);
     await t.session.accept({
-      sessionDescriptionHandlerOptions: { constraints: { audio: true, video: false } },
+      sessionDescriptionHandlerOptions: { constraints: this.constraints() },
     });
   }
 
@@ -184,10 +236,91 @@ export class SoftphoneEngine {
     else if (s instanceof Invitation) await s.reject();
   }
 
+  private sdh(id: string) {
+    const sdh = this.sessions.get(id)?.session.sessionDescriptionHandler;
+    return sdh instanceof Web.SessionDescriptionHandler ? sdh : null;
+  }
+
+  /** re-INVITE with a=sendonly (hold) or a=sendrecv (resume). */
+  async hold(id: string, on: boolean): Promise<void> {
+    const t = this.sessions.get(id);
+    if (!t || t.session.state !== SessionState.Established || t.info.held === on) return;
+    t.session.sessionDescriptionHandlerOptionsReInvite = {
+      ...t.session.sessionDescriptionHandlerOptionsReInvite,
+      hold: on,
+    } as Web.SessionDescriptionHandlerOptions;
+    await t.session.invite();
+    this.sdh(id)?.enableReceiverTracks(!on);
+    this.sdh(id)?.enableSenderTracks(!on && !t.info.muted);
+    t.info.held = on;
+    this.publishCalls();
+  }
+
+  mute(id: string, on: boolean): void {
+    const t = this.sessions.get(id);
+    if (!t) return;
+    this.sdh(id)?.enableSenderTracks(!on && !t.info.held);
+    t.info.muted = on;
+    this.publishCalls();
+  }
+
+  /** RFC 4733 through the RTCDTMFSender; SIP INFO when the browser can't (canInsertDTMF false). */
+  dtmf(id: string, digit: string): void {
+    if (this.sdh(id)?.sendDtmf(digit)) return;
+    void this.sessions
+      .get(id)
+      ?.session.info({
+        requestOptions: {
+          body: {
+            contentDisposition: 'render',
+            contentType: 'application/dtmf-relay',
+            content: `Signal=${digit}\r\nDuration=160`,
+          },
+        },
+      })
+      .catch(() => undefined);
+  }
+
+  /** RFC 5589: once the NOTIFY says the transfer worked (2xx sipfrag), the transferor hangs up. */
+  private referOptions(s: Session) {
+    return {
+      onNotify: (n: SipNotification) => {
+        void n.accept();
+        if (/^SIP\/2\.0 2\d\d/m.test(n.request.body ?? '') && s.state === SessionState.Established)
+          void s.bye().catch(() => undefined);
+      },
+    };
+  }
+
+  async blindTransfer(id: string, target: string): Promise<void> {
+    const s = this.sessions.get(id)?.session;
+    if (s) await s.refer(this.uri(target), this.referOptions(s));
+  }
+
+  /** REFER with Replaces: the other side of `id` is connected to the other side of `consultId`. */
+  async attendedTransfer(id: string, consultId: string): Promise<void> {
+    const s = this.sessions.get(id)?.session;
+    const consult = this.sessions.get(consultId)?.session;
+    if (s && consult) await s.refer(consult, this.referOptions(s));
+  }
+
+  async setOutputDevice(deviceId: string | null): Promise<void> {
+    this.set({ outputDeviceId: deviceId });
+    for (const t of this.sessions.values())
+      await t.audio.setSinkId?.(deviceId ?? '').catch(() => undefined);
+  }
+
+  /** Used for the next call. */
+  setInputDevice(deviceId: string | null): void {
+    this.set({ inputDeviceId: deviceId });
+  }
+
   private track(session: Session, direction: 'in' | 'out', remote: string, name: string | null) {
     const id = session.id;
     const audio = new Audio();
     audio.autoplay = true;
+    if (this.state.outputDeviceId)
+      void audio.setSinkId?.(this.state.outputDeviceId).catch(() => undefined);
     const info: CallInfo = {
       id,
       direction,
@@ -195,25 +328,52 @@ export class SoftphoneEngine {
       remoteName: name,
       state: direction === 'in' ? 'incoming' : 'calling',
       answeredAt: null,
+      muted: false,
+      held: false,
+      poorQuality: false,
     };
-    this.sessions.set(id, { session, info, audio });
+    const tracked: Tracked = { session, info, audio };
+    this.sessions.set(id, tracked);
     session.stateChange.addListener((s) => {
-      if (s === SessionState.Established) {
-        const sdh = session.sessionDescriptionHandler;
-        if (sdh instanceof Web.SessionDescriptionHandler) {
+      if (s === SessionState.Established && info.state !== 'active') {
+        const sdh = this.sdh(id);
+        if (sdh) {
           audio.srcObject = sdh.remoteMediaStream;
           void audio.play().catch(() => undefined);
+          tracked.stats = this.watchQuality(sdh.peerConnection, info);
         }
         info.state = 'active';
         info.answeredAt = Date.now();
       }
       if (s === SessionState.Terminated) {
+        clearInterval(tracked.stats);
         audio.srcObject = null;
         this.sessions.delete(id);
       }
       this.publishCalls();
     });
     this.publishCalls();
+  }
+
+  /** Every 5 s: loss and jitter of what we receive. */
+  private watchQuality(pc: RTCPeerConnection | undefined, info: CallInfo) {
+    let last = { lost: 0, received: 0 };
+    return setInterval(() => {
+      void pc?.getStats().then((report) => {
+        report.forEach((s: RTCInboundRtpStreamStats) => {
+          if (s.type !== 'inbound-rtp' || s.kind !== 'audio') return;
+          const lost = (s.packetsLost ?? 0) - last.lost;
+          const received = (s.packetsReceived ?? 0) - last.received;
+          last = { lost: s.packetsLost ?? 0, received: s.packetsReceived ?? 0 };
+          const poor =
+            !info.held && (lost / Math.max(1, lost + received) > 0.05 || (s.jitter ?? 0) > 0.05);
+          if (poor !== info.poorQuality) {
+            info.poorQuality = poor;
+            this.publishCalls();
+          }
+        });
+      });
+    }, 5000);
   }
 }
 

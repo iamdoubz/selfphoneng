@@ -166,6 +166,10 @@ Legend: 📖 read · 🔨 build · ✅ done when
 **M5-T2** Dock UI, incoming dialog, hold/mute/DTMF, blind + attended transfer, one-tab leader election, audio device selection, notifications.
 ✅ A manual test script in `apps/web/TESTING.md` (12 steps) passes in Chrome and Firefox.
 
+> **⚠ Open manual check (M5-T2).** `scripts/e2e/m5-t2.mjs` passes in headless Edge in Docker
+> (incoming dialog, call waiting, hold, DTMF, blind + attended transfer, "Use here"). The owner
+> still has to run `apps/web/TESTING.md` in Chrome and Firefox on the real server.
+
 **M5-T3** Presence panel + click-to-call (`/api/me/click-to-call`).
 ✅ Presence dots change in < 1 s. Click-to-call rings the user's desk phone first.
 

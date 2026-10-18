@@ -64,3 +64,8 @@ server on 127.0.0.1:18088 and RTP 10000–10019/udp. The script sets LAN IP = th
 IP = 127.0.0.1 (so ICE offers 127.0.0.1), restarts telephony, then signs in as a new user, enables
 the softphone with a fake microphone, and checks two-way audio to a baresip phone (171) in both
 directions.
+
+`m5-t2.mjs` (after `m5-t1.mjs`, same user) starts two baresip phones (172, 173) through
+`phones.mjs` and checks the softphone features: the incoming call dialog, DTMF, hold (music on hold
+at the other end), call waiting, blind and attended transfer, and "Use here" moving the softphone to
+a second tab (`cdp.mjs` `newTab()`).

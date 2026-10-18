@@ -165,6 +165,7 @@ try {
   await p.shot('m5-t1-01-ready');
 
   // Browser → desk phone.
+  await p.click('Keypad');
   await p.fill('Number to call', '171');
   await p.click('Call');
   await p.waitFor(`document.body.innerText.includes('On call')`, 'outgoing call answered', 15_000);
