@@ -32,6 +32,8 @@ export const typedSecret = check(/^[^\s;](?:[^\r\n;]*[^\s;])?$/, 'password', 128
 export const codec = check(/^(?:ulaw|alaw|g722)$/, 'codec', 4);
 /** Voicemail / conference PINs. */
 export const pin = check(/^[0-9]{4,10}$/, 'pin', 10);
+/** IANA time zone names, e.g. America/Chicago, Etc/GMT+6. */
+export const timezone = check(/^[A-Za-z][A-Za-z0-9_+/-]*$/, 'timezone', 64);
 /** Trunk server host: a hostname or an IPv4 address. */
 export const host = check(
   /^(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/,

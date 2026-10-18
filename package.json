@@ -15,7 +15,7 @@
     "lint": "eslint . && prettier --check .",
     "format": "prettier --write .",
     "typecheck": "pnpm -r typecheck",
-    "test:asterisk": "node apps/api/test/asterisk/load-golden.mjs && node --conditions=source apps/api/test/asterisk/call-test.ts && node --conditions=source apps/api/test/asterisk/trunk-test.ts"
+    "test:asterisk": "node apps/api/test/asterisk/load-golden.mjs && node --conditions=source apps/api/test/asterisk/call-test.ts && node --conditions=source apps/api/test/asterisk/trunk-test.ts && node --conditions=source apps/api/test/asterisk/voicemail-test.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

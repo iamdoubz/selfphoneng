@@ -26,7 +26,9 @@ function expectations(dir) {
   const endpoints = [...pjsip.matchAll(/^\[([^\]]+)\]\ntype = endpoint$/gm)].map((m) => m[1]);
   const ext = readFileSync(join(dir, 'extensions_selfphoneng.conf'), 'utf8');
   const contexts = [...ext.matchAll(/^\[([^\]]+)\]$/gm)].map((m) => m[1]);
-  return { endpoints, contexts };
+  const vm = readFileSync(join(dir, 'voicemail_selfphoneng.conf'), 'utf8');
+  const mailboxes = [...vm.matchAll(/^(\d+) =>/gm)].map((m) => m[1]);
+  return { endpoints, contexts, mailboxes };
 }
 
 async function check(name) {
@@ -55,7 +57,7 @@ async function check(name) {
     if (!booted) problems.push('Asterisk did not finish booting');
     await sleep(500);
 
-    const { endpoints, contexts } = expectations(tmp);
+    const { endpoints, contexts, mailboxes } = expectations(tmp);
     const shown = cli('pjsip show endpoints').out;
     for (const e of endpoints)
       if (!new RegExp(`Endpoint:\\s+${e}[\\s/]`).test(shown))
@@ -64,6 +66,10 @@ async function check(name) {
       const d = cli(`dialplan show ${c}`).out;
       if (!d.includes(`'${c}'`)) problems.push(`context ${c} not loaded`);
     }
+    const users = cli('voicemail show users').out;
+    for (const m of mailboxes)
+      if (!new RegExp(`^default\\s+${m}\\s`, 'm').test(users))
+        problems.push(`mailbox ${m} not loaded`);
     // Asterisk colors its log: strip the escape codes before looking for ERROR[.
     // eslint-disable-next-line no-control-regex -- matching ANSI escapes is the point
     const log = docker('logs', NAME).out.replace(/\x1b\[[0-9;]*m/g, '');

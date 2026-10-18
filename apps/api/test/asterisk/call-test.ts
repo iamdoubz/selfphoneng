@@ -48,6 +48,7 @@ function snapshot(): Snapshot {
     maxContacts: 5,
     ringSeconds: 25,
     voicemailEnabled: false,
+    voicemailPin: '4826',
     outboundClass: 'national' as const,
     outboundCallerId: null,
     emergencyCallerId: null,

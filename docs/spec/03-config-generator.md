@@ -182,6 +182,9 @@ auth = 101-auth
 aors = 101
 callerid = "Dan Doe" <101>
 mailboxes = 101@default            ; omit if voicemail disabled
+mwi_subscribe_replaces_unsolicited = yes  ; omit if voicemail disabled. The AOR also sends unsolicited MWI;
+                                   ; without this a phone that SUBSCRIBEs gets 500 "already configured
+                                   ; for unsolicited MWI" (checked on 24.0.0-rc2, M4-T1)
 direct_media = no
 rtp_symmetric = yes
 force_rport = yes
@@ -226,6 +229,7 @@ auth = 101-web-auth
 aors = 101-web
 callerid = "Dan Doe" <101>
 mailboxes = 101@default
+mwi_subscribe_replaces_unsolicited = yes
 dtmf_mode = rfc4733
 allow_subscribe = yes
 named_call_group = sales
@@ -898,7 +902,10 @@ local = {general.timezone}|'vm-received' Q 'digits/at' IMp
 [default]
 101 => {pin},{name},,,tz=local|attach=no
 ```
-Only extensions with `voicemail_enabled` get a line.
+Only extensions with `voicemail_enabled` get a line. Names go through `name()` (no commas or `|`),
+the time zone through `timezone()`. Until M6-T7, `sp-featurecodes` holds only `*97`/`*98`.
+Checked live by `apps/api/test/asterisk/voicemail-test.ts` (M4-T1): leave a message, MWI NOTIFY
+to a subscribed phone, `*97` login and playback, MWI off.
 
 ## 8. `musiconhold_selfphoneng.conf`
 

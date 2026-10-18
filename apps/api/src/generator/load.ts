@@ -17,6 +17,7 @@ export type SnapExtension = {
   maxContacts: number;
   ringSeconds: number;
   voicemailEnabled: boolean;
+  voicemailPin: string; // decrypted
   outboundClass: 'internal' | 'local' | 'national' | 'international';
   outboundCallerId: string | null; // DID number
   emergencyCallerId: string | null; // DID number
@@ -147,6 +148,7 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
       maxContacts: ext.maxContacts,
       ringSeconds: ext.ringSeconds,
       voicemailEnabled: ext.voicemailEnabled,
+      voicemailPin: decrypt(ext.voicemailPinEnc),
       outboundClass: ext.outboundClass,
       outboundCallerId: outCid,
       emergencyCallerId: e911Cid,

@@ -72,6 +72,7 @@ export function loadCase(name: string): Snapshot {
       maxContacts: 5,
       ringSeconds: 25,
       voicemailEnabled: true,
+      voicemailPin: '4826',
       outboundClass: 'national',
       outboundCallerId: null,
       emergencyCallerId: null,

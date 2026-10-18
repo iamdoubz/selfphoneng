@@ -4,9 +4,6 @@ import { CLASS_RANK } from '@selfphoneng/shared';
 import { byNumber, type Snapshot } from '../load.ts';
 import * as s from '../sanitize.ts';
 
-// TODO(M4): voicemail on. Until then every user gets ARG3 = 0 (09 M2-T4).
-const VOICEMAIL_READY = false;
-
 export function renderLocalNumbers(snap: Snapshot): string {
   const lines = [
     '[sp-local-numbers]',
@@ -17,7 +14,7 @@ export function renderLocalNumbers(snap: Snapshot): string {
   for (const e of [...snap.extensions].sort(byNumber)) {
     const num = s.digits(e.number);
     const ring = s.digits(String(e.ringSeconds));
-    const vm = VOICEMAIL_READY && e.voicemailEnabled ? 1 : 0;
+    const vm = e.voicemailEnabled ? 1 : 0;
     lines.push(
       `exten => ${num},1,Gosub(sp-sub-user,s,1(${num},${ring},${vm},${e.recordMode}))`,
       ' same => n,Hangup()',

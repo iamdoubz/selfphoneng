@@ -13,10 +13,10 @@ import { loadSnapshot, type Snapshot } from './load.ts';
 import { renderPjsip, renderRtp, renderTransports } from './pjsip.ts';
 import { STATIC_DIALPLAN } from './dialplan/static.ts';
 import { renderGlobals, renderLocalNumbers } from './dialplan/local.ts';
-import { PENDING_CONTEXTS } from './dialplan/pending.ts';
 import { renderDids, renderTrunkEntries } from './dialplan/inbound.ts';
 import { renderOutbound } from './dialplan/outbound.ts';
 import { renderEmergency } from './dialplan/emergency.ts';
+import { renderVoicemail } from './voicemail.ts';
 
 export { renderTransports };
 
@@ -43,6 +43,7 @@ const BODIES: Partial<Record<GeneratedFileName, (snap: Snapshot) => string>> = {
   'pjsip_selfphoneng.conf': renderPjsip,
   'rtp_selfphoneng.conf': renderRtp,
   'extensions_globals_selfphoneng.conf': renderGlobals,
+  'voicemail_selfphoneng.conf': renderVoicemail,
   'extensions_selfphoneng.conf': (snap) =>
     [
       STATIC_DIALPLAN,
@@ -51,7 +52,6 @@ const BODIES: Partial<Record<GeneratedFileName, (snap: Snapshot) => string>> = {
       renderDids(snap),
       renderOutbound(snap),
       renderEmergency(snap),
-      PENDING_CONTEXTS,
     ]
       .filter(Boolean)
       .join('\n'),

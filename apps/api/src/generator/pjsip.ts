@@ -84,6 +84,8 @@ function extensionSections(e: SnapExtension): string {
   const common = [
     `callerid = "${name}" <${num}>`,
     mailbox,
+    // The AOR also sends unsolicited MWI; without this, a phone's own SUBSCRIBE gets a 500.
+    mailbox && 'mwi_subscribe_replaces_unsolicited = yes',
     'dtmf_mode = rfc4733',
     'allow_subscribe = yes',
     groups && `named_call_group = ${groups}`,
