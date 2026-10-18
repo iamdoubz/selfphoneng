@@ -49,6 +49,7 @@ export type SnapDid = {
   label: string | null;
   destination: Destination;
   callerIdNamePrefix: string | null;
+  recordInbound: boolean;
 };
 
 export type SnapRoute = {
@@ -147,6 +148,8 @@ export type Snapshot = {
   timeConditions: SnapTimeCondition[];
   holidays: SnapHoliday[];
   announcements: SnapAnnouncement[];
+  /** Played before recording a call that a phone number records (Settings → Recording). */
+  recordingAnnouncement: string | null;
 };
 
 export function todayIn(timezone: string, now = new Date()): string {
@@ -178,6 +181,7 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
       label: dids.label,
       destination: dids.destination,
       callerIdNamePrefix: dids.callerIdNamePrefix,
+      recordInbound: dids.recordInbound,
     })
     .from(dids);
   const trunkRows = await db.select().from(trunks);
@@ -214,6 +218,9 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
       closedDestination: t.closedDestination as Destination,
       holidayDestination: t.holidayDestination as Destination | null,
     })),
+    recordingAnnouncement: settings['recordings.announcementSoundId']
+      ? (soundName.get(settings['recordings.announcementSoundId']) ?? null)
+      : null,
     announcements: annRows.map((a) => ({
       id: a.id,
       name: a.name,

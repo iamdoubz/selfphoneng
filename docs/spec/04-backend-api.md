@@ -235,6 +235,10 @@ As built (M7-T1):
   voicemail): the call was for them, so it shows in their history and as missed (M7-T2).
 - **from** is the caller's extension when the first leg is a phone (not the caller ID it sends
   outside); otherwise `src`. An outbound call has no `answered_by` (no extension answered).
+- **recording** (M7-T3): `sp-sub-record` sets `CDR(SP_REC)`; the file (relative, under
+  `RECORDINGS_DIR`) becomes a `recordings` row (size, ffprobe length) linked to the call.
+  `/api/recordings/:id/audio` serves it to admins and to users whose extension is on the call.
+  Retention runs once a day (and at start) in the same day-change check as the nightly regenerate.
 - Aggregation runs 5 s after a linkedid's last Cdr event; on every AMI connect, linkedids older
   than a minute without a `calls` row are aggregated (instead of the nightly job).
 

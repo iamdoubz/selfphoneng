@@ -78,6 +78,7 @@ function snapshot(): Snapshot {
     label: null,
     destination,
     callerIdNamePrefix: null,
+    recordInbound: false,
   });
   return {
     today: '2026-10-18',
@@ -142,6 +143,7 @@ function snapshot(): Snapshot {
     timeConditions: [],
     holidays: [],
     announcements: [],
+    recordingAnnouncement: null,
     routes: [
       {
         id: 'aaaaaaaa-0000-4000-8000-000000000001',

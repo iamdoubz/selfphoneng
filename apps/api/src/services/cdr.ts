@@ -4,12 +4,16 @@
 // involved. The rules are heuristics, pinned by fixtures recorded from real calls
 // (test/fixtures/cdr, made by test/asterisk/cdr-record.ts).
 import type { EventEmitter } from 'node:events';
+import { stat } from 'node:fs/promises';
+import { join } from 'node:path';
 import { and, asc, eq, inArray, isNull, lt } from 'drizzle-orm';
 import { field, type AmiMessage } from '../ami/events.ts';
 import type { Db } from '../db/client.ts';
-import { callExtensions, calls, cdr, dids, extensions } from '../db/schema.ts';
+import { callExtensions, calls, cdr, dids, extensions, recordings } from '../db/schema.ts';
+import { durationMs } from '../media/audio.ts';
 
 type CdrRow = typeof cdr.$inferSelect;
+type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 /** cdr_manager.conf has usegmtime = yes: "2026-10-18 19:28:37" is UTC. */
 const utc = (v: string | undefined) => (v ? new Date(`${v.replace(' ', 'T')}Z`) : null);
@@ -65,6 +69,8 @@ export type CallSummary = {
   rang: string[];
   answeredBy: string | null;
   talkSeconds: number;
+  /** sp_recording: the MixMonitor file, relative to the recordings directory. */
+  recording: string | null;
 };
 
 /** The pure part of aggregateCall: rows of one linkedid → what the call was. */
@@ -122,11 +128,40 @@ export function summarize(rows: CdrRow[]): CallSummary {
     rang,
     answeredBy,
     talkSeconds: Math.max(0, ...talkRows.map((r) => r.billsec ?? 0)),
+    recording: rows.find((r) => r.spRecording)?.spRecording ?? null,
   };
 }
 
 /** Rebuilds the calls row for one linkedid (idempotent). */
-export async function aggregateCall(db: Db, linkedid: string): Promise<void> {
+/**
+ * Links the call's recording if its file is there: size, length (ffprobe), one row per file.
+ * The file path is relative and stays inside the recordings directory (it comes from AMI).
+ */
+async function linkRecording(db: Db | Tx, dir: string, s: CallSummary, linkedid: string) {
+  if (!s.recording || !/^[\w./-]+\.wav$/.test(s.recording) || s.recording.includes('..'))
+    return null;
+  const file = join(dir, s.recording);
+  const st = await stat(file).catch(() => null);
+  if (!st?.isFile()) return null;
+  const [r] = await db
+    .insert(recordings)
+    .values({
+      linkedid,
+      filePath: s.recording,
+      startedAt: s.startedAt,
+      sizeBytes: st.size,
+      durationMs: await durationMs(file),
+    })
+    .onConflictDoUpdate({ target: recordings.filePath, set: { sizeBytes: st.size } })
+    .returning({ id: recordings.id });
+  return r!.id;
+}
+
+export async function aggregateCall(
+  db: Db,
+  linkedid: string,
+  opts: { recordingsDir?: string } = {},
+): Promise<void> {
   const rows = await db
     .select()
     .from(cdr)
@@ -162,6 +197,9 @@ export async function aggregateCall(db: Db, linkedid: string): Promise<void> {
         didId: d?.id ?? null,
         answeredByExtensionId: idOf(s.answeredBy),
         talkSeconds: s.talkSeconds,
+        recordingId: opts.recordingsDir
+          ? await linkRecording(tx, opts.recordingsDir, s, linkedid)
+          : null,
       })
       .returning({ id: calls.id });
     const involved = [
@@ -175,7 +213,7 @@ export async function aggregateCall(db: Db, linkedid: string): Promise<void> {
         .values(involved.map((x) => ({ callId: call!.id, extensionId: x.id, role: x.role })))
         .onConflictDoNothing();
   });
-  // TODO(M7-T3): link the recording (sp_recording). TODO(M11-T5): webhook call.ended.
+  // TODO(M11-T5): webhook call.ended.
 }
 
 export type CdrDeps = {
@@ -183,6 +221,8 @@ export type CdrDeps = {
   log: { error(o: object, msg: string): void };
   /** How long after a call's last Cdr event to aggregate it (04 §5.4: 5 s). */
   settleMs?: number;
+  /** Where MixMonitor writes (RECORDINGS_DIR); recordings are linked to their calls. */
+  recordingsDir?: string;
 };
 
 export function watchCdr(d: CdrDeps, ami: Pick<EventEmitter, 'on'>) {
@@ -193,8 +233,8 @@ export function watchCdr(d: CdrDeps, ami: Pick<EventEmitter, 'on'>) {
       linkedid,
       setTimeout(() => {
         timers.delete(linkedid);
-        void aggregateCall(d.db, linkedid).catch((err: unknown) =>
-          d.log.error({ err, linkedid }, 'call aggregation failed'),
+        void aggregateCall(d.db, linkedid, { recordingsDir: d.recordingsDir }).catch(
+          (err: unknown) => d.log.error({ err, linkedid }, 'call aggregation failed'),
         );
       }, d.settleMs ?? 5000),
     );
@@ -216,7 +256,8 @@ export function watchCdr(d: CdrDeps, ami: Pick<EventEmitter, 'on'>) {
         .from(cdr)
         .leftJoin(calls, eq(calls.linkedid, cdr.linkedid))
         .where(and(isNull(calls.id), lt(cdr.createdAt, new Date(Date.now() - 60_000))));
-      for (const o of orphans) await aggregateCall(d.db, o.linkedid);
+      for (const o of orphans)
+        await aggregateCall(d.db, o.linkedid, { recordingsDir: d.recordingsDir });
     },
     stop: () => timers.forEach(clearTimeout),
   };

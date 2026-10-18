@@ -31,6 +31,7 @@ async function toDto(db: Db, d: DidRow): Promise<DidDto> {
     destination,
     destinationSummary: await describeDestination(db, destination),
     callerIdNamePrefix: d.callerIdNamePrefix,
+    recordInbound: d.recordInbound,
     e911Address: d.e911Address,
     createdAt: d.createdAt.toISOString(),
   };

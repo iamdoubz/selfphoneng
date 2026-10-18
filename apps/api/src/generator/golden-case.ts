@@ -36,6 +36,7 @@ export function loadCase(name: string): Snapshot {
       label: null,
       destination: { type: 'hangup' as const },
       callerIdNamePrefix: null,
+      recordInbound: false,
       ...d,
       id: d.id!,
       number: d.number!,
@@ -54,6 +55,8 @@ export function loadCase(name: string): Snapshot {
     })),
     holidays: raw.holidays ?? [],
     announcements: raw.announcements ?? [],
+    recordingAnnouncement:
+      (raw as { recordingAnnouncement?: string }).recordingAnnouncement ?? null,
     ivrs: (raw.ivrs ?? []).map((r, i) => ({
       name: `Menu ${i + 1}`,
       greeting: 'custom/greeting',

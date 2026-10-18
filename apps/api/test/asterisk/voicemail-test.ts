@@ -64,6 +64,7 @@ function snapshot(): Snapshot {
     timeConditions: [],
     holidays: [],
     announcements: [],
+    recordingAnnouncement: null,
     extensions: [ext('101', 'Alice'), ext('102', 'Bob')],
   };
 }

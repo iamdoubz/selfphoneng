@@ -20,6 +20,7 @@ import { IvrsPage } from './pages/admin/IvrsPage.tsx';
 import { OfficeHoursPage } from './pages/admin/OfficeHoursPage.tsx';
 import { BlockedPage } from './pages/admin/BlockedPage.tsx';
 import { CallsPage } from './pages/admin/CallsPage.tsx';
+import { RecordingsPage } from './pages/admin/RecordingsPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
 import { SetupPage } from './pages/SetupPage.tsx';
 import './index.css';
@@ -59,6 +60,8 @@ const router = createBrowserRouter([
             <BlockedPage />
           ) : p.path === 'calls' ? (
             <CallsPage />
+          ) : p.path === 'recordings' ? (
+            <RecordingsPage />
           ) : (
             <ComingSoon label={p.label} milestone={p.milestone ?? ''} />
           ),

@@ -10,7 +10,7 @@ import {
   type CallDto,
   type CallFilter,
 } from '@selfphoneng/shared';
-import { callsApi, extensionsApi } from '../../api/client.ts';
+import { callsApi, extensionsApi, recordingsApi } from '../../api/client.ts';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
 export const fmtNumber = (n: string | null) =>
@@ -174,6 +174,15 @@ export function CallsPage() {
               <StatusBadge status={c.status} />
               <span className="w-12 text-right tabular-nums">{fmtDuration(c.talkSeconds)}</span>
             </button>
+            {open === c.id && c.recordingId && (
+              <audio
+                controls
+                preload="none"
+                src={recordingsApi.audioUrl(c.recordingId)}
+                aria-label="Play the recording"
+                className="h-9 w-full sm:w-80"
+              />
+            )}
             {open === c.id && <Legs id={c.id} />}
           </li>
         ))}

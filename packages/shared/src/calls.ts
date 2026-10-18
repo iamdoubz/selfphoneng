@@ -64,3 +64,17 @@ export type MyCallDto = CallDto & {
   /** Someone called me and nobody answered (a colleague answering in a group isn't missed). */
   missedByMe: boolean;
 };
+
+export type RecordingDto = {
+  id: string;
+  startedAt: string;
+  durationMs: number | null;
+  sizeBytes: number | null;
+  call: {
+    id: string;
+    direction: CallDirection;
+    fromNumber: string | null;
+    fromName: string | null;
+    toNumber: string | null;
+  } | null;
+};

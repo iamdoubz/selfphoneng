@@ -41,7 +41,7 @@ export function renderGlobals(snap: Snapshot): string {
   const lines = [
     `SP_DEFAULT_CID=${defaultCid}`,
     `SP_DEFAULT_E911_CID=${didNumber(st['emergency.defaultCallerIdDidId']) || defaultCid}`,
-    'SP_REC_ANNOUNCE=', // M7: recordings.announcementSoundId → sound name
+    `SP_REC_ANNOUNCE=${snap.recordingAnnouncement ? s.sound(snap.recordingAnnouncement) : ''}`,
   ];
   const exts = [...snap.extensions].sort(byNumber);
   for (const e of exts) lines.push(`SP_CLASS_${s.digits(e.number)}=${CLASS_RANK[e.outboundClass]}`);

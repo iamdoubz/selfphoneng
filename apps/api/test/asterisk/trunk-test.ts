@@ -78,6 +78,7 @@ function snapshot(): Snapshot {
         label: 'Main line',
         destination: { type: 'user', id: EXT_ID },
         callerIdNamePrefix: null,
+        recordInbound: false,
       },
     ],
     extensions: [
@@ -107,6 +108,7 @@ function snapshot(): Snapshot {
     timeConditions: [],
     holidays: [],
     announcements: [],
+    recordingAnnouncement: null,
     routes: [
       {
         id: 'aaaaaaaa-0000-4000-8000-000000000001',

@@ -7,7 +7,7 @@
 // Usage: node scripts/e2e/m6-check.mjs <baseUrl> <adminEmail> <adminPassword> <shotsDir>
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { Socket } from 'node:net';
+import { originate } from './ami.mjs';
 import { launch } from './cdp.mjs';
 import { startPhones } from './phones.mjs';
 
@@ -22,37 +22,6 @@ const ANSI = /\x1b\[[0-9;]*m/g;
 const astLog = () =>
   (spawnSync('docker', ['logs', AST], { encoding: 'utf8' }).stdout ?? '').replace(ANSI, '');
 const [base, email, pw, shotsDir] = process.argv.slice(2);
-
-/** One AMI Originate with a caller ID (the CLI can't set one). */
-function originate(fields) {
-  return new Promise((resolve, reject) => {
-    const s = new Socket();
-    let buf = '';
-    s.setEncoding('utf8');
-    s.on('data', (d) => {
-      buf += d;
-      if (/Response: Error/.test(buf)) reject(new Error(buf));
-      if (/ActionID: o1[\s\S]*\r\n\r\n/.test(buf)) {
-        s.end();
-        resolve();
-      }
-    });
-    s.on('error', reject);
-    s.connect(15038, '127.0.0.1', () => {
-      const lines = Object.entries({
-        ...fields,
-        Action: 'Originate',
-        Async: 'true',
-        ActionID: 'o1',
-      })
-        .map(([k, v]) => `${k}: ${v}`)
-        .join('\r\n');
-      s.write(
-        `Action: Login\r\nUsername: selfphoneng\r\nSecret: m2-live-secret\r\nEvents: off\r\n\r\n${lines}\r\n\r\n`,
-      );
-    });
-  });
-}
 
 const login = await fetch(`${base}/api/auth/login`, {
   method: 'POST',

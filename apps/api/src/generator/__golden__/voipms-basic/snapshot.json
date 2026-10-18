@@ -23,7 +23,8 @@
       "destination": {
         "type": "user",
         "id": "00000000-0000-4000-8000-000000000000"
-      }
+      },
+      "recordInbound": true
     },
     {
       "id": "22222222-2222-4222-8222-222222222222",
@@ -115,5 +116,6 @@
       "requiredClass": "international",
       "trunkIds": ["7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37"]
     }
-  ]
+  ],
+  "recordingAnnouncement": "custom/44444444-4444-4444-8444-444444444448"
 }

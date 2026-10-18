@@ -4,7 +4,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { MyCallDto } from '@selfphoneng/shared';
-import { meApi } from '../../api/client.ts';
+import { meApi, recordingsApi } from '../../api/client.ts';
 import { Alert, Button } from '../../components/ui.tsx';
 import { softphone } from '../../softphone/SoftphoneEngine.ts';
 import { DIRECTION_TEXT, StatusBadge, fmtDuration, fmtNumber } from '../admin/CallsPage.tsx';
@@ -79,6 +79,15 @@ export function MyCallsPage() {
                   <span className="text-zinc-500"> · {DIRECTION_TEXT[c.direction]}</span>
                 )}
               </span>
+              {c.recordingId && (
+                <audio
+                  controls
+                  preload="none"
+                  src={recordingsApi.audioUrl(c.recordingId)}
+                  aria-label="Play the recording"
+                  className="h-8 w-48"
+                />
+              )}
               <StatusBadge status={c.status} />
               <span className="w-12 text-right tabular-nums">{fmtDuration(c.talkSeconds)}</span>
             </li>

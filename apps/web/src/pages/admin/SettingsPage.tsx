@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Settings (05 §2). M3: Email and Emergency. The other tabs arrive with their features.
+// Settings (05 §2). M3: Email and Emergency; M7: Recording. The other tabs arrive with their features.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NavLink, useParams } from 'react-router';
 import { formatNumber, type SettingsDto } from '@selfphoneng/shared';
 import { didsApi, extensionsApi, settingsApi } from '../../api/client.ts';
+import { SoundPicker } from '../../components/SoundPicker.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
 const TABS = [
   { id: 'email', label: 'Email' },
   { id: 'emergency', label: 'Emergency' },
+  { id: 'recording', label: 'Recording' },
 ] as const;
 
 export function SettingsPage() {
@@ -37,6 +39,7 @@ export function SettingsPage() {
       {settings.isError && <Alert>{settings.error.message}</Alert>}
       {settings.data && tab === 'email' && <EmailTab s={settings.data} />}
       {settings.data && tab === 'emergency' && <EmergencyTab s={settings.data} />}
+      {settings.data && tab === 'recording' && <RecordingTab s={settings.data} />}
     </section>
   );
 }
@@ -307,6 +310,66 @@ export function EmergencyTab({ s }: { s: SettingsDto }) {
           ))}
         </ul>
       )}
+    </form>
+  );
+}
+
+/** Recording (08 §5): how long recordings are kept, and the notice callers hear first. */
+function RecordingTab({ s }: { s: SettingsDto }) {
+  const save = useSave();
+  const [days, setDays] = useState(String(s['recordings.retentionDays']));
+  const [notice, setNotice] = useState<string | null>(s['recordings.announcementSoundId']);
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate({
+          'recordings.retentionDays': Number(days),
+          'recordings.announcementSoundId': notice,
+        });
+      }}
+    >
+      <div
+        role="note"
+        className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+      >
+        <p className="font-medium">Recording consent (not legal advice)</p>
+        <p>
+          US federal law and most states only need one party to agree, but several states (for
+          example California, Florida, Illinois, Maryland, Massachusetts, Montana, New Hampshire,
+          Pennsylvania and Washington) need everyone on the call to agree. Set a notice below so
+          callers hear &ldquo;this call may be recorded&rdquo;, and check the law where you and your
+          callers are.
+        </p>
+      </div>
+      <SoundPicker
+        label="Notice played before a recorded call"
+        value={notice}
+        onChange={setNotice}
+        noneLabel="No notice"
+      />
+      <p className="-mt-2 text-xs text-zinc-500">
+        Played to callers of phone numbers set to record (Phone numbers → Record every call).
+      </p>
+      <Field label="Keep recordings for (days)" hint="0 keeps them forever">
+        {(p) => (
+          <input
+            {...p}
+            className={`${inputClass} max-w-32`}
+            inputMode="numeric"
+            value={days}
+            onChange={(e) => setDays(e.target.value)}
+          />
+        )}
+      </Field>
+      <div className="flex items-center gap-3">
+        <Button type="submit" variant="primary" disabled={save.isPending}>
+          Save
+        </Button>
+        {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+      </div>
+      {save.error && <Alert>{save.error.message}</Alert>}
     </form>
   );
 }

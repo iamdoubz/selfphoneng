@@ -19,6 +19,8 @@ const EnvSchema = z.object({
   VOICEMAIL_DIR: z.string().default('/var/spool/asterisk/voicemail'),
   /** Uploaded prompts, played as custom/<id> (04 §6). Dev: ../../data/sounds-custom */
   SOUNDS_DIR: z.string().default('/var/lib/asterisk/sounds/custom'),
+  /** MixMonitor's directory; recordings are YYYY/MM/DD/<uniqueid>.wav under it (03 sp-sub-record). */
+  RECORDINGS_DIR: z.string().default('/var/spool/asterisk/monitor'),
   /** The browser softphone's SIP WebSocket. Default wss://PUBLIC_HOSTNAME/ws (the reverse proxy). */
   WEBRTC_WS_URL: z.url().optional(),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(8080),

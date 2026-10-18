@@ -89,7 +89,11 @@ export function renderDids(snap: Snapshot): string {
       `exten => ${num},1,Set(__SP_DID=${num})`,
       ` same => n,Set(CDR(SP_DID)=${num})`,
       ...(prefix ? [` same => n,Set(CALLERID(name)=${prefix} \${CALLERID(name)})`] : []),
-      // TODO(M7): record_inbound (announcement + sp-sub-record).
+      // Recorded number: the caller hears the notice (if set) before the recording starts.
+      ...(d.recordInbound && snap.recordingAnnouncement
+        ? [' same => n,Answer()', ` same => n,Playback(${s.sound(snap.recordingAnnouncement)})`]
+        : []),
+      ...(d.recordInbound ? [' same => n,Gosub(sp-sub-record,s,1)'] : []),
       ` same => n,${destApp(d.destination, snap)}`,
     );
   }

@@ -15,6 +15,7 @@ import { watchVoicemail } from './services/voicemail.ts';
 import { syncAstDb } from './services/astdb.ts';
 import { watchToggles } from './services/toggles.ts';
 import { watchCdr } from './services/cdr.ts';
+import { cleanupRecordings } from './routes/recordings.ts';
 import { getSetting } from './services/settings.ts';
 import { todayIn } from './generator/load.ts';
 
@@ -57,7 +58,7 @@ const sendMail = smtpMailer(db);
 app.decorate('sendMail', sendMail);
 watchEmergencies({ db, ami, live, send: sendMail, log: app.log }, ami);
 watchToggles({ db, ami, live, log: app.log }, ami);
-const history = watchCdr({ db, log: app.log }, ami);
+const history = watchCdr({ db, log: app.log, recordingsDir: resolve(config.RECORDINGS_DIR) }, ami);
 const voicemail = watchVoicemail(
   {
     db,
@@ -106,6 +107,15 @@ let lastDay = '';
 const regenerateOnNewDay = async () => {
   const today = todayIn(await getSetting(db, 'general.timezone'));
   if (lastDay && today !== lastDay) await generator.apply({ trigger: 'nightly', force: true });
+  if (today !== lastDay) {
+    // Once a day (and at start): recordings past their retention (04 §8, 08).
+    const removed = await cleanupRecordings(
+      db,
+      resolve(config.RECORDINGS_DIR),
+      await getSetting(db, 'recordings.retentionDays'),
+    );
+    if (removed) app.log.info({ removed }, 'old recordings deleted');
+  }
   lastDay = today;
 };
 void regenerateOnNewDay();

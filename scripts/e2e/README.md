@@ -117,3 +117,9 @@ calls: 231 → 230 answered, then 231 → 230 while 230 is on DND (voicemail). I
 reach `calls` through the AMI `Cdr` events. It then checks the admin Call history (status filter,
 expanded legs, CSV export), and as user `hist@example.com` (230): the missed call on Home,
 `/me/calls`, and **Call back**, which rings 230's desk phone first and then 231.
+
+`m7-t3.mjs` needs m2-live with sounds and recordings dirs (`m2-live.mjs up <conf> <vm> <sounds>
+<recs>`) and the api with `SOUNDS_DIR` and `RECORDINGS_DIR`. It picks the recording notice under
+Settings → Recording and ticks "Record every call" on a phone number in the UI. A caller then
+reaches 240 (AMI Originate into the trunk entry, `ami.mjs`): the notice plays, MixMonitor records,
+and the call's player in Call history serves the wav. The recording is also on the Recordings page.

@@ -113,6 +113,7 @@ const FormSchema = z.object({
     .max(12)
     .regex(/^[A-Za-z0-9 :_.#-]*$/, 'Letters, digits, spaces and : _ . # - only'),
   e911Address: z.string().trim().max(200),
+  recordInbound: z.boolean(),
 });
 type FormValues = z.input<typeof FormSchema>;
 
@@ -137,6 +138,7 @@ function DidDrawer({
       destination: did?.destination ?? { type: 'hangup' },
       callerIdNamePrefix: did?.callerIdNamePrefix ?? '',
       e911Address: did?.e911Address ?? '',
+      recordInbound: did?.recordInbound ?? false,
     },
   });
   const { errors } = form.formState;
@@ -150,6 +152,7 @@ function DidDrawer({
       destination: v.destination!,
       callerIdNamePrefix: v.callerIdNamePrefix || null,
       e911Address: v.e911Address || null,
+      recordInbound: v.recordInbound,
     };
     try {
       if (did) await didsApi.update(did.id, body);
@@ -228,6 +231,16 @@ function DidDrawer({
         >
           {(a) => <input {...a} {...form.register('e911Address')} className={inputClass} />}
         </Field>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" {...form.register('recordInbound')} />
+          <span>
+            Record every call to this number
+            <span className="block text-xs text-zinc-500">
+              Callers hear the recording notice from Settings → Recording first, if you set one.
+              Check the consent rules where you and your callers are.
+            </span>
+          </span>
+        </label>
       </form>
     </Dialog>
   );

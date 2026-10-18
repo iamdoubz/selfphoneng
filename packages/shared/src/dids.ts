@@ -31,6 +31,8 @@ const DidFields = z.object({
     .regex(/^[A-Za-z0-9 :_.#-]*$/, 'Letters, digits, spaces and : _ . # - only')
     .nullable(),
   e911Address: z.string().trim().max(200).nullable(),
+  /** Record every call to this number (callers hear the recording notice first, if set). */
+  recordInbound: z.boolean(),
 });
 
 export const DidCreateSchema = DidFields.partial().required({

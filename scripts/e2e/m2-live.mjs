@@ -3,7 +3,7 @@
 // AMI published on 127.0.0.1:15038, the api writing its config into that container, two baresip
 // phones, and the dashboard checked in a headless browser.
 //
-// 1. node scripts/e2e/m2-live.mjs up <confDir> [<voicemailDir> [<soundsDir>]]
+// 1. node scripts/e2e/m2-live.mjs up <confDir> [<voicemailDir> [<soundsDir> [<recordingsDir>]]]
 //      starts Asterisk; then start the api with AMI_PORT=15038 AMI_SECRET=m2-live-secret
 //      ASTERISK_CONFIG_DIR=<confDir> [VOICEMAIL_DIR=<voicemailDir>] and run m1-t4.mjs to get
 //      past the first login
@@ -29,9 +29,9 @@ const cli = (cmd) => docker('exec', AST, 'asterisk', '-rx', cmd).out;
 const [cmd, ...args] = process.argv.slice(2);
 
 if (cmd === 'up') {
-  const [conf, vm, sounds] = args;
+  const [conf, vm, sounds, recs] = args;
   mkdirSync(conf, { recursive: true });
-  for (const d of [vm, sounds]) if (d) mkdirSync(d, { recursive: true });
+  for (const d of [vm, sounds, recs]) if (d) mkdirSync(d, { recursive: true });
   const dir = mkdtempSync(join(tmpdir(), 'sp-live-'));
   writeFileSync(
     join(dir, 'manager.conf.template'),
@@ -75,6 +75,7 @@ if (cmd === 'up') {
     `${join(dir, 'rtp.conf')}:/etc/asterisk/rtp.conf:ro`,
     ...(vm ? ['-v', `${vm}:/var/spool/asterisk/voicemail`] : []),
     ...(sounds ? ['-v', `${sounds}:/var/lib/asterisk/sounds/custom`] : []),
+    ...(recs ? ['-v', `${recs}:/var/spool/asterisk/monitor`] : []),
     IMAGE,
   );
   assert.ok(r.ok, r.out);

@@ -10,6 +10,7 @@ import type {
   CallDto,
   CallFilter,
   MyCallDto,
+  RecordingDto,
   AuthUser,
   DidCreate,
   DidDto,
@@ -280,4 +281,12 @@ export const callsApi = {
   list: (f: CallFilter) => api<ListResponse<CallDto>>('GET', `/api/calls?${callQuery(f)}`),
   get: (id: string) => api<CallDetailDto>('GET', `/api/calls/${id}`),
   csvUrl: (f: CallFilter) => `/api/calls/export.csv?${callQuery({ ...f, cursor: undefined })}`,
+};
+
+export const recordingsApi = {
+  list: (cursor?: string) =>
+    api<ListResponse<RecordingDto>>('GET', `/api/recordings${cursor ? `?cursor=${cursor}` : ''}`),
+  audioUrl: (id: string, download = false) =>
+    `/api/recordings/${id}/audio${download ? '?download=1' : ''}`,
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/recordings/${id}`),
 };

@@ -59,6 +59,11 @@ export async function toPrompt(input: Buffer, base: string): Promise<number> {
     { path: `${base}.wav`, format: WAV },
     { path: `${base}.g722`, format: G722 },
   ]);
+  return (await durationMs(`${base}.wav`)) ?? 0;
+}
+
+/** Length of an audio file in ms (ffprobe), or null if it can't be read. */
+export async function durationMs(file: string): Promise<number | null> {
   const secs = await run('ffprobe', [
     '-v',
     'error',
@@ -66,7 +71,8 @@ export async function toPrompt(input: Buffer, base: string): Promise<number> {
     'format=duration',
     '-of',
     'csv=p=0',
-    `${base}.wav`,
-  ]);
-  return Math.round(Number(secs.trim()) * 1000);
+    file,
+  ]).catch(() => '');
+  const n = Number(secs.trim());
+  return secs.trim() && Number.isFinite(n) ? Math.round(n * 1000) : null;
 }
