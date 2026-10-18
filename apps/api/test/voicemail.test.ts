@@ -60,7 +60,7 @@ describe.skipIf(!hasTestDb)('voicemail watcher', () => {
   });
   afterAll(async () => {
     await t?.close();
-    rmSync(spool, { recursive: true, force: true });
+    if (spool) rmSync(spool, { recursive: true, force: true }); // unset if beforeAll failed
   });
 
   it('a new message: indexed, owner told, emailed with the audio (on MessageWaiting)', async () => {
