@@ -129,6 +129,15 @@ Legend: 📖 read · 🔨 build · ✅ done when
 📖 05 §2.1
 ✅ A fresh install can be taken to "inbound and outbound calls work" using only the wizard.
 
+> **⚠ M3 is NOT fully accepted yet — open real voip.ms checks.** M3 was pushed
+> after passing against a simulated voip.ms (a second Asterisk on the Docker
+> network). These checks need the owner's real voip.ms account and must be done
+> before v1.0 (the owner enters the credentials; never dial 911):
+>
+> - [ ] M3-T1: the real sub-account trunk shows **Registered** in the UI.
+> - [ ] M3-T2: a mobile → DID call rings a phone; record in 06 §3 which header carried the DID.
+> - [ ] M3-T3: an outbound call shows the DID as caller ID on the mobile; record in 06 §4 whether per-call caller ID (Remote-Party-ID) is honored.
+
 ---
 
 ## M4 — Voicemail
@@ -236,5 +245,5 @@ Legend: 📖 read · 🔨 build · ✅ done when
 ---
 
 ## Definition of done for v1.0
-All of M0–M11 done, plus: 7 days running on the owner's server handling real calls with
+All of M0–M11 done (including the open real voip.ms checks under M3), plus: 7 days running on the owner's server handling real calls with
 no crash/restart of the api or Asterisk, and nightly backups restoring cleanly.
