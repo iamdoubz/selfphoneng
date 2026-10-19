@@ -241,7 +241,7 @@ function QueueDetail({ id }: { id: string }) {
               ['Timed out', s?.timedOut],
               ['Average wait', s && (s.avgWaitSeconds === null ? '—' : `${s.avgWaitSeconds} s`)],
               [
-                `Answered within ${q.slaSeconds} s`,
+                `Callers answered within ${q.slaSeconds} s`,
                 s && (s.withinSlaPercent === null ? '—' : `${s.withinSlaPercent}%`),
               ],
             ] as const

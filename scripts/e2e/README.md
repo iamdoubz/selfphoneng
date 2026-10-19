@@ -162,8 +162,8 @@ and checks `moh show files`, a queue caller hearing it ("Started music on hold, 
 'sales-jazz'"), a user's `moh_suggest`, delete refused while used, and the default music once the
 set is empty.
 
-`m8-check.mjs` is the M8 milestone check (after `m1-t4.mjs`): phones 340–343, a DID to queue 550
-(agents 340 and 341, 30 s, then 342). 340 pauses with `*45550` and 341 from the api, three callers
+`m8-check.mjs` is the M8 milestone check (after `m1-t4.mjs`): phones 340–343, a DID to queue 552 (550 is m8-t1's)
+(agents 340 and 341, 30 s, then 342). 340 pauses with `*45552` and 341 from the api, three callers
 come in from the trunk entry and wait; 341 comes back, gets caller 1, parks them on 701 (AMI
 BlindTransfer to 700), 343 dials 701 and picks up; 341 takes caller 2 and caller 3 rings 342 after
 30 s. The stats count 3 offered, 2 answered, 1 timed out.

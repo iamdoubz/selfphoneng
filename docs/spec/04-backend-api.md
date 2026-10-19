@@ -377,7 +377,7 @@ Admin resources (all `requireAdmin`; standard CRUD = `GET /x`, `POST /x`, `GET /
 | `/api/dids` | |
 | `/api/outbound-routes` | `POST /reorder {ids: []}`, `POST /test {extensionId, number}` → which route/trunk would be used, or why it's denied |
 | `/api/ring-groups` | members are set via `members: [{extensionId}]` in POST/PATCH |
-| `/api/queues` | `GET /:id/stats?from&to`, `POST /:id/members/:extId/pause`, `.../unpause`. Agents are sent as `members: [{extensionId, penalty}]`. Stats (company-time-zone days, default today): `{offered, answered, abandoned, timedOut, avgWaitSeconds, withinSlaPercent}` from `queue_calls` (02), which `services/queuestats.ts` fills from app_queue's AMI events and `SpQueueExit` |
+| `/api/queues` | `GET /:id/stats?from&to`, `POST /:id/members/:extId/pause`, `.../unpause`. Agents are sent as `members: [{extensionId, penalty}]`. Stats (company-time-zone days, default today): `{offered, answered, abandoned, timedOut, avgWaitSeconds, withinSlaPercent}` from `queue_calls` (02), which `services/queuestats.ts` fills from app_queue's AMI events and `SpQueueExit`. `withinSlaPercent` (service level) = answered within `sla_seconds` ÷ callers who left the queue, minus those who hung up within `sla_seconds`; timed out and turned away count as missed, callers still waiting aren't counted; `null` when nobody counts |
 | `/api/ivrs` | options sent as `options: [{digit, destination}]` |
 | `/api/time-conditions` | `POST /:id/override {state: 'open'|'closed'|'auto'}`, `GET /:id/status` (open/closed now) |
 | `/api/holidays` | `POST /import-us-federal {year}` (generates the list in code, no network) |

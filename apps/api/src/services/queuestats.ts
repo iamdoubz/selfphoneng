@@ -122,6 +122,10 @@ export async function queueStats(
         number | null
       >`round(avg(${queueCalls.waitSeconds}) filter (where ${answered}))::int`,
       withinSla: sql<number>`count(*) filter (where ${answered} and ${queueCalls.waitSeconds} <= ${q.slaSeconds})::int`,
+      // Service level: answered within the target out of every caller the queue is done with,
+      // leaving out callers still waiting and those who hung up before the target (nobody could
+      // have answered them in time). Timed out and turned away count as missed.
+      slaBase: sql<number>`count(*) filter (where ${queueCalls.outcome} is not null and not (${queueCalls.outcome} = 'abandoned' and ${queueCalls.waitSeconds} <= ${q.slaSeconds}))::int`,
     })
     .from(queueCalls)
     .where(
@@ -137,6 +141,6 @@ export async function queueStats(
     abandoned: r!.abandoned,
     timedOut: r!.timedOut,
     avgWaitSeconds: r!.avgWait,
-    withinSlaPercent: r!.answered ? Math.round((100 * r!.withinSla) / r!.answered) : null,
+    withinSlaPercent: r!.slaBase ? Math.round((100 * r!.withinSla) / r!.slaBase) : null,
   };
 }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // M8 milestone check (09 M8), as real calls from outside (into a trunk's entry context):
-//   DID → queue 550 with agents 340 and 341, max wait 30 s, then 342. 340 pauses with *45550 and
+//   DID → queue 552 with agents 340 and 341, max wait 30 s, then 342. 340 pauses with *45552 and
 //   341 is paused too, so 3 callers wait. 341 comes back and gets the longest waiting caller,
 //   parks them (transfer to 700) on 701, and 343 picks them up by dialing 701. 341 is free again
 //   and takes the next caller; the last one waits past 30 s and goes to 342. Today's stats agree.
@@ -73,7 +73,7 @@ const talkingTo = (n, caller) => {
   const theirs = channels().filter((c) => c.callerId?.endsWith(caller) && c.bridge);
   return mine.some((m) => m.bridge && theirs.some((t) => t.bridge === m.bridge && t !== m));
 };
-const queueShow = () => cli('queue show 550');
+const queueShow = () => cli('queue show 552');
 const parkedSlot = () =>
   /Space\s*:\s*(\d+)/.exec(cli('parking show default').split('Parked Calls')[1] ?? '')?.[1];
 
@@ -92,7 +92,7 @@ for (const [n, name] of [
 }
 const phones = startPhones({ name: 'sp-live-phones-m8chk', net: NET, ast: AST, phones: phoneList });
 const queue = await api('POST', '/api/queues', {
-  number: '550',
+  number: '552',
   name: 'Support',
   members: [
     { extensionId: ext['340'], penalty: 0 },
@@ -114,7 +114,7 @@ await api('POST', '/api/dids', {
   trunkId: trunk.id,
   destination: { type: 'queue', id: queue.id },
 });
-const callers = ['3125550201', '3125550202', '3125550203'];
+const callers = ['3125552201', '3125552202', '3125552203'];
 const inbound = (n) =>
   originate({
     Channel: `Local/${DID}@sp-from-trunk-${trunk.id}`,
@@ -137,9 +137,9 @@ try {
     'DID routes to the queue',
   );
 
-  // 340 pauses with *45550; 341 is paused by an admin, so nobody answers yet.
+  // 340 pauses with *45552; 341 is paused by an admin, so nobody answers yet.
   const at = astLog().length;
-  cli('channel originate PJSIP/340 extension *45550@sp-from-ext');
+  cli('channel originate PJSIP/340 extension *45552@sp-from-ext');
   await waitUntil(() => /Playing 'agent-loggedoff/.test(astLog().slice(at)), '*45 says logged off');
   await waitUntil(
     () => /Local\/340@sp-queue-member\/n.*\(paused/.test(queueShow()),
@@ -148,7 +148,7 @@ try {
   await api('POST', `/api/queues/${queue.id}/members/${ext['341']}/pause`);
   await waitUntil(() => /Local\/341@sp-queue-member\/n.*\(paused/.test(queueShow()), '341 paused');
   await waitUntil(() => !chan('340'), '*45 call over');
-  console.log('340 paused with *45550, 341 paused by an admin');
+  console.log('340 paused with *45552, 341 paused by an admin');
 
   // Three callers from outside wait.
   const joined = [];
@@ -157,8 +157,8 @@ try {
     joined.push(Date.now());
     await sleep(2500);
   }
-  await waitUntil(() => /550 has 3 calls/.test(queueShow()), '3 callers waiting');
-  console.log('3 callers from the DID are waiting in queue 550 with 2 agents, both paused');
+  await waitUntil(() => /552 has 3 calls/.test(queueShow()), '3 callers waiting');
+  console.log('3 callers from the DID are waiting in queue 552 with 2 agents, both paused');
 
   // 341 is back: the longest waiting caller reaches 341.
   await api('POST', `/api/queues/${queue.id}/members/${ext['341']}/unpause`);
@@ -202,6 +202,8 @@ try {
     { answered: 2, abandoned: 0, timedOut: 1 },
     JSON.stringify(s),
   );
+  // service level: the timed-out caller counts as missed, so at most 2 of 3
+  assert.ok(s.withinSlaPercent <= 67, `service level ${s.withinSlaPercent}%`);
   console.log(`stats: ${JSON.stringify(s)}`);
   console.log('M8 milestone check: PASS');
 } catch (e) {

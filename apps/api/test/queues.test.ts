@@ -240,7 +240,9 @@ describe.skipIf(!hasTestDb)('/api/queues', () => {
       abandoned: 1,
       timedOut: 2,
       avgWaitSeconds: 24,
-      withinSlaPercent: 50, // 3 s yes, 45 s no (sla 20 s)
+      // sla 20 s: 3 s yes; 45 s, the timeout and the turned away no; the 4 s hang-up and the
+      // caller still waiting don't count
+      withinSlaPercent: 25,
     });
     const [taken] = await t.db.select().from(queueCalls).where(eq(queueCalls.uniqueid, '1.1'));
     expect(taken).toMatchObject({

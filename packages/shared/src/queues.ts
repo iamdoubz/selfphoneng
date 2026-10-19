@@ -75,6 +75,9 @@ export type QueueStats = {
   timedOut: number;
   /** Seconds, over answered calls; null when none. */
   avgWaitSeconds: number | null;
-  /** % of answered calls picked up within sla_seconds; null when none. */
+  /**
+   * Service level: % of callers answered within sla_seconds, out of all who left the queue except
+   * those who hung up before sla_seconds; timed out and turned away count as missed. null when none.
+   */
   withinSlaPercent: number | null;
 };
