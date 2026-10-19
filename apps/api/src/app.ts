@@ -23,6 +23,7 @@ import { liveRoutes } from './live/hub.ts';
 import { meRoutes } from './routes/me.ts';
 import { soundRoutes } from './routes/sounds.ts';
 import { ringGroupRoutes } from './routes/ringgroups.ts';
+import { queueRoutes } from './routes/queues.ts';
 import { ivrRoutes } from './routes/ivrs.ts';
 import { timeConditionRoutes } from './routes/timeconditions.ts';
 import { announcementRoutes } from './routes/announcements.ts';
@@ -104,6 +105,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.register(meRoutes);
   app.register(soundRoutes);
   app.register(ringGroupRoutes);
+  app.register(queueRoutes);
   app.register(ivrRoutes);
   app.register(timeConditionRoutes);
   app.register(announcementRoutes);

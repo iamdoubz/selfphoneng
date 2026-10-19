@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // My Phone (05 §4). M4: Home and Voicemail. Calls, contacts, settings and the softphone follow
 // with their milestones (M5–M7).
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Link, NavLink, Route, Routes, useNavigate } from 'react-router';
 import { APP_NAME, type AuthUser } from '@selfphoneng/shared';
@@ -124,7 +124,7 @@ function Home({ user }: { user: AuthUser }) {
   return (
     <div className="flex flex-col gap-6">
       <p>Hi {user.displayName}.</p>
-      {user.extension && <StatusCard />}
+      {user.extension && <StatusCard ext={user.extension.number} />}
       {user.extension && <MissedCalls />}
       <section aria-labelledby="new-vm" className="flex flex-col gap-2">
         <h2 id="new-vm" className="text-lg font-semibold">
@@ -158,7 +158,7 @@ function Home({ user }: { user: AuthUser }) {
 }
 
 /** Do not disturb and forwarding at a glance (05 §4 Home). */
-function StatusCard() {
+function StatusCard({ ext }: { ext: string }) {
   const me = useMe();
   if (!me.data) return null;
   const fwd = [
@@ -172,6 +172,7 @@ function StatusCard() {
       className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
     >
       <DndSwitch me={me.data} />
+      <QueueLogins ext={ext} />
       <p className="text-sm text-zinc-600 dark:text-zinc-400">
         {fwd.length ? `Forwarding: ${fwd.join(', ')}.` : 'Not forwarding.'}{' '}
         <Link className={link} to="/me/settings">
@@ -179,6 +180,39 @@ function StatusCard() {
         </Link>
       </p>
     </section>
+  );
+}
+
+/** One switch per queue I'm an agent of: on = logged in (not paused), like *45<queue>. */
+function QueueLogins({ ext }: { ext: string }) {
+  const queues = Object.values(useLive((s) => s.queues)).sort((a, b) =>
+    a.number.localeCompare(b.number),
+  );
+  const toggle = useMutation({
+    mutationFn: ({ id, paused }: { id: string; paused: boolean }) =>
+      meApi.setQueuePaused(id, paused),
+  });
+  return (
+    <>
+      {queues.map((q) => {
+        const mine = q.members.find((m) => m.ext === ext);
+        if (!mine) return null;
+        return (
+          <label key={q.number} className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              role="switch"
+              checked={!mine.paused}
+              disabled={toggle.isPending}
+              onChange={(e) => toggle.mutate({ id: q.id, paused: !e.target.checked })}
+            />
+            Taking calls from queue {q.name} ({q.number})
+            <span className="text-xs text-zinc-500">(also *45{q.number} from your phone)</span>
+          </label>
+        );
+      })}
+      {toggle.error && <Alert>{toggle.error.message}</Alert>}
+    </>
   );
 }
 

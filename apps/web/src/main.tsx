@@ -16,6 +16,7 @@ import { OutboundPage } from './pages/admin/OutboundPage.tsx';
 import { SettingsPage } from './pages/admin/SettingsPage.tsx';
 import { SoundsPage } from './pages/admin/SoundsPage.tsx';
 import { RingGroupsPage } from './pages/admin/RingGroupsPage.tsx';
+import { QueuesPage } from './pages/admin/QueuesPage.tsx';
 import { IvrsPage } from './pages/admin/IvrsPage.tsx';
 import { OfficeHoursPage } from './pages/admin/OfficeHoursPage.tsx';
 import { BlockedPage } from './pages/admin/BlockedPage.tsx';
@@ -52,6 +53,8 @@ const router = createBrowserRouter([
             <SoundsPage />
           ) : p.path === 'ring-groups' ? (
             <RingGroupsPage />
+          ) : p.path === 'queues' ? (
+            <QueuesPage />
           ) : p.path === 'ivrs' ? (
             <IvrsPage />
           ) : p.path === 'hours' ? (
@@ -67,6 +70,7 @@ const router = createBrowserRouter([
           ),
       })),
       { path: 'settings/:tab', element: <SettingsPage /> },
+      { path: 'queues/:id', element: <QueuesPage /> },
     ],
   },
   { path: '/me/*', element: <RequireAuth>{(user) => <MePage user={user} />}</RequireAuth> },

@@ -31,6 +31,10 @@ import type {
   OutboundRouteCreate,
   OutboundRouteDto,
   OutboundRouteUpdate,
+  QueueCreate,
+  QueueDto,
+  QueueStats,
+  QueueUpdate,
   RingGroupCreate,
   RingGroupDto,
   RingGroupUpdate,
@@ -195,6 +199,9 @@ export const meApi = {
   get: () => api<MeDto>('GET', '/api/me'),
   update: (m: MeUpdate) => api<MeDto>('PATCH', '/api/me', m),
   webrtc: () => api<WebRtcCreds>('GET', '/api/me/webrtc'),
+  /** Log in to (unpause) or out of (pause) a queue I'm an agent of. */
+  setQueuePaused: (queueId: string, paused: boolean) =>
+    api<{ ok: true }>('POST', `/api/me/queues/${queueId}/${paused ? 'pause' : 'unpause'}`),
   clickToCall: (number: string) => api<{ ok: true }>('POST', '/api/me/click-to-call', { number }),
   voicemail: () => api<ListResponse<VoicemailDto>>('GET', '/api/me/voicemail').then((r) => r.items),
   audioUrl: (id: string, download = false) =>
@@ -229,6 +236,18 @@ export const ringGroupsApi = {
   update: (id: string, g: RingGroupUpdate) =>
     api<RingGroupDto>('PATCH', `/api/ring-groups/${id}`, g),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/ring-groups/${id}`),
+};
+
+export const queuesApi = {
+  list: () => api<ListResponse<QueueDto>>('GET', '/api/queues').then((r) => r.items),
+  get: (id: string) => api<QueueDto>('GET', `/api/queues/${id}`),
+  create: (q: QueueCreate) => api<QueueDto>('POST', '/api/queues', q),
+  update: (id: string, q: QueueUpdate) => api<QueueDto>('PATCH', `/api/queues/${id}`, q),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/queues/${id}`),
+  /** Today (company time zone) unless from/to (YYYY-MM-DD) are given. */
+  stats: (id: string) => api<QueueStats>('GET', `/api/queues/${id}/stats`),
+  setPaused: (id: string, extId: string, paused: boolean) =>
+    api<{ ok: true }>('POST', `/api/queues/${id}/members/${extId}/${paused ? 'pause' : 'unpause'}`),
 };
 
 export const ivrsApi = {

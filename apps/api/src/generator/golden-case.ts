@@ -18,6 +18,7 @@ export function loadCase(name: string): Snapshot {
     trunks?: Partial<Snapshot['trunks'][number]>[];
     routes?: Partial<Snapshot['routes'][number]>[];
     ringGroups?: Partial<Snapshot['ringGroups'][number]>[];
+    queues?: Partial<Snapshot['queues'][number]>[];
     ivrs?: Partial<Snapshot['ivrs'][number]>[];
     timeConditions?: Partial<Snapshot['timeConditions'][number]>[];
     holidays?: Snapshot['holidays'];
@@ -82,6 +83,26 @@ export function loadCase(name: string): Snapshot {
       ...g,
       id: g.id!,
       number: g.number!,
+    })),
+    queues: (raw.queues ?? []).map((q, i) => ({
+      name: `Queue ${i + 1}`,
+      strategy: 'rrmemory',
+      memberRingSeconds: 15,
+      retrySeconds: 5,
+      wrapupSeconds: 10,
+      maxWaitSeconds: 300,
+      maxCallers: 0,
+      mohClass: 'default',
+      announcePosition: true,
+      announceEverySeconds: 60,
+      joinWhenNoAgents: false,
+      record: false,
+      callerIdNamePrefix: null,
+      members: [],
+      timeoutDestination: { type: 'hangup' as const },
+      ...q,
+      id: q.id!,
+      number: q.number!,
     })),
     routes: (raw.routes ?? []).map((r, i) => ({
       name: `Route ${i + 1}`,

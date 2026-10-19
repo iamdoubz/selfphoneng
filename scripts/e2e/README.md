@@ -128,3 +128,11 @@ and the call's player in Call history serves the wav. The recording is also on t
 The dashboard's "Calls now" list must show exactly the channels in `core show channels concise`.
 Then the admin hangs up one call (confirm dialog) and transfers another's caller to 266; the list
 matches Asterisk after each step.
+
+`m8-t1.mjs`: three auto-answer phones (agents 280 and 281, overflow 282). It builds queue 550 in
+the UI (wait 20 s, then 282; callers wait even with no agent logged in), pauses 280 with `*45550`
+from the phone and 281 with the queue page's button, and puts three callers in line (AMI Originate
+of `Local/550@sp-from-ext`). The queue page and the dashboard tile show them live; unpausing 281
+connects the longest waiting caller, a second caller goes to 282 after 20 s, a third hangs up.
+`*45550` logs 280 back in, `*45551` (not an agent) plays `ss-noservice`, and the stats count
+3 calls: 1 answered, 1 hung up, 1 timed out.

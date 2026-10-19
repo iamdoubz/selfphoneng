@@ -118,7 +118,7 @@ type ActiveCall = {
   channels: string[];            // channel names
   recording: boolean;
 };
-type QueueLive = { number: string; waiting: { linkedid; callerNumber; since }[]; members: { ext; paused; state; callsTaken; lastCall? }[] };
+type QueueLive = { id: string; number: string; name: string; waiting: { linkedid; callerNumber; callerName?; since }[]; members: { ext; paused; state; callsTaken; lastCall? }[] };
 type ParkedLive = { slot: string; linkedid: string; callerNumber: string; since: string; parkedBy?: string };
 type MwiLive = Record<string /*ext*/, { new: number; old: number }>;
 ```
@@ -162,8 +162,14 @@ the channel events carry everything. A call's channels are ordered by creation (
 so `channels[0]` is the caller. State, first match wins: hold, voicemail (app `VoiceMail`), ivr
 (`BackGround`/`WaitExten`/`Read`), queued, parked, talking (2+ channels bridged and Up), else
 ringing. `answeredAt` is the first time 2 channels are bridged; on a reload, `startedAt` is
-`now - Duration`. Snapshots carry `queues: []` and `parked: []` until M8. Calls go to admins
+`now - Duration`. Snapshots carry `parked: []` until M8-T2. Calls go to admins
 only for now; a user's own calls are added when a user page shows them.
+
+As built (M8-T1): queues live in `live/queues.ts` (`QueueTracker`), loaded from `QueueStatus` on
+connect and after every config apply (QueueStatus errors while app_queue has no queues). Member state
+is the `Status` device state (1 idle, 2 in use, 3 busy, 6 ringing, 7 ringinuse, 8 on hold, else
+unavailable). Every snapshot has `queues`; a user's holds only the queues they are an agent of, and a
+`queue.updated` for a queue they aren't in reaches them as `queue.removed`.
 
 ### 5.2 Live WebSocket (`GET /api/live`)
 
@@ -261,7 +267,9 @@ On every AMI connect, PostgreSQL wins:
 
 Keep one function per key type (`setDnd(ext, on)`, etc.). Routes call these after writing PostgreSQL.
 M6-T4 implements the sync and `setTcOverride`; DND/forwards (M6-T7), blocks (M6-T8) and queue
-pauses (M8) add their keys.
+pauses (M8-T1) add their keys. `queue reload all` (and rollback) unpause everyone, so the generator
+sends `QueuePause` for every paused agent right after it (03 §1 step 9); on connect that follows the
+forced apply.
 
 ### 5.6 Voicemail watcher (`services/voicemail.ts`)
 
@@ -346,6 +354,7 @@ Auth & self:
 | PUT/DELETE | `/api/me/greetings/:kind` | user | PUT body is the raw audio (a MediaRecorder Blob or a picked File, any `Content-Type`, max 20 MB), not multipart: no extra dependency. ffmpeg converts it (§6) |
 | GET | `/api/me/voicemail/:id/audio?download=1` | user | same, as an attachment |
 | GET/POST/PATCH/DELETE | `/api/me/contacts[/:id]` | user | personal contacts |
+| POST | `/api/me/queues/:id/pause`, `/unpause` | user | log out of / in to a queue I'm an agent of (Home, 05 §4), same as `*45<queue>` |
 | POST | `/api/me/click-to-call` | user | `{number}` → AMI `Originate Channel: PJSIP/<ext>, Context: sp-from-ext, Exten: <normalized>, Priority: 1, CallerID: "<number>" <<ext>>, Async: true`. The user's phone rings first, then the call goes out |
 
 Admin resources (all `requireAdmin`; standard CRUD = `GET /x`, `POST /x`, `GET /x/:id`, `PATCH /x/:id`, `DELETE /x/:id`):
@@ -357,7 +366,7 @@ Admin resources (all `requireAdmin`; standard CRUD = `GET /x`, `POST /x`, `GET /
 | `/api/dids` | |
 | `/api/outbound-routes` | `POST /reorder {ids: []}`, `POST /test {extensionId, number}` → which route/trunk would be used, or why it's denied |
 | `/api/ring-groups` | members are set via `members: [{extensionId}]` in POST/PATCH |
-| `/api/queues` | `GET /:id/stats?from&to`, `POST /:id/members/:extId/pause`, `.../unpause` |
+| `/api/queues` | `GET /:id/stats?from&to`, `POST /:id/members/:extId/pause`, `.../unpause`. Agents are sent as `members: [{extensionId, penalty}]`. Stats (company-time-zone days, default today): `{offered, answered, abandoned, timedOut, avgWaitSeconds, withinSlaPercent}` from `queue_calls` (02), which `services/queuestats.ts` fills from app_queue's AMI events and `SpQueueExit` |
 | `/api/ivrs` | options sent as `options: [{digit, destination}]` |
 | `/api/time-conditions` | `POST /:id/override {state: 'open'|'closed'|'auto'}`, `GET /:id/status` (open/closed now) |
 | `/api/holidays` | `POST /import-us-federal {year}` (generates the list in code, no network) |

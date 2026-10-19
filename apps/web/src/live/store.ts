@@ -6,6 +6,7 @@ import type {
   EmergencyCall,
   ExtensionLive,
   LiveMessage,
+  QueueLive,
   TrunkLive,
 } from '@selfphoneng/shared';
 
@@ -18,6 +19,8 @@ type LiveStore = {
   trunks: Record<string, TrunkLive>;
   /** Admins only: calls in progress by linkedid. */
   calls: Record<string, ActiveCall>;
+  /** By number. Admins: all; users: the queues they're an agent of. */
+  queues: Record<string, QueueLive>;
   /** 911 alerts received while this tab was open, newest last; dismissed ones are removed. */
   emergencies: EmergencyCall[];
   /** Bumped on every voicemail.new, so the voicemail list knows to refetch. */
@@ -32,6 +35,7 @@ export const useLive = create<LiveStore>(() => ({
   extensions: {},
   trunks: {},
   calls: {},
+  queues: {},
   emergencies: [],
   voicemailSeq: 0,
   toasts: [],
@@ -47,6 +51,7 @@ function apply(m: LiveMessage) {
           extensions: Object.fromEntries(m.data.extensions.map((e) => [e.number, e])),
           trunks: Object.fromEntries((m.data.trunks ?? []).map((t) => [t.trunkId, t])),
           calls: Object.fromEntries((m.data.calls ?? []).map((c) => [c.linkedid, c])),
+          queues: Object.fromEntries(m.data.queues.map((q) => [q.number, q])),
         };
       case 'extension.updated':
         return { extensions: { ...s.extensions, [m.data.number]: m.data } };
@@ -65,6 +70,12 @@ function apply(m: LiveMessage) {
       case 'call.removed': {
         const { [m.data.linkedid]: _gone, ...rest } = s.calls;
         return { calls: rest };
+      }
+      case 'queue.updated':
+        return { queues: { ...s.queues, [m.data.number]: m.data } };
+      case 'queue.removed': {
+        const { [m.data.number]: _gone, ...rest } = s.queues;
+        return { queues: rest };
       }
       case 'emergency.call':
         return { emergencies: [...s.emergencies, m.data] };

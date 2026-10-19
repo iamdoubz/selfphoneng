@@ -4,7 +4,8 @@
 //   101 Alice  auto-answer          102 Bob   never answers, voicemail on, rings 5 s
 //   103 Carol  auto-answer          104 Dave  no phone, no voicemail
 // Each scenario's Cdr events go to apps/api/test/fixtures/cdr/<name>.json.
-// Queue abandon and park arrive with M8 (queues, parking).
+// Queue 550 has Alice (answers); queue 551 has Bob (never answers) and sends callers who wait
+// 8 s to his voicemail. Parking arrives with M8-T2.
 // Usage: node --conditions=source apps/api/test/asterisk/cdr-record.ts
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -34,6 +35,7 @@ export const CDR_IDS = {
   did: (n: string) => `11111111-1111-4111-8111-11111111${n}`, // 1234 / 1235 / 1236
   ringGroup: '22222222-2222-4222-8222-222222222500',
   ivr: '33333333-3333-4333-8333-333333333600',
+  queue: (n: string) => `44444444-4444-4444-8444-444444444${n}`,
 };
 const PASS = (n: string) => `CdrRecord${n}xxxxxxxxxxxxx`;
 
@@ -93,6 +95,8 @@ function snapshot(): Snapshot {
       did('1234', { type: 'user', id: CDR_IDS.ext('101') }),
       did('1235', { type: 'ring_group', id: CDR_IDS.ringGroup }),
       did('1236', { type: 'ivr', id: CDR_IDS.ivr }),
+      did('1237', { type: 'queue', id: CDR_IDS.queue('550') }),
+      did('1238', { type: 'queue', id: CDR_IDS.queue('551') }),
     ],
     trunks: [
       {
@@ -125,6 +129,32 @@ function snapshot(): Snapshot {
         noAnswerDestination: { type: 'hangup' },
       },
     ],
+    queues: (['550', '551'] as const).map((n) => ({
+      id: CDR_IDS.queue(n),
+      number: n,
+      name: n === '550' ? 'Support' : 'Billing',
+      strategy: 'rrmemory' as const,
+      memberRingSeconds: 15,
+      retrySeconds: 1,
+      wrapupSeconds: 0,
+      maxWaitSeconds: n === '550' ? 60 : 8,
+      maxCallers: 0,
+      mohClass: 'default',
+      announcePosition: false,
+      announceEverySeconds: 60,
+      joinWhenNoAgents: false,
+      record: false,
+      callerIdNamePrefix: null,
+      members: [
+        n === '550'
+          ? { number: '101', name: 'Alice', penalty: 0 }
+          : { number: '102', name: 'Bob', penalty: 0 },
+      ],
+      timeoutDestination:
+        n === '550'
+          ? ({ type: 'hangup' } as const)
+          : ({ type: 'voicemail', id: CDR_IDS.ext('102') } as const),
+    })),
     ivrs: [
       {
         id: CDR_IDS.ivr,
@@ -392,6 +422,26 @@ async function main() {
       });
       await waitFor('103 answers', () => !!pbxChannel('PJSIP/103-'), 20);
       await sleep(4000);
+    });
+
+    await scenario('queue-answered', async () => {
+      fromMobile('3125551237');
+      await waitFor('101 answers', () => !!pbxChannel('PJSIP/101-'), 20);
+      await sleep(4000);
+    });
+    await scenario('queue-abandoned', async () => {
+      fromMobile('3125551238');
+      await waitFor('102 rings', () => !!pbxChannel('PJSIP/102-'), 20);
+      await sleep(3000); // the caller gives up before the 8 s limit
+    });
+    await scenario('queue-timeout-voicemail', async () => {
+      fromMobile('3125551238');
+      await waitFor(
+        'voicemail',
+        () => /VoiceMail/.test(cli(PBX, 'core show channels concise')),
+        20,
+      );
+      await sleep(6000);
     });
 
     mkdirSync(OUT, { recursive: true });

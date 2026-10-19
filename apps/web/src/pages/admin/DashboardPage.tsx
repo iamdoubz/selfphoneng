@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Dashboard (05 §2). Warnings, telephony link, trunks, calls in progress (hang up / transfer)
-// and extensions online. Queues and parked calls arrive with M8.
+// queue tiles and extensions online. Parked calls arrive with M8-T2.
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
-import type { ActiveCall } from '@selfphoneng/shared';
+import type { ActiveCall, QueueLive } from '@selfphoneng/shared';
 import { Link } from 'react-router';
 import { liveApi, settingsApi } from '../../api/client.ts';
 import { ConfirmDialog } from '../../components/Dialog.tsx';
@@ -62,6 +62,8 @@ export function DashboardPage() {
         </Card>
       </div>
 
+      <QueueTiles />
+
       <LiveCalls />
 
       <div>
@@ -89,6 +91,47 @@ export function DashboardPage() {
         )}
       </div>
     </section>
+  );
+}
+
+/** Agents who would get the next call right now. */
+export const available = (q: QueueLive) =>
+  q.members.filter((m) => !m.paused && m.state === 'idle').length;
+
+/** Per queue: waiting, longest wait, agents available (05 §2). */
+function QueueTiles() {
+  const queues = Object.values(useLive((s) => s.queues)).sort((a, b) =>
+    a.number.localeCompare(b.number),
+  );
+  const now = useNow();
+  if (!queues.length) return null;
+  return (
+    <div>
+      <h2 className="mb-2 font-medium">Queues</h2>
+      <ul aria-label="Queues" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {queues.map((q) => {
+          const oldest = q.waiting.reduce<string | null>(
+            (m, w) => (m === null || w.since < m ? w.since : m),
+            null,
+          );
+          return (
+            <li
+              key={q.number}
+              className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+            >
+              <Link className="text-sm text-zinc-500 hover:underline" to={`queues/${q.id}`}>
+                {q.number} {q.name}
+              </Link>
+              <div className="mt-1 text-2xl font-semibold">{q.waiting.length} waiting</div>
+              <div className="text-sm text-zinc-500">
+                Longest {oldest ? since(oldest, now) : '—'} · {available(q)} of {q.members.length}{' '}
+                agents free
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -138,7 +181,7 @@ const STATE_TEXT: Record<ActiveCall['state'], string> = {
   parked: 'Parked',
 };
 
-function useNow() {
+export function useNow() {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -147,7 +190,7 @@ function useNow() {
   return now;
 }
 
-const since = (iso: string, now: number) => {
+export const since = (iso: string, now: number) => {
   const s = Math.max(0, Math.floor((now - Date.parse(iso)) / 1000));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };

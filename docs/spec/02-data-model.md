@@ -251,6 +251,22 @@ create table queue_member_state (
   paused        boolean not null default false,
   primary key (queue_id, extension_id)
 );
+-- One caller's stay in a queue, from app_queue's AMI events (QueueCallerJoin, AgentConnect,
+-- QueueCallerAbandon) and the dialplan's UserEvent SpQueueExit (03 §6.8); for queue stats.
+-- CDRs can't do this: when no agent rang, the Queue part of a call is merged into the next leg.
+create type queue_outcome as enum ('answered', 'abandoned', 'timed_out');
+create table queue_calls (
+  id                 bigserial primary key,
+  queue_id           uuid not null references queues(id) on delete cascade,
+  uniqueid           text not null,                    -- the caller's channel
+  linkedid           text not null,
+  joined_at          timestamptz not null default now(),
+  outcome            queue_outcome,                    -- null while waiting
+  wait_seconds       int,
+  agent_extension_id uuid references extensions(id) on delete set null
+);
+create index on queue_calls (queue_id, joined_at);
+create index on queue_calls (uniqueid);
 
 create table sound_files (
   id                uuid primary key default gen_random_uuid(),

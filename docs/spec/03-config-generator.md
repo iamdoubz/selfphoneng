@@ -604,9 +604,16 @@ exten => s,1,Set(__SP_TARGET=550)
  same => n,Queue(550,t,,,{max_wait_seconds})
  same => n,GotoIf($["${QUEUESTATUS}" = "TIMEOUT" | "${QUEUESTATUS}" = "FULL" | "${QUEUESTATUS}" = "JOINEMPTY" | "${QUEUESTATUS}" = "LEAVEEMPTY" | "${QUEUESTATUS}" = "JOINUNAVAIL" | "${QUEUESTATUS}" = "LEAVEUNAVAIL"]?fail)
  same => n,Hangup()
- same => n(fail),{destApp(timeout_destination)}
+ same => n(fail),UserEvent(SpQueueExit,Queue: 550,Status: ${QUEUESTATUS})
+ same => n,{destApp(timeout_destination)}
 ```
 The api handles agent pause/unpause with AMI `QueuePause`, using `Interface: Local/<ext>@sp-queue-member/n`.
+`SpQueueExit` is for the stats (04 §7.3): Asterisk 24 raises `QueueCallerAbandon` for timeouts too, and
+callers turned away (`FULL`, `JOINEMPTY`) never join. Member lines are sorted by extension; a member
+name that sanitizes to nothing is replaced by the extension number.
+As built (M8-T1): golden case `queue`; `pnpm test:asterisk` also checks `queue show <n>` lists each
+queue's members; `scripts/e2e/m8-t1.mjs` runs 3 callers, 2 agents, `*45550`, a UI pause and a timeout
+with real phones.
 
 ### 6.9 IVR
 
@@ -823,15 +830,19 @@ exten => _*45X.,1,Answer()                                  ; *45<queue> toggle 
  same => n,Set(Q=${EXTEN:3})
  same => n,Set(K=SP/QPAUSE/${Q}/${SP_EXT})
  same => n,GotoIf($["${DB(${K})}" = "1"]?login)
- same => n,Set(DB(${K})=1)
  same => n,PauseQueueMember(${Q},Local/${SP_EXT}@sp-queue-member/n)
+ same => n,GotoIf($["${PQMSTATUS}" != "PAUSED"]?deny)        ; not an agent of that queue
+ same => n,Set(DB(${K})=1)
  same => n,UserEvent(SpToggle,Key: QPAUSE,Queue: ${Q},Ext: ${SP_EXT},Value: 1)
  same => n,Playback(agent-loggedoff)
  same => n,Hangup()
  same => n(login),Set(X=${DB_DELETE(${K})})
  same => n,UnpauseQueueMember(${Q},Local/${SP_EXT}@sp-queue-member/n)
+ same => n,GotoIf($["${UPQMSTATUS}" != "UNPAUSED"]?deny)
  same => n,UserEvent(SpToggle,Key: QPAUSE,Queue: ${Q},Ext: ${SP_EXT},Value: 0)
  same => n,Playback(agent-loginok)
+ same => n,Hangup()
+ same => n(deny),Playback(ss-noservice)
  same => n,Hangup()
 exten => _*80X.,1,Page(PJSIP/${EXTEN:3},db(sp-sub-autoanswer^s^1),30)   ; intercom
  same => n,Hangup()
@@ -858,6 +869,8 @@ deletes the AstDB key, stores nothing, and logs an audit entry. Dialplan also
 limits forwards via `SP_CLASS_<ext>` in `sp-sub-forward`.
 
 As built (M6-T7): everything above except `*45` (queues) and `*80` (intercom), which come with M8.
+`*45` (M8-T1) checks `PQMSTATUS`/`UPQMSTATUS`, so a code for a queue the caller isn't an agent of plays
+`ss-noservice` and stores nothing (the original snippet stored the key and said "logged off" anyway).
 `*8` also has a dialplan line (`Pickup()`): `pickupexten` only catches it straight from a phone's
 INVITE. All the sounds used exist in the image (checked).
 

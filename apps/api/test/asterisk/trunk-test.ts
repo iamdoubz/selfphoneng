@@ -104,6 +104,7 @@ function snapshot(): Snapshot {
     ],
     trunks: [trunk(GOOD, 'voip.ms', SUB.pass), trunk(BAD, 'wrong password', 'NotThePassword1')],
     ringGroups: [],
+    queues: [],
     ivrs: [],
     timeConditions: [],
     holidays: [],

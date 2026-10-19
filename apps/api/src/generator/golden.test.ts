@@ -25,6 +25,7 @@ describe('golden', () => {
         'ivr',
         'holidays',
         'ivr-business-hours',
+        'queue',
       ]),
     );
   });
@@ -42,7 +43,13 @@ describe('golden', () => {
     });
 
     it('is deterministic: shuffled input order gives identical output', () => {
-      const shuffled = { ...snap, extensions: [...snap.extensions].reverse() };
+      const shuffled = {
+        ...snap,
+        extensions: [...snap.extensions].reverse(),
+        queues: [...snap.queues]
+          .reverse()
+          .map((q) => ({ ...q, members: [...q.members].reverse() })),
+      };
       expect(render(shuffled)).toEqual(files);
     });
   });

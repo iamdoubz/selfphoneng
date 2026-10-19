@@ -62,14 +62,32 @@ export type ActiveCall = {
   recording: boolean;
 };
 
+/** One queue right now (04 §5.1). */
+export type QueueLive = {
+  id: string;
+  number: string;
+  name: string;
+  /** Callers waiting, longest wait first. */
+  waiting: { linkedid: string; callerNumber: string; callerName?: string; since: string }[];
+  members: {
+    ext: string;
+    paused: boolean;
+    state: ExtensionState;
+    callsTaken: number;
+    /** ISO time of the last call this agent finished. */
+    lastCall?: string;
+  }[];
+};
+
 export type LiveSnapshot = {
   extensions: ExtensionLive[];
   /** Admins only. */
   trunks?: TrunkLive[];
   /** Admins only. */
   calls?: ActiveCall[];
-  /** Queues and parked calls arrive with M8. */
-  queues?: never[];
+  /** Admins: every queue; users: the queues they are a member of. */
+  queues: QueueLive[];
+  /** Parked calls arrive with M8-T2. */
   parked?: never[];
   ami: { connected: boolean };
 };
@@ -85,6 +103,9 @@ export type LiveMessage =
   /** Admins only. */
   | { type: 'call.updated'; data: ActiveCall }
   | { type: 'call.removed'; data: { linkedid: string } }
+  /** Admins and the queue's members. */
+  | { type: 'queue.updated'; data: QueueLive }
+  | { type: 'queue.removed'; data: { number: string } }
   /** Only to the mailbox owner. */
   | { type: 'voicemail.new'; data: VoicemailDto & { userId: string } }
   /** A short message for one user (e.g. "forwarding refused"). */

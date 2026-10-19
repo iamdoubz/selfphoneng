@@ -60,6 +60,7 @@ function snapshot(): Snapshot {
     trunks: [],
     routes: [],
     ringGroups: [],
+    queues: [],
     ivrs: [],
     timeConditions: [],
     holidays: [],

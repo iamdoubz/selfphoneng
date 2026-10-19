@@ -28,7 +28,12 @@ function expectations(dir) {
   const contexts = [...ext.matchAll(/^\[([^\]]+)\]$/gm)].map((m) => m[1]);
   const vm = readFileSync(join(dir, 'voicemail_selfphoneng.conf'), 'utf8');
   const mailboxes = [...vm.matchAll(/^(\d+) =>/gm)].map((m) => m[1]);
-  return { endpoints, contexts, mailboxes };
+  // queue number → how many agents it lists
+  const queues = readFileSync(join(dir, 'queues_selfphoneng.conf'), 'utf8')
+    .split(/^\[/m)
+    .slice(1)
+    .map((sec) => [sec.slice(0, sec.indexOf(']')), (sec.match(/^member =>/gm) ?? []).length]);
+  return { endpoints, contexts, mailboxes, queues };
 }
 
 async function check(name) {
@@ -57,7 +62,7 @@ async function check(name) {
     if (!booted) problems.push('Asterisk did not finish booting');
     await sleep(500);
 
-    const { endpoints, contexts, mailboxes } = expectations(tmp);
+    const { endpoints, contexts, mailboxes, queues } = expectations(tmp);
     const shown = cli('pjsip show endpoints').out;
     for (const e of endpoints)
       if (!new RegExp(`Endpoint:\\s+${e}[\\s/]`).test(shown))
@@ -70,6 +75,12 @@ async function check(name) {
     for (const m of mailboxes)
       if (!new RegExp(`^default\\s+${m}\\s`, 'm').test(users))
         problems.push(`mailbox ${m} not loaded`);
+    for (const [q, members] of queues) {
+      const shownQ = cli(`queue show ${q}`).out;
+      const listed = (shownQ.match(/Local\/\d+@sp-queue-member/g) ?? []).length;
+      if (!shownQ.startsWith(`${q} has`) || listed !== members)
+        problems.push(`queue ${q}: expected ${members} members, got: ${shownQ.trim()}`);
+    }
     // Asterisk colors its log: strip the escape codes before looking for ERROR[.
     // eslint-disable-next-line no-control-regex -- matching ANSI escapes is the point
     const log = docker('logs', NAME).out.replace(/\x1b\[[0-9;]*m/g, '');

@@ -1,0 +1,58 @@
+{
+  "extensions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000101",
+      "number": "101",
+      "name": "Dan Doe",
+      "sipPassword": "Ab3dEf9hIj2kLm4nOp6qRs8t"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000102",
+      "number": "102",
+      "name": "Ann, Lee",
+      "sipPassword": "Bb3dEf9hIj2kLm4nOp6qRs8t"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000103",
+      "number": "103",
+      "name": "Sue Smith",
+      "sipPassword": "Cb3dEf9hIj2kLm4nOp6qRs8t"
+    }
+  ],
+  "queues": [
+    {
+      "id": "44444444-4444-4444-8444-444444444550",
+      "number": "550",
+      "name": "Support",
+      "members": [
+        { "number": "101", "name": "Dan Doe", "penalty": 0 },
+        { "number": "102", "name": "Ann, Lee", "penalty": 1 }
+      ],
+      "callerIdNamePrefix": "Support:",
+      "record": true,
+      "timeoutDestination": { "type": "voicemail", "id": "00000000-0000-4000-8000-000000000101" }
+    },
+    {
+      "id": "44444444-4444-4444-8444-444444444551",
+      "number": "551",
+      "name": "Overflow",
+      "strategy": "ringall",
+      "memberRingSeconds": 20,
+      "retrySeconds": 0,
+      "wrapupSeconds": 0,
+      "maxWaitSeconds": 120,
+      "maxCallers": 5,
+      "announcePosition": false,
+      "joinWhenNoAgents": true,
+      "timeoutDestination": { "type": "queue", "id": "44444444-4444-4444-8444-444444444550" }
+    }
+  ],
+  "dids": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "number": "13125551234",
+      "destination": { "type": "queue", "id": "44444444-4444-4444-8444-444444444550" }
+    }
+  ],
+  "trunks": [{ "id": "7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37" }]
+}

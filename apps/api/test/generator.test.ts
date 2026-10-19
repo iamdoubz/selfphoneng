@@ -136,6 +136,7 @@ describe.skipIf(!hasTestDb)('generator apply', () => {
     const order: string[] = [];
     const slowAmi = {
       isConnected: () => true,
+      action: async () => ({}),
       command: async (c: string) => {
         order.push(`start ${c}`);
         await new Promise((r) => setTimeout(r, 5));

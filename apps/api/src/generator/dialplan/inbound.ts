@@ -21,6 +21,10 @@ export function destApp(d: Destination, snap: Snapshot): string {
       return snap.ringGroups.some((g) => g.id === d.id)
         ? `Goto(sp-rg-${s.ident(d.id)},s,1)`
         : 'Hangup()';
+    case 'queue':
+      return snap.queues.some((q) => q.id === d.id)
+        ? `Goto(sp-queue-${s.ident(d.id)},s,1)`
+        : 'Hangup()';
     case 'ivr':
       return snap.ivrs.some((r) => r.id === d.id)
         ? `Goto(sp-ivr-${s.ident(d.id)},s,1)`
@@ -34,7 +38,7 @@ export function destApp(d: Destination, snap: Snapshot): string {
         ? `Goto(sp-ann-${s.ident(d.id)},s,1)`
         : 'Hangup()';
     default:
-      // TODO(M8): queues, conferences.
+      // TODO(M8): conferences.
       return 'Hangup()';
   }
 }

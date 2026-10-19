@@ -33,7 +33,7 @@ Left sidebar navigation, in this order:
 | Phone numbers (DIDs) | `/admin/numbers` | Table: number, label, trunk, destination summary ("→ IVR Main menu"), SMS on/off. Form: number, label, trunk, **DestinationPicker**, caller-name prefix, record inbound, SMS enabled + users allowed |
 | Outbound rules | `/admin/outbound` | Sortable list (drag to reorder). Form: name, patterns (rows of match/strip/prepend with a pattern help popover), required class, trunk order (multi-select with order), caller ID override. **Test box**: pick an extension + type a number → shows the matching route, final dialed number, trunk, caller ID, or the reason it's denied |
 | Ring groups | `/admin/ring-groups` | Form: number, name, strategy, ring seconds, members (ordered picker), music instead of ring, caller-name prefix, no-answer DestinationPicker |
-| Queues | `/admin/queues` | Form: every column from 02. Detail page shows live waiting callers + agent list with pause/unpause buttons + today's stats |
+| Queues | `/admin/queues` | Form: every column from 02. Detail page shows live waiting callers + agent list with pause/unpause buttons + today's stats. As built (M8-T1): detail at `/admin/queues/:id`; music on hold offers only the current class until M8-T5 |
 | IVRs (Digital receptionist) | `/admin/ivrs` | Form: number, name, greeting (SoundPicker), keypad grid 0–9 * # where each key gets a DestinationPicker or "unused", timeout, retries, invalid sound, direct dial toggle, timeout and invalid destinations |
 | Office hours | `/admin/hours` | Time conditions: weekly grid editor (click-drag hours per day) that saves to `open_ranges`; timezone; holidays toggle; open/closed/holiday destinations; override digit; big status chip "Open now / Closed now" with Force open / Force closed / Automatic buttons. Holidays sub-tab: list + "Add US federal holidays for {year}" |
 | Conferences | `/admin/conferences` | number, name, PIN, admin PIN, max members, record |
@@ -85,7 +85,7 @@ Implementation notes (M3):
 - **DestinationPicker**: a type select (User, Voicemail of user, Ring group, Queue,
   IVR, Office hours, Conference, Announcement, External number, Hang up), then a
   searchable target select or a number input. The value is a `Destination` object (02 §1).
-  As built (M6-T6): every type that exists so far (queues and conferences join in M8); the target
+  As built (M6-T6): every type that exists so far (queues joined in M8-T1, conferences in M8-T3); the target
   is a native select, which is searchable by typing. API summaries include the number where there
   is one: "Ring group Sales (500)".
   The read-only display renders "→ Ring group Sales (500)".

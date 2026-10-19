@@ -15,6 +15,13 @@
       "when": 1792267225335,
       "tag": "0001_initial",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792371506100,
+      "tag": "0002_queue_calls",
+      "breakpoints": true
     }
   ]
 }

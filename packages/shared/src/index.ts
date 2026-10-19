@@ -13,6 +13,7 @@ export * from './outbound.ts';
 export * from './voicemail.ts';
 export * from './sounds.ts';
 export * from './ringgroups.ts';
+export * from './queues.ts';
 export * from './ivrs.ts';
 export * from './timeconditions.ts';
 export * from './announcements.ts';

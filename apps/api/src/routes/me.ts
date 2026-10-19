@@ -20,7 +20,14 @@ import { audit } from '../services/audit.ts';
 import { checkForward, FORWARD_KINDS, type ForwardKind } from '../services/forwards.ts';
 import { getSetting } from '../services/settings.ts';
 import { requireAuth } from '../auth/guards.ts';
-import { extensions, userRuntimeState, voicemailMessages } from '../db/schema.ts';
+import {
+  extensions,
+  queueMembers,
+  queues,
+  userRuntimeState,
+  voicemailMessages,
+} from '../db/schema.ts';
+import { setPaused } from '../services/queues.ts';
 import { badRequest, conflict, HttpError, notFound } from '../errors.ts';
 import { AudioError, MAX_UPLOAD_BYTES, toPcmWav } from '../media/audio.ts';
 import { toVoicemailDto, type watchVoicemail } from '../services/voicemail.ts';
@@ -106,6 +113,21 @@ export async function meRoutes(app: FastifyInstance) {
   }
 
   app.get('/api/me', async (req) => myState(req.user!.id));
+
+  // Queue login from Home (05 §4, 04 §7.3), the same as *45<queue> on a phone.
+  for (const action of ['pause', 'unpause'] as const)
+    app.post(`/api/me/queues/:id/${action}`, async (req) => {
+      const { id } = IdParams.parse(req.params);
+      const ext = await myExtension(req.user!.id);
+      const [q] = await db
+        .select({ id: queues.id, number: queues.number })
+        .from(queueMembers)
+        .innerJoin(queues, eq(queues.id, queueMembers.queueId))
+        .where(and(eq(queueMembers.queueId, id), eq(queueMembers.extensionId, ext.id)));
+      if (!q) throw notFound("You aren't an agent of that queue");
+      await setPaused(db, app.ami, q, ext, action === 'pause');
+      return { ok: true };
+    });
 
   /** DND, forwards and voicemail options: PostgreSQL first, then AstDB (04 §5.5). */
   app.patch('/api/me', async (req) => {

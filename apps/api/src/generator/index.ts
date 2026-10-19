@@ -9,6 +9,7 @@ import type { Db } from '../db/client.ts';
 import { eq } from 'drizzle-orm';
 import { generatorRuns, settings } from '../db/schema.ts';
 import { getSetting, setSetting } from '../services/settings.ts';
+import { resendPauses } from '../services/queues.ts';
 import { loadSnapshot, type Snapshot } from './load.ts';
 import { renderPjsip, renderRtp, renderTransports } from './pjsip.ts';
 import { STATIC_DIALPLAN } from './dialplan/static.ts';
@@ -17,6 +18,8 @@ import { renderDids, renderTrunkEntries } from './dialplan/inbound.ts';
 import { renderOutbound } from './dialplan/outbound.ts';
 import { renderEmergency } from './dialplan/emergency.ts';
 import { renderRingGroups } from './dialplan/ringgroups.ts';
+import { renderQueueDialplan } from './dialplan/queues.ts';
+import { renderQueues } from './queues.ts';
 import { renderIvrs } from './dialplan/ivrs.ts';
 import { renderTimeConditions } from './dialplan/timeconditions.ts';
 import { renderAnnouncements } from './dialplan/announcements.ts';
@@ -48,11 +51,13 @@ const BODIES: Partial<Record<GeneratedFileName, (snap: Snapshot) => string>> = {
   'rtp_selfphoneng.conf': renderRtp,
   'extensions_globals_selfphoneng.conf': renderGlobals,
   'voicemail_selfphoneng.conf': renderVoicemail,
+  'queues_selfphoneng.conf': renderQueues,
   'extensions_selfphoneng.conf': (snap) =>
     [
       STATIC_DIALPLAN,
       renderLocalNumbers(snap),
       renderRingGroups(snap),
+      renderQueueDialplan(snap),
       renderIvrs(snap),
       renderTimeConditions(snap),
       renderAnnouncements(snap),
@@ -82,7 +87,7 @@ export type ApplyResult = {
 
 export type GeneratorDeps = {
   db: Db;
-  ami: Pick<AmiClient, 'isConnected' | 'command'>;
+  ami: Pick<AmiClient, 'isConnected' | 'command' | 'action'>;
   /** /etc/asterisk/selfphoneng */
   dir: string;
   log: Pick<FastifyBaseLogger, 'info' | 'error'>;
@@ -185,9 +190,9 @@ export function createGenerator(deps: GeneratorDeps) {
       const commands = [...new Set(reloadFor.map((f) => RELOADS[f]))].filter(
         (c) => !(transportsChanged && c === 'module reload res_pjsip.so'),
       );
-      // TODO(M8): after `queue reload all`, re-send QueuePause for paused members (03 §1 step 9).
       const { sent, error } = await sendReloads(commands);
       r.commands = sent;
+      if (sent.includes(RELOADS['queues_selfphoneng.conf'])) await resendPauses(db, ami);
       if (error) Object.assign(r, { ok: false, error });
     } catch (e) {
       Object.assign(r, { ok: false, error: (e as Error).message });
@@ -236,6 +241,7 @@ export function createGenerator(deps: GeneratorDeps) {
         else {
           const { sent, error } = await sendReloads([...new Set(Object.values(RELOADS))]);
           r.commands = sent;
+          if (sent.includes(RELOADS['queues_selfphoneng.conf'])) await resendPauses(db, ami);
           if (error) Object.assign(r, { ok: false, error });
         }
         r.restartRequired = await getSetting(db, 'system.restartRequired');

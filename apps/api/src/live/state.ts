@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // In-memory live state (04 §5.1). Rebuilt from Asterisk on every AMI connect, then kept current
-// from AMI events. M2: extension states and registered devices; calls, queues and parking later.
+// from AMI events: extension states and registered devices, calls, queues. Parking with M8-T2.
 import { EventEmitter } from 'node:events';
 import { eq } from 'drizzle-orm';
 import type {
@@ -14,8 +14,9 @@ import type {
 import type { AmiClient } from '../ami/client.ts';
 import { field, type AmiMessage } from '../ami/events.ts';
 import type { Db } from '../db/client.ts';
-import { extensions, trunks, userRuntimeState } from '../db/schema.ts';
+import { extensions, queues, trunks, userRuntimeState } from '../db/schema.ts';
 import { CallTracker } from './calls.ts';
+import { QueueTracker } from './queues.ts';
 
 /** ExtensionStatus/ExtensionStateList Status is a bit mask (04 §5.1). */
 export function stateFromStatus(status: number): ExtensionState {
@@ -69,6 +70,13 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
       call ? { type: 'call.updated', data: call } : { type: 'call.removed', data: { linkedid } },
     ),
   );
+  /** Waiting callers and agents (admins, and each queue's agents). */
+  readonly queues = new QueueTracker((number, q) =>
+    this.emit(
+      'message',
+      q ? { type: 'queue.updated', data: q } : { type: 'queue.removed', data: { number } },
+    ),
+  );
   private readonly db: Db;
   private readonly ami: Ami;
 
@@ -80,14 +88,17 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
     ami.on('disconnected', () => this.setAmi(false));
   }
 
-  snapshot(admin: boolean): LiveSnapshot {
+  /** `myExts`: a user's own extension numbers (they see the queues they're an agent of). */
+  snapshot(admin: boolean, myExts: string[] = []): LiveSnapshot {
     return {
       extensions: [...this.exts.values()].map((e) => this.view(e, admin)),
+      queues: this.queues
+        .list()
+        .filter((q) => admin || q.members.some((m) => myExts.includes(m.ext))),
       ...(admin
         ? {
             trunks: [...this.trunks.values()].map((t) => ({ ...t })),
             calls: this.calls.list(),
-            queues: [],
             parked: [],
           }
         : {}),
@@ -230,6 +241,18 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
       }
   }
 
+  /** Queues from the DB and app_queue (on connect, and after each config apply). */
+  async refreshQueues(): Promise<void> {
+    const defs = await this.db
+      .select({ id: queues.id, number: queues.number, name: queues.name })
+      .from(queues);
+    // QueueStatus errors when app_queue has no queues yet (the apply is still on its way).
+    const items = defs.length
+      ? await this.ami.actionList({ Action: 'QueueStatus' }).catch(() => [])
+      : [];
+    this.queues.load(defs, items);
+  }
+
   /** Initial load on every AMI connect (04 §5.1). */
   async loadFromAsterisk(): Promise<void> {
     await this.loadFromDb();
@@ -242,6 +265,7 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
       this.ami.actionList({ Action: 'CoreShowChannels' }),
     ]);
     this.calls.load(channels);
+    await this.refreshQueues();
     for (const m of states) this.onExtensionStatus(m, false);
     for (const m of contacts) {
       const endpoint = field(m, 'Endpoint') ?? field(m, 'EndpointName') ?? '';
@@ -263,6 +287,7 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
 
   handleEvent(m: AmiMessage): void {
     this.calls.handle(m);
+    this.queues.handle(m);
     switch (field(m, 'Event')) {
       case 'ExtensionStatus':
         return this.onExtensionStatus(m, true);

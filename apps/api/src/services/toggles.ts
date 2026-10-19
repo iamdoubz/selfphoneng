@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Feature codes change AstDB from a phone, then raise UserEvent(SpToggle, Key, ...) so PostgreSQL
-// follows (04 §5.3): TCOVR (*31N/*32N/*33N), DND (*78/*79), CFU (*72<number>/*73).
+// follows (04 §5.3): TCOVR (*31N/*32N/*33N), DND (*78/*79), CFU (*72<number>/*73), QPAUSE (*45N).
 import type { EventEmitter } from 'node:events';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { LiveMessage } from '@selfphoneng/shared';
 import { field, type AmiMessage } from '../ami/events.ts';
 import type { Db } from '../db/client.ts';
-import { extensions, timeConditions, userRuntimeState } from '../db/schema.ts';
+import {
+  extensions,
+  queueMembers,
+  queueMemberState,
+  queues,
+  timeConditions,
+  userRuntimeState,
+} from '../db/schema.ts';
 import { HttpError } from '../errors.ts';
 import { setForward, type AstDbAmi } from './astdb.ts';
 import { audit } from './audit.ts';
@@ -31,6 +38,29 @@ export async function handleToggle(d: ToggleDeps, m: AmiMessage): Promise<void> 
       .where(eq(timeConditions.id, id));
     d.log.info({ id, value }, 'office hours override from a phone');
     return;
+  }
+  if (key === 'QPAUSE') {
+    // The dialplan only raises it after app_queue accepted the change, so the agent exists.
+    const [agent] = await d.db
+      .select({ queueId: queues.id, extensionId: extensions.id })
+      .from(queueMembers)
+      .innerJoin(queues, eq(queues.id, queueMembers.queueId))
+      .innerJoin(extensions, eq(extensions.id, queueMembers.extensionId))
+      .where(
+        and(
+          eq(queues.number, field(m, 'Queue') ?? ''),
+          eq(extensions.number, field(m, 'Ext') ?? ''),
+        ),
+      );
+    if (!agent) return;
+    await d.db
+      .insert(queueMemberState)
+      .values({ ...agent, paused: value === '1' })
+      .onConflictDoUpdate({
+        target: [queueMemberState.queueId, queueMemberState.extensionId],
+        set: { paused: value === '1' },
+      });
+    return; // app_queue's QueueMemberPause event updates the live view
   }
   if (key !== 'DND' && key !== 'CFU') return;
   const [ext] = await d.db

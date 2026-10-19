@@ -56,7 +56,8 @@ describe.skipIf(!hasTestDb)('call history API', () => {
         destination: { type: 'hangup' },
         label: n === '1234' ? 'Main line' : null,
       });
-    for (const f of readdirSync(FIXTURES)) {
+    // The M7 scenarios; queue calls (M8) are checked in cdr.test.ts and queues.test.ts.
+    for (const f of readdirSync(FIXTURES).filter((f) => !f.startsWith('queue-'))) {
       const events: AmiMessage[] = JSON.parse(readFileSync(new URL(f, FIXTURES), 'utf8'));
       for (const e of events) await t.db.insert(cdr).values(toCdrRow(e));
       await aggregateCall(t.db, String(events[0]!.LinkedID));

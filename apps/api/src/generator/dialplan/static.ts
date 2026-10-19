@@ -89,7 +89,7 @@ exten => _X!,1,Answer()                ; X! also matches "0" (caller unknown)
  same => n,SayDigits(\${EXTEN})
  same => n,Hangup()
 
-; ─── Feature codes (03 §6.13). Queue login *45 and intercom *80 arrive with M8.
+; ─── Feature codes (03 §6.13). Intercom *80 arrives with M8-T4.
 [sp-featurecodes]
 exten => *97,1,Answer()                                     ; my voicemail
  same => n,VoiceMailMain(\${SP_EXT}@default)
@@ -131,6 +131,24 @@ exten => *43,1,Answer()                                     ; echo test
  same => n,Hangup()
 exten => *65,1,Answer()                                     ; say my extension
  same => n,SayDigits(\${SP_EXT})
+ same => n,Hangup()
+exten => _*45X.,1,Answer()                                  ; *45<queue> toggle queue login
+ same => n,Set(Q=\${EXTEN:3})
+ same => n,Set(K=SP/QPAUSE/\${Q}/\${SP_EXT})
+ same => n,GotoIf($["\${DB(\${K})}" = "1"]?login)
+ same => n,PauseQueueMember(\${Q},Local/\${SP_EXT}@sp-queue-member/n)
+ same => n,GotoIf($["\${PQMSTATUS}" != "PAUSED"]?deny)        ; not an agent of that queue
+ same => n,Set(DB(\${K})=1)
+ same => n,UserEvent(SpToggle,Key: QPAUSE,Queue: \${Q},Ext: \${SP_EXT},Value: 1)
+ same => n,Playback(agent-loggedoff)
+ same => n,Hangup()
+ same => n(login),Set(X=\${DB_DELETE(\${K})})
+ same => n,UnpauseQueueMember(\${Q},Local/\${SP_EXT}@sp-queue-member/n)
+ same => n,GotoIf($["\${UPQMSTATUS}" != "UNPAUSED"]?deny)
+ same => n,UserEvent(SpToggle,Key: QPAUSE,Queue: \${Q},Ext: \${SP_EXT},Value: 0)
+ same => n,Playback(agent-loginok)
+ same => n,Hangup()
+ same => n(deny),Playback(ss-noservice)
  same => n,Hangup()
 ; time condition overrides *31N open, *32N closed, *33N auto (admins only)
 exten => _*3[123]X,1,Answer()

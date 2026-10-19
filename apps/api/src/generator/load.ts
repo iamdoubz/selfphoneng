@@ -11,6 +11,8 @@ import {
   ivrOptions,
   ivrs,
   outboundRoutes,
+  queueMembers,
+  queues,
   ringGroupMembers,
   ringGroups,
   soundFiles,
@@ -93,6 +95,26 @@ export type SnapRingGroup = {
   noAnswerDestination: Destination;
 };
 
+export type SnapQueue = {
+  id: string;
+  number: string;
+  name: string;
+  strategy: 'ringall' | 'leastrecent' | 'fewestcalls' | 'random' | 'rrmemory' | 'linear';
+  memberRingSeconds: number;
+  retrySeconds: number;
+  wrapupSeconds: number;
+  maxWaitSeconds: number;
+  maxCallers: number;
+  mohClass: string;
+  announcePosition: boolean;
+  announceEverySeconds: number;
+  joinWhenNoAgents: boolean;
+  record: boolean;
+  callerIdNamePrefix: string | null;
+  members: { number: string; name: string; penalty: number }[];
+  timeoutDestination: Destination;
+};
+
 export type SnapIvr = {
   id: string;
   number: string;
@@ -144,6 +166,7 @@ export type Snapshot = {
   trunks: SnapTrunk[];
   routes: SnapRoute[];
   ringGroups: SnapRingGroup[];
+  queues: SnapQueue[];
   ivrs: SnapIvr[];
   timeConditions: SnapTimeCondition[];
   holidays: SnapHoliday[];
@@ -187,6 +210,16 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
   const trunkRows = await db.select().from(trunks);
   const routeRows = await db.select().from(outboundRoutes);
   const groupRows = await db.select().from(ringGroups);
+  const queueRows = await db.select().from(queues);
+  const agentRows = await db
+    .select({
+      queueId: queueMembers.queueId,
+      number: extensions.number,
+      name: extensions.name,
+      penalty: queueMembers.penalty,
+    })
+    .from(queueMembers)
+    .innerJoin(extensions, eq(extensions.id, queueMembers.extensionId));
   const ivrRows = await db.select().from(ivrs);
   const tcRows = await db.select().from(timeConditions);
   const holidayRows = await db.select().from(holidays);
@@ -258,6 +291,27 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
       musicInsteadOfRing: g.musicInsteadOfRing,
       members: memberRows.filter((m) => m.groupId === g.id).map((m) => m.number),
       noAnswerDestination: g.noAnswerDestination as Destination,
+    })),
+    queues: queueRows.map((q) => ({
+      id: q.id,
+      number: q.number,
+      name: q.name,
+      strategy: q.strategy,
+      memberRingSeconds: q.memberRingSeconds,
+      retrySeconds: q.retrySeconds,
+      wrapupSeconds: q.wrapupSeconds,
+      maxWaitSeconds: q.maxWaitSeconds,
+      maxCallers: q.maxCallers,
+      mohClass: q.mohClass,
+      announcePosition: q.announcePosition,
+      announceEverySeconds: q.announceEverySeconds,
+      joinWhenNoAgents: q.joinWhenNoAgents,
+      record: q.record,
+      callerIdNamePrefix: q.callerIdNamePrefix,
+      members: agentRows
+        .filter((m) => m.queueId === q.id)
+        .map(({ number, name, penalty }) => ({ number, name, penalty })),
+      timeoutDestination: q.timeoutDestination as Destination,
     })),
     routes: routeRows.map((r) => ({
       id: r.id,

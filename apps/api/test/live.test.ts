@@ -219,4 +219,36 @@ describe.skipIf(!hasTestDb)('/api/live WebSocket', () => {
     expect(other.msgs).toHaveLength(1); // just the snapshot
     for (const c of [admin, desk, other]) c.ws.terminate();
   });
+
+  it("queues reach admins and that queue's agents", async () => {
+    const agent = await t.addUser('agent@example.com', 'agent-password-123');
+    await t.db.insert(extensions).values({
+      number: '160',
+      name: 'Agent',
+      userId: agent.id,
+      sipPasswordEnc: encrypt('x'),
+      voicemailPinEnc: encrypt('1234'),
+    });
+    const admin = await open(await t.login(ADMIN.email, ADMIN.password));
+    const me = await open(await t.login('agent@example.com', 'agent-password-123'));
+    await until(() => admin.msgs.length === 1 && me.msgs.length === 1);
+    const q = (number: string, ext: string) => ({
+      type: 'queue.updated' as const,
+      data: {
+        id: `q-${number}`,
+        number,
+        name: number,
+        waiting: [],
+        members: [{ ext, paused: false, state: 'idle' as const, callsTaken: 0 }],
+      },
+    });
+    t.live.emit('message', q('550', '160'));
+    t.live.emit('message', q('551', '170'));
+    await until(() => admin.msgs.length === 3 && me.msgs.length === 3);
+    expect(me.msgs[1]).toMatchObject({ type: 'queue.updated', data: { number: '550' } });
+    // not an agent there: it only learns the queue left its view
+    expect(me.msgs[2]).toEqual({ type: 'queue.removed', data: { number: '551' } });
+    expect(admin.msgs[2]).toMatchObject({ type: 'queue.updated', data: { number: '551' } });
+    for (const c of [admin, me]) c.ws.terminate();
+  });
 });

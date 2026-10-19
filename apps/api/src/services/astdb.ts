@@ -3,7 +3,14 @@
 // is the truth: routes write it first, then call one of these; every AMI connect resyncs (04 §5.5).
 import { eq, isNotNull } from 'drizzle-orm';
 import type { Db } from '../db/client.ts';
-import { blockedNumbers, extensions, timeConditions, userRuntimeState } from '../db/schema.ts';
+import {
+  blockedNumbers,
+  extensions,
+  queueMemberState,
+  queues,
+  timeConditions,
+  userRuntimeState,
+} from '../db/schema.ts';
 
 export type AstDbAmi = { action(fields: Record<string, string>): Promise<unknown> };
 
@@ -34,7 +41,11 @@ export const setForward = (
 export const setBlock = (ami: AstDbAmi, number: string, on: boolean) =>
   on ? put(ami, `BLOCK/${number}`, '1') : del(ami, `BLOCK/${number}`);
 
-/** Wipe our keys and write them again from PostgreSQL. M8 adds queue pauses. */
+/** The agent is logged out of (paused in) that queue; *45<queue> reads it (03 §6.13). */
+export const setQueuePause = (ami: AstDbAmi, queue: string, ext: string, on: boolean) =>
+  on ? put(ami, `QPAUSE/${queue}/${ext}`, '1') : del(ami, `QPAUSE/${queue}/${ext}`);
+
+/** Wipe our keys and write them again from PostgreSQL. */
 export async function syncAstDb(db: Db, ami: AstDbAmi): Promise<void> {
   await ami.action({ Action: 'DBDelTree', Family: 'SP' }).catch(() => undefined); // empty tree
   const overrides = await db
@@ -53,4 +64,14 @@ export async function syncAstDb(db: Db, ami: AstDbAmi): Promise<void> {
   }
   for (const b of await db.select({ n: blockedNumbers.number }).from(blockedNumbers))
     await setBlock(ami, b.n, true);
+  for (const p of await pausedMembers(db)) await setQueuePause(ami, p.queue, p.ext, true);
 }
+
+/** Paused agents by queue and extension number. */
+export const pausedMembers = (db: Db) =>
+  db
+    .select({ queue: queues.number, ext: extensions.number })
+    .from(queueMemberState)
+    .innerJoin(queues, eq(queues.id, queueMemberState.queueId))
+    .innerJoin(extensions, eq(extensions.id, queueMemberState.extensionId))
+    .where(eq(queueMemberState.paused, true));

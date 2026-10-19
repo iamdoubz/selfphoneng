@@ -305,6 +305,28 @@ export const queueMemberState = pgTable(
   (t) => [primaryKey({ columns: [t.queueId, t.extensionId] })],
 );
 
+export const queueOutcome = pgEnum('queue_outcome', ['answered', 'abandoned', 'timed_out']);
+
+/** One caller's stay in a queue, from app_queue's AMI events (stats, 04 §7.3). */
+export const queueCalls = pgTable(
+  'queue_calls',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey(),
+    queueId: uuid()
+      .notNull()
+      .references(() => queues.id, { onDelete: 'cascade' }),
+    /** The caller's channel. */
+    uniqueid: text().notNull(),
+    linkedid: text().notNull(),
+    joinedAt: tstz().notNull().defaultNow(),
+    /** null while waiting. */
+    outcome: queueOutcome(),
+    waitSeconds: integer(),
+    agentExtensionId: uuid().references(() => extensions.id, { onDelete: 'set null' }),
+  },
+  (t) => [index().on(t.queueId, t.joinedAt), index().on(t.uniqueid)],
+);
+
 export const mohClasses = pgTable('moh_classes', {
   id: id(),
   name: text().notNull().unique(),

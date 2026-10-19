@@ -110,6 +110,39 @@ const SCENARIOS: Record<string, Expected> = {
     rang: ['101', '103'],
     talkSeconds: 4,
   },
+  'queue-answered': {
+    direction: 'inbound',
+    status: 'answered',
+    fromNumber: '13125559999',
+    fromName: 'Mobile',
+    toNumber: '13125551237',
+    did: '13125551237',
+    answeredBy: '101',
+    rang: ['101'],
+    talkSeconds: 4,
+  },
+  'queue-abandoned': {
+    direction: 'inbound',
+    status: 'abandoned',
+    fromNumber: '13125559999',
+    fromName: 'Mobile',
+    toNumber: '13125551238',
+    did: '13125551238',
+    answeredBy: null,
+    rang: ['102'],
+    talkSeconds: 0,
+  },
+  'queue-timeout-voicemail': {
+    direction: 'inbound',
+    status: 'voicemail',
+    fromNumber: '13125559999',
+    fromName: 'Mobile',
+    toNumber: '13125551238',
+    did: '13125551238',
+    answeredBy: null,
+    rang: ['102'], // rang as an agent, then took the call in his mailbox
+    talkSeconds: 0,
+  },
 };
 
 describe.skipIf(!hasTestDb)('call aggregation from recorded CDRs', () => {
@@ -139,7 +172,7 @@ describe.skipIf(!hasTestDb)('call aggregation from recorded CDRs', () => {
         passwordEnc: encrypt('p'),
       })
       .returning();
-    for (const n of ['1234', '1235', '1236'])
+    for (const n of ['1234', '1235', '1236', '1237', '1238'])
       await t.db.insert(dids).values({
         number: `1312555${n}`,
         trunkId: trunk!.id,
