@@ -79,6 +79,17 @@ export type QueueLive = {
   }[];
 };
 
+/** A call waiting in a parking slot (dial the slot to pick it up). */
+export type ParkedLive = {
+  slot: string;
+  linkedid: string;
+  callerNumber: string;
+  callerName?: string;
+  since: string;
+  /** The extension that parked it. */
+  parkedBy?: string;
+};
+
 export type LiveSnapshot = {
   extensions: ExtensionLive[];
   /** Admins only. */
@@ -87,8 +98,8 @@ export type LiveSnapshot = {
   calls?: ActiveCall[];
   /** Admins: every queue; users: the queues they are a member of. */
   queues: QueueLive[];
-  /** Parked calls arrive with M8-T2. */
-  parked?: never[];
+  /** Everyone sees every parked call. */
+  parked: ParkedLive[];
   ami: { connected: boolean };
 };
 
@@ -106,6 +117,8 @@ export type LiveMessage =
   /** Admins and the queue's members. */
   | { type: 'queue.updated'; data: QueueLive }
   | { type: 'queue.removed'; data: { number: string } }
+  | { type: 'parked.updated'; data: ParkedLive }
+  | { type: 'parked.removed'; data: { slot: string } }
   /** Only to the mailbox owner. */
   | { type: 'voicemail.new'; data: VoicemailDto & { userId: string } }
   /** A short message for one user (e.g. "forwarding refused"). */

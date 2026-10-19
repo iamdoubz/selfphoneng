@@ -464,6 +464,10 @@ findslot = next
 parkext_exclusive = no
 parkinghints = yes
 ```
+`parkinghints` gives each slot a hint (`701@sp-parkedcalls` → `park:701@sp-parkedcalls`) for BLF
+keys; phones reach it through `sp-local-numbers`, which includes `sp-parkedcalls`. An empty slot's
+state is Unavailable (BLF off), a parked call makes it InUse. `findslot = next` means each park
+takes the slot after the last one used, not always 701 (verified in M8-T2).
 
 ### 3.14 `confbridge.conf`
 ```ini

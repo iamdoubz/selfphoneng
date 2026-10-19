@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Dashboard (05 §2). Warnings, telephony link, trunks, calls in progress (hang up / transfer)
-// queue tiles and extensions online. Parked calls arrive with M8-T2.
+// queue tiles, parked calls and extensions online.
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { ActiveCall, QueueLive } from '@selfphoneng/shared';
@@ -11,6 +11,7 @@ import { Alert, Button, inputClass } from '../../components/ui.tsx';
 import { fmtNumber } from './CallsPage.tsx';
 import { StatusDot, statusLabel } from '../../components/StatusDot.tsx';
 import { useLive } from '../../live/store.ts';
+import { ParkedCalls } from '../../components/ParkedCalls.tsx';
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -65,6 +66,8 @@ export function DashboardPage() {
       <QueueTiles />
 
       <LiveCalls />
+
+      <ParkedCalls />
 
       <div>
         <h2 className="mb-2 font-medium">Extensions</h2>

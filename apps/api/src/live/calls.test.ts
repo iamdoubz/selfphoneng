@@ -45,6 +45,33 @@ describe('CallTracker', () => {
     expect(t.list()).toEqual([]);
   });
 
+  it('parked: from the parking events, not the channel app (a picked-up call talks)', () => {
+    const t = new CallTracker(() => undefined);
+    const caller = {
+      Channel: 'PJSIP/trunk-7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37-00000016',
+      Linkedid: '3.0',
+      Uniqueid: '3.0',
+    };
+    const picker = { Channel: 'PJSIP/103-00000018', Linkedid: '3.0', Uniqueid: '3.1' };
+    t.handle({
+      Event: 'Newchannel',
+      ChannelStateDesc: 'Up',
+      CallerIDNum: '13125559999',
+      ...caller,
+    });
+    // a blind transfer to 700 parks it without a Park() Newexten
+    t.handle({ Event: 'ParkedCall', ParkeeLinkedid: '3.0', ParkingSpace: '701' });
+    expect(t.list()[0]!.state).toBe('parked');
+    t.handle({ Event: 'Newchannel', ChannelStateDesc: 'Up', ...picker });
+    t.handle({ Event: 'Newexten', Application: 'ParkedCall', ...picker });
+    t.handle({ Event: 'UnParkedCall', ParkeeLinkedid: '3.0', ParkingSpace: '701' });
+    t.handle({ Event: 'BridgeEnter', ...caller });
+    t.handle({ Event: 'BridgeEnter', ...picker });
+    expect(t.list()[0]!.state).toBe('talking');
+    t.handle({ Event: 'ParkedCall', ParkeeLinkedid: '9.9' }); // a call we don't know: ignored
+    expect(t.list()).toHaveLength(1);
+  });
+
   it('loads calls already up from CoreShowChannels', () => {
     const t = new CallTracker(() => undefined);
     const ch = (Channel: string, extra: Record<string, string>) => ({

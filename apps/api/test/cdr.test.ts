@@ -143,6 +143,17 @@ const SCENARIOS: Record<string, Expected> = {
     rang: ['102'], // rang as an agent, then took the call in his mailbox
     talkSeconds: 0,
   },
+  'park-pickup': {
+    direction: 'inbound',
+    status: 'answered',
+    fromNumber: '13125559999',
+    fromName: 'Mobile',
+    toNumber: '13125551234',
+    did: '13125551234',
+    answeredBy: '101', // parked it on 701; Carol (103) picked it up there
+    rang: ['101', '103'],
+    talkSeconds: 4,
+  },
 };
 
 describe.skipIf(!hasTestDb)('call aggregation from recorded CDRs', () => {

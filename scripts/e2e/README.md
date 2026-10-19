@@ -136,3 +136,9 @@ of `Local/550@sp-from-ext`). The queue page and the dashboard tile show them liv
 connects the longest waiting caller, a second caller goes to 282 after 20 s, a third hangs up.
 `*45550` logs 280 back in, `*45551` (not an agent) plays `ss-noservice`, and the stats count
 3 calls: 1 answered, 1 hung up, 1 timed out.
+
+`m8-t2.mjs`: three auto-answer phones (290 parks, 291 belongs to a user, 292 picks up). A caller
+reaches 290, which blind-transfers it to 700 (AMI BlindTransfer, what a phone's transfer key does):
+it lands on 701 and the slot's hint goes InUse. The dashboard and the user's Home list it, the live
+call shows "Parked", and **Pick up 701** on Home rings 291, which dials 701 and talks to the caller.
+A second park takes 702 (`findslot = next`) and 292 picks it up by dialing 702.

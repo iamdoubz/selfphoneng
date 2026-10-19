@@ -46,7 +46,9 @@ export async function liveRoutes(app: FastifyInstance) {
                 ? `call:${m.data.linkedid}` // a removal replaces a pending update
                 : m.type === 'queue.updated' || m.type === 'queue.removed'
                   ? `queue:${m.data.number}`
-                  : m.type;
+                  : m.type === 'parked.updated' || m.type === 'parked.removed'
+                    ? `parked:${m.data.slot}`
+                    : m.type;
 
   const maySee = (c: Client, m: LiveMessage) =>
     m.type === 'voicemail.new' || m.type === 'toast'

@@ -14,6 +14,7 @@ import { PresencePanel } from '../../softphone/PresencePanel.tsx';
 import { VoicemailPage, callerOf, isNew, mmss } from './VoicemailPage.tsx';
 import { MyCallsPage, otherParty, useCallBack } from './MyCallsPage.tsx';
 import { fmtNumber } from '../admin/CallsPage.tsx';
+import { ParkedCalls } from '../../components/ParkedCalls.tsx';
 import { DndSwitch, MeSettingsPage, showTarget, useMe } from './MeSettingsPage.tsx';
 
 const link = 'text-sky-700 underline dark:text-sky-400';
@@ -126,6 +127,7 @@ function Home({ user }: { user: AuthUser }) {
       <p>Hi {user.displayName}.</p>
       {user.extension && <StatusCard ext={user.extension.number} />}
       {user.extension && <MissedCalls />}
+      {user.extension && <ParkedOnHome />}
       <section aria-labelledby="new-vm" className="flex flex-col gap-2">
         <h2 id="new-vm" className="text-lg font-semibold">
           New voicemails
@@ -213,6 +215,21 @@ function QueueLogins({ ext }: { ext: string }) {
       })}
       {toggle.error && <Alert>{toggle.error.message}</Alert>}
     </>
+  );
+}
+
+/** Parked calls with a Pick up button: my phone (or softphone) dials the slot. */
+function ParkedOnHome() {
+  const { call, note } = useCallBack();
+  return (
+    <div className="flex flex-col gap-1">
+      <ParkedCalls onPickUp={call} />
+      {note && (
+        <p role="status" className="text-sm text-zinc-500">
+          {note}
+        </p>
+      )}
+    </div>
   );
 }
 

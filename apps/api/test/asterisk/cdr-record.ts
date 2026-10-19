@@ -5,7 +5,7 @@
 //   103 Carol  auto-answer          104 Dave  no phone, no voicemail
 // Each scenario's Cdr events go to apps/api/test/fixtures/cdr/<name>.json.
 // Queue 550 has Alice (answers); queue 551 has Bob (never answers) and sends callers who wait
-// 8 s to his voicemail. Parking arrives with M8-T2.
+// 8 s to his voicemail. Park: Alice parks a caller on 700 (→ 701), Carol picks it up.
 // Usage: node --conditions=source apps/api/test/asterisk/cdr-record.ts
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
@@ -442,6 +442,23 @@ async function main() {
         20,
       );
       await sleep(6000);
+    });
+
+    await scenario('park-pickup', async () => {
+      fromMobile('3125551234');
+      await waitFor('101 answers', () => !!pbxChannel('PJSIP/101-'));
+      await sleep(2000);
+      await ami.action({
+        Action: 'BlindTransfer',
+        Channel: pbxChannel('PJSIP/101-')!,
+        Context: 'sp-from-ext',
+        Exten: '700',
+      });
+      await waitFor('parked on 701', () => /701/.test(cli(PBX, 'parking show default')), 20);
+      await sleep(2000);
+      await fromPhone('103', '701', 'Carol');
+      await waitFor('103 picks up', () => !!pbxChannel('PJSIP/103-'), 20);
+      await sleep(4000);
     });
 
     mkdirSync(OUT, { recursive: true });

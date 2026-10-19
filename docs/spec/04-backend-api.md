@@ -119,7 +119,7 @@ type ActiveCall = {
   recording: boolean;
 };
 type QueueLive = { id: string; number: string; name: string; waiting: { linkedid; callerNumber; callerName?; since }[]; members: { ext; paused; state; callsTaken; lastCall? }[] };
-type ParkedLive = { slot: string; linkedid: string; callerNumber: string; since: string; parkedBy?: string };
+type ParkedLive = { slot: string; linkedid: string; callerNumber: string; callerName?: string; since: string; parkedBy?: string };
 type MwiLive = Record<string /*ext*/, { new: number; old: number }>;
 ```
 
@@ -162,7 +162,7 @@ the channel events carry everything. A call's channels are ordered by creation (
 so `channels[0]` is the caller. State, first match wins: hold, voicemail (app `VoiceMail`), ivr
 (`BackGround`/`WaitExten`/`Read`), queued, parked, talking (2+ channels bridged and Up), else
 ringing. `answeredAt` is the first time 2 channels are bridged; on a reload, `startedAt` is
-`now - Duration`. Snapshots carry `parked: []` until M8-T2. Calls go to admins
+`now - Duration`. Calls go to admins
 only for now; a user's own calls are added when a user page shows them.
 
 As built (M8-T1): queues live in `live/queues.ts` (`QueueTracker`), loaded from `QueueStatus` on
@@ -170,6 +170,13 @@ connect and after every config apply (QueueStatus errors while app_queue has no 
 is the `Status` device state (1 idle, 2 in use, 3 busy, 6 ringing, 7 ringinuse, 8 on hold, else
 unavailable). Every snapshot has `queues`; a user's holds only the queues they are an agent of, and a
 `queue.updated` for a queue they aren't in reaches them as `queue.removed`.
+
+As built (M8-T2): parked calls live in `live/parking.ts` (`ParkingTracker`), loaded from `ParkedCalls`
+and changed by `ParkedCall` / `UnParkedCall` / `ParkedCallTimeOut` / `ParkedCallGiveUp`; deltas are
+`parked.updated` and `parked.removed` (`{slot}`), for everyone. `parkedBy` comes from
+`ParkerDialString` (`PJSIP/101`). A blind transfer to 700 parks without running `Park()` in the
+dialplan, so a call's `parked` state comes from those events (by `ParkeeLinkedid`), not from the
+channel's application; the phone that picks it up runs `ParkedCall()` while talking (verified).
 
 ### 5.2 Live WebSocket (`GET /api/live`)
 
@@ -236,6 +243,8 @@ unavailable). Every snapshot has `queues`; a user's holds only the queues they a
 - This is a heuristic. In M7, record real AMI Cdr events from test calls
   (inbound to user, inbound to ring group, IVR → voicemail, queue abandon,
   outbound, transfer, park) into `test/fixtures/cdr/*.json` and write a test per scenario.
+  M8 added `queue-answered`, `queue-abandoned`, `queue-timeout-voicemail` and `park-pickup` (the
+  call counts as answered by whoever parked it; the one who picked it up is in `rang`).
 
 As built (M7-T1):
 - `apps/api/test/asterisk/cdr-record.ts` records 8 scenarios against our config, the fake

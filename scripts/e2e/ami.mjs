@@ -2,8 +2,8 @@
 // A raw AMI session for the e2e scripts (the m2-live Asterisk publishes AMI on 127.0.0.1:15038).
 import { Socket } from 'node:net';
 
-/** One AMI Originate with a caller ID (the CLI can't set one). */
-export function originate(fields) {
+/** One AMI action on its own session; rejects on Response: Error. */
+export function action(fields) {
   return new Promise((resolve, reject) => {
     const s = new Socket();
     let buf = '';
@@ -11,19 +11,14 @@ export function originate(fields) {
     s.on('data', (d) => {
       buf += d;
       if (/Response: Error/.test(buf)) reject(new Error(buf));
-      if (/ActionID: o1[\s\S]*\r\n\r\n/.test(buf)) {
+      if (/ActionID: a1[\s\S]*\r\n\r\n/.test(buf)) {
         s.end();
         resolve();
       }
     });
     s.on('error', reject);
     s.connect(15038, '127.0.0.1', () => {
-      const lines = Object.entries({
-        ...fields,
-        Action: 'Originate',
-        Async: 'true',
-        ActionID: 'o1',
-      })
+      const lines = Object.entries({ ...fields, ActionID: 'a1' })
         .map(([k, v]) => `${k}: ${v}`)
         .join('\r\n');
       s.write(
@@ -32,3 +27,6 @@ export function originate(fields) {
     });
   });
 }
+
+/** One AMI Originate with a caller ID (the CLI can't set one). */
+export const originate = (fields) => action({ ...fields, Action: 'Originate', Async: 'true' });

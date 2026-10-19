@@ -35,7 +35,7 @@ export class CallTracker {
   /** Per linkedid: dialplan variables (SP_DID…) and when it was first answered. */
   private readonly extra = new Map<
     string,
-    { did?: string; direction?: string; rec?: boolean; answeredAt?: number }
+    { did?: string; direction?: string; rec?: boolean; answeredAt?: number; parked?: boolean }
   >();
   private readonly emit: (linkedid: string, call: ActiveCall | null) => void;
 
@@ -127,6 +127,14 @@ export class CallTracker {
         else x.rec = Boolean(value);
         break;
       }
+      // A blind transfer to 700 parks without running Park() in the dialplan, so the parking
+      // events (not the channel's application) say whether a call is parked.
+      case 'ParkedCall':
+      case 'UnParkedCall':
+      case 'ParkedCallTimeOut':
+      case 'ParkedCallGiveUp':
+        this.setParked(field(m, 'ParkeeLinkedid') ?? '', ev === 'ParkedCall');
+        return;
       case 'Hangup': {
         const c = this.channels.get(name);
         if (!c) return;
@@ -144,6 +152,13 @@ export class CallTracker {
     }
     const l = this.channels.get(name)?.linkedid ?? linkedid;
     if (l) this.emit(l, this.call(l));
+  }
+
+  /** Also used after the initial load, with the ParkedCalls list. */
+  setParked(linkedid: string, parked: boolean): void {
+    if (!this.byLinkedid(linkedid).length) return;
+    this.extraOf(linkedid).parked = parked;
+    this.emit(linkedid, this.call(linkedid));
   }
 
   private extraOf(linkedid: string) {
@@ -204,7 +219,7 @@ export class CallTracker {
           ? 'ivr'
           : apps.has('Queue')
             ? 'queued'
-            : apps.has('Park') || apps.has('ParkedCall')
+            : x.parked || apps.has('Park')
               ? 'parked'
               : chans.filter((c) => c.bridged && c.state === 'Up').length >= 2
                 ? 'talking'

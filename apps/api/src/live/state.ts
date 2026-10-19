@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // In-memory live state (04 §5.1). Rebuilt from Asterisk on every AMI connect, then kept current
-// from AMI events: extension states and registered devices, calls, queues. Parking with M8-T2.
+// from AMI events: extension states and registered devices, calls, queues, parked calls.
 import { EventEmitter } from 'node:events';
 import { eq } from 'drizzle-orm';
 import type {
@@ -16,6 +16,7 @@ import { field, type AmiMessage } from '../ami/events.ts';
 import type { Db } from '../db/client.ts';
 import { extensions, queues, trunks, userRuntimeState } from '../db/schema.ts';
 import { CallTracker } from './calls.ts';
+import { ParkingTracker } from './parking.ts';
 import { QueueTracker } from './queues.ts';
 
 /** ExtensionStatus/ExtensionStateList Status is a bit mask (04 §5.1). */
@@ -77,6 +78,13 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
       q ? { type: 'queue.updated', data: q } : { type: 'queue.removed', data: { number } },
     ),
   );
+  /** Parked calls (everyone). */
+  readonly parking = new ParkingTracker((slot, p) =>
+    this.emit(
+      'message',
+      p ? { type: 'parked.updated', data: p } : { type: 'parked.removed', data: { slot } },
+    ),
+  );
   private readonly db: Db;
   private readonly ami: Ami;
 
@@ -95,11 +103,11 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
       queues: this.queues
         .list()
         .filter((q) => admin || q.members.some((m) => myExts.includes(m.ext))),
+      parked: this.parking.list(),
       ...(admin
         ? {
             trunks: [...this.trunks.values()].map((t) => ({ ...t })),
             calls: this.calls.list(),
-            parked: [],
           }
         : {}),
       ami: { connected: this.amiConnected },
@@ -259,12 +267,15 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
     await this.refreshRegistrations();
     await Promise.all([...this.trunks.keys()].map((id) => this.refreshReachable(id)));
     for (const e of this.exts.values()) e.contacts = [];
-    const [states, contacts, channels] = await Promise.all([
+    const [states, contacts, channels, parked] = await Promise.all([
       this.ami.actionList({ Action: 'ExtensionStateList' }),
       this.ami.actionList({ Action: 'PJSIPShowContacts' }),
       this.ami.actionList({ Action: 'CoreShowChannels' }),
+      this.ami.actionList({ Action: 'ParkedCalls' }).catch(() => []), // errors when none
     ]);
     this.calls.load(channels);
+    this.parking.load(parked);
+    for (const p of this.parking.list()) this.calls.setParked(p.linkedid, true);
     await this.refreshQueues();
     for (const m of states) this.onExtensionStatus(m, false);
     for (const m of contacts) {
@@ -288,6 +299,7 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
   handleEvent(m: AmiMessage): void {
     this.calls.handle(m);
     this.queues.handle(m);
+    this.parking.handle(m);
     switch (field(m, 'Event')) {
       case 'ExtensionStatus':
         return this.onExtensionStatus(m, true);
