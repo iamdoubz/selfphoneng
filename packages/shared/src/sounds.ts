@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Recorded prompts for IVRs, announcements and the recording notice (02 sound_files, 04 §6).
-// Music-on-hold classes and their files arrive with M8.
+// Music-on-hold files are sound_files too (kind moh), listed per class (moh.ts).
 import { z } from 'zod';
 
 export const SoundName = z.string().trim().min(1, 'Required').max(80);

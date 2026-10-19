@@ -281,7 +281,7 @@ create table sound_files (
 );
 create table moh_classes (
   id    uuid primary key default gen_random_uuid(),
-  name  text not null unique          -- slug [a-z0-9_-]; 'default' is built in and not stored here
+  name  text not null unique          -- slug [a-z0-9-] (same as other slugs); 'default' is built in and not stored here
 );
 
 create table ivrs (

@@ -21,6 +21,7 @@ import {
   findReferences,
 } from '../services/destinations.ts';
 import { assertNumberAvailable } from '../services/numbering.ts';
+import { assertMohClass } from './moh.ts';
 import { setPaused } from '../services/queues.ts';
 import { queueStats, StatsQuery } from '../services/queuestats.ts';
 
@@ -113,6 +114,7 @@ export async function queueRoutes(app: FastifyInstance) {
   app.post('/api/queues', async (req, reply) => {
     const { members = [], ...body } = QueueCreateSchema.parse(req.body);
     await assertNumberAvailable(db, body.number, 'queue');
+    await assertMohClass(db, body.mohClass);
     await assertDestinationExists(db, body.timeoutDestination);
     await assertMembers(db, members);
     let created: Row;
@@ -145,6 +147,7 @@ export async function queueRoutes(app: FastifyInstance) {
     const before = await getQueue(id);
     if (body.number && body.number !== before.number)
       await assertNumberAvailable(db, body.number, 'queue', id);
+    await assertMohClass(db, body.mohClass);
     if (body.timeoutDestination) {
       if (body.timeoutDestination.type === 'queue' && body.timeoutDestination.id === id)
         throw badRequest("A queue can't send callers who waited too long back to itself");

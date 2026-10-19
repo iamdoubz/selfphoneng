@@ -979,6 +979,11 @@ sort = random
 ```
 One per `moh_classes` row. The api keeps the folder contents in sync with `sound_files` (04 §6).
 
+As built (M8-T5): one per `moh_classes` row **that has at least one file**. An empty class plays
+silence in Asterisk 24; left out, a channel asking for it gets `default` instead (checked with a
+real queue caller). Because only the first and last file change this file, the api also sends
+`moh reload` after every file it adds or removes. Golden case `queue`; `scripts/e2e/m8-t5.mjs`.
+
 ## 9. Snapshot → endpoint variables summary
 
 | Variable | Where set | Read by |

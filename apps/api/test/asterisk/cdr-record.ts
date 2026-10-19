@@ -157,6 +157,7 @@ function snapshot(): Snapshot {
     })),
     conferences: [],
     pagingGroups: [],
+    mohClasses: [],
     ivrs: [
       {
         id: CDR_IDS.ivr,

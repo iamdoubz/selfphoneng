@@ -65,6 +65,7 @@ export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) 
     LOG_LEVEL: 'fatal',
     RECORDINGS_DIR: mkdtempSync(join(tmpdir(), 'sp-rec-')),
     SOUNDS_DIR: mkdtempSync(join(tmpdir(), 'sp-sounds-')),
+    MOH_DIR: mkdtempSync(join(tmpdir(), 'sp-moh-')),
   });
   setSecretKey(config.APP_SECRET);
   const pub = mkdtempSync(join(tmpdir(), 'sp-public-'));

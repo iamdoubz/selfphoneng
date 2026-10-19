@@ -316,6 +316,8 @@ forced apply.
 - Duration: `ffprobe -v error -show_entries format=duration -of csv=p=0 <out>.wav`.
 - Prompts: `/var/lib/asterisk/sounds/custom/<id>.{wav,g722}` → `asterisk_name = custom/<id>`.
 - MOH: `/var/lib/asterisk/moh/<className>/<id>.wav` (wav only). After any MOH change, call `generator.requestApply`.
+  As built (M8-T5): the folder is `MOH_DIR` (default `/var/lib/asterisk/moh`). Adding or removing a
+  file changes no config unless it's the class's first or last, so the route also sends `moh reload`.
 - Deleting a sound referenced by an IVR/announcement/settings → 409 with references.
 - Optional TTS (M12): `POST /api/sounds/tts {name, text, voice}` runs Piper (binary
   and voice models in the api image under `/opt/piper`), then the same conversion.
@@ -383,7 +385,7 @@ Admin resources (all `requireAdmin`; standard CRUD = `GET /x`, `POST /x`, `GET /
 | `/api/conferences` | |
 | `/api/paging-groups` | members are set via `memberIds: [uuid]` in POST/PATCH (no order). Not a destination, so delete never returns 409 |
 | `/api/sounds` | upload is `POST /api/sounds?name=&filename=` with the raw file as the body (like greetings, no multipart), `GET /:id/audio`, `PATCH /:id {name}`, `DELETE /:id` (409 with `usedBy`: IVR greeting/invalid sound, announcements, the recording notice), `POST /tts` (M12). M6 lists prompts only; MOH classes and files come with M8 |
-| `/api/moh-classes` | |
+| `/api/moh-classes` | `POST {name}` (slug, not `default`), `DELETE /:id` (409 with `usedBy` while an extension or queue uses it), `POST /:id/files?name=&filename=` (raw file body, like sounds), `GET /:id/files/:fileId/audio`, `DELETE /:id/files/:fileId`. No rename: the name is the folder and is stored on extensions and queues. Extensions and queues may only pick `default` or an existing class (400) |
 | `/api/devices` | `GET /:id/config-preview` (rendered provisioning file, passwords masked) |
 | `/api/blocked-numbers` | |
 | `/api/contacts` | company phonebook; `POST /import` CSV (`name,company,email,label1,number1,...`) |

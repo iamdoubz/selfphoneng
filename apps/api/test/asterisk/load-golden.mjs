@@ -4,7 +4,15 @@
 // Needs Docker and a built image (ASTERISK_IMAGE, default "selfphoneng-asterisk").
 // Usage: pnpm test:asterisk [case ...]
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +48,11 @@ async function check(name) {
   const tmp = mkdtempSync(join(tmpdir(), `sp-golden-${name}-`));
   cpSync(join(GOLDEN, name, 'expected'), tmp, { recursive: true });
   const problems = [];
+  // The api makes each MOH class's folder when the class is created (routes/moh.ts); do the same.
+  const moh = mkdtempSync(join(tmpdir(), `sp-golden-moh-`));
+  const mohConf = readFileSync(join(tmp, 'musiconhold_selfphoneng.conf'), 'utf8');
+  for (const [, d] of mohConf.matchAll(/^directory = \/var\/lib\/asterisk\/moh\/(.+)$/gm))
+    mkdirSync(join(moh, d));
   const run = docker(
     'run',
     '-d',
@@ -50,6 +63,8 @@ async function check(name) {
     'AMI_SECRET=golden-test-secret',
     '-v',
     `${tmp}:/etc/asterisk/selfphoneng`,
+    '-v',
+    `${moh}:/var/lib/asterisk/moh`,
     IMAGE,
   );
   if (!run.ok) throw new Error(`docker run failed: ${run.out}`);
@@ -90,6 +105,7 @@ async function check(name) {
   } finally {
     docker('rm', '-f', NAME);
     rmSync(tmp, { recursive: true, force: true });
+    rmSync(moh, { recursive: true, force: true });
   }
 }
 

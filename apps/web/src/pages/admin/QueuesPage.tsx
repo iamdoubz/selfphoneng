@@ -13,6 +13,7 @@ import {
 } from '@selfphoneng/shared';
 import { extensionsApi, queuesApi } from '../../api/client.ts';
 import { DestinationPicker } from '../../components/DestinationPicker.tsx';
+import { MohOptions } from '../../components/MohOptions.tsx';
 import { ConfirmDialog, Dialog } from '../../components/Dialog.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 import { useLive } from '../../live/store.ts';
@@ -513,11 +514,7 @@ function QueueForm({
           Tell callers their place in line
         </label>
         {form.announcePosition && num('announceEverySeconds', 'Every (seconds)')}
-        <Field
-          label="Music on hold"
-          error={errors.mohClass}
-          hint="More music arrives with Sounds & music"
-        >
+        <Field label="Music on hold" error={errors.mohClass} hint="Add music on Sounds & music">
           {(p) => (
             <select
               {...p}
@@ -525,7 +522,7 @@ function QueueForm({
               value={form.mohClass}
               onChange={(e) => set('mohClass')(e.target.value)}
             >
-              <option value={form.mohClass}>{form.mohClass}</option>
+              <MohOptions current={queue?.mohClass ?? 'default'} />
             </select>
           )}
         </Field>

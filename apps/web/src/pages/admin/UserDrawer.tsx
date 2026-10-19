@@ -19,6 +19,7 @@ import {
 import { didsApi, extensionsApi, usersApi } from '../../api/client.ts';
 import { CLASS_LABEL } from './OutboundPage.tsx';
 import { Dialog } from '../../components/Dialog.tsx';
+import { MohOptions } from '../../components/MohOptions.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
 type Tab = 'general' | 'phone' | 'calling' | 'emergency' | 'credentials';
@@ -359,7 +360,11 @@ function PhoneTab({ ext, onSaved }: { ext: ExtensionDto; onSaved: () => void }) 
           {(a) => <input {...a} {...form.register('language')} className={inputClass} />}
         </Field>
         <Field label="Music on hold" error={errors.mohClass?.message}>
-          {(a) => <input {...a} {...form.register('mohClass')} className={inputClass} />}
+          {(a) => (
+            <select {...a} {...form.register('mohClass')} className={inputClass}>
+              <MohOptions current={ext.mohClass} />
+            </select>
+          )}
         </Field>
       </div>
     </form>

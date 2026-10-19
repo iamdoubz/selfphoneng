@@ -107,6 +107,7 @@ function snapshot(): Snapshot {
     queues: [],
     conferences: [],
     pagingGroups: [],
+    mohClasses: [],
     ivrs: [],
     timeConditions: [],
     holidays: [],

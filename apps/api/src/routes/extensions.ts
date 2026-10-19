@@ -24,6 +24,7 @@ import {
 } from '../crypto/secrets.ts';
 import { audit } from '../services/audit.ts';
 import { assertNumberAvailable, nextFreeNumber } from '../services/numbering.ts';
+import { assertMohClass } from './moh.ts';
 import { findReferences } from '../services/destinations.ts';
 import { getSetting } from '../services/settings.ts';
 
@@ -109,6 +110,7 @@ export async function extensionRoutes(app: FastifyInstance) {
     const { voicemailPin, ...body } = ExtensionCreateSchema.parse(req.body);
     await assertNumberAvailable(db, body.number, 'user');
     await assertUserFree(db, body.userId);
+    await assertMohClass(db, body.mohClass);
     if (voicemailPin) checkPin(voicemailPin, body.number);
     let created: ExtRow;
     try {
@@ -149,6 +151,7 @@ export async function extensionRoutes(app: FastifyInstance) {
     if (body.number && body.number !== before.number)
       await assertNumberAvailable(db, body.number, 'user', id);
     await assertUserFree(db, body.userId, id);
+    await assertMohClass(db, body.mohClass);
     if (voicemailPin) checkPin(voicemailPin, body.number ?? before.number);
     let after: ExtRow;
     try {

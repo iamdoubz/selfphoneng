@@ -10,6 +10,7 @@ import {
   extensions,
   holidays,
   ivrOptions,
+  mohClasses,
   pagingGroupMembers,
   pagingGroups,
   ivrs,
@@ -195,6 +196,11 @@ export type Snapshot = {
   timeConditions: SnapTimeCondition[];
   holidays: SnapHoliday[];
   announcements: SnapAnnouncement[];
+  /**
+   * Music-on-hold classes that have music ('default' is built in and not here). An empty class
+   * would play silence; left out, Asterisk falls back to default (seen in M8-T5).
+   */
+  mohClasses: string[];
   /** Played before recording a call that a phone number records (Settings → Recording). */
   recordingAnnouncement: string | null;
 };
@@ -254,6 +260,10 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
   const tcRows = await db.select().from(timeConditions);
   const holidayRows = await db.select().from(holidays);
   const annRows = await db.select().from(announcements);
+  const mohRows = await db
+    .selectDistinct({ name: mohClasses.name })
+    .from(mohClasses)
+    .innerJoin(soundFiles, eq(soundFiles.mohClassId, mohClasses.id));
   const optionRows = await db.select().from(ivrOptions);
   const soundName = new Map(
     (await db.select({ id: soundFiles.id, name: soundFiles.asteriskName }).from(soundFiles)).map(
@@ -352,6 +362,7 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
       maxMembers: c.maxMembers,
       record: c.record,
     })),
+    mohClasses: mohRows.map((m) => m.name),
     pagingGroups: pageRows.map((g) => ({
       id: g.id,
       number: g.number,

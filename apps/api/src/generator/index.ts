@@ -20,6 +20,7 @@ import { renderEmergency } from './dialplan/emergency.ts';
 import { renderRingGroups } from './dialplan/ringgroups.ts';
 import { renderQueueDialplan } from './dialplan/queues.ts';
 import { renderQueues } from './queues.ts';
+import { renderMoh } from './moh.ts';
 import { renderConfbridge, renderConferences } from './dialplan/conferences.ts';
 import { renderPaging } from './dialplan/paging.ts';
 import { renderIvrs } from './dialplan/ivrs.ts';
@@ -51,6 +52,7 @@ export type RenderedFiles = Record<GeneratedFileName, string>;
 const BODIES: Partial<Record<GeneratedFileName, (snap: Snapshot) => string>> = {
   'pjsip_selfphoneng.conf': renderPjsip,
   'rtp_selfphoneng.conf': renderRtp,
+  'musiconhold_selfphoneng.conf': renderMoh,
   'extensions_globals_selfphoneng.conf': renderGlobals,
   'voicemail_selfphoneng.conf': renderVoicemail,
   'queues_selfphoneng.conf': renderQueues,

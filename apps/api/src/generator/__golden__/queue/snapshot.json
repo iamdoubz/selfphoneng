@@ -1,4 +1,5 @@
 {
+  "mohClasses": ["support-jazz", "after-hours"],
   "extensions": [
     {
       "id": "00000000-0000-4000-8000-000000000101",
@@ -16,6 +17,7 @@
       "id": "00000000-0000-4000-8000-000000000103",
       "number": "103",
       "name": "Sue Smith",
+      "mohClass": "after-hours",
       "sipPassword": "Cb3dEf9hIj2kLm4nOp6qRs8t"
     }
   ],
@@ -24,6 +26,7 @@
       "id": "44444444-4444-4444-8444-444444444550",
       "number": "550",
       "name": "Support",
+      "mohClass": "support-jazz",
       "members": [
         { "number": "101", "name": "Dan Doe", "penalty": 0 },
         { "number": "102", "name": "Ann, Lee", "penalty": 1 }

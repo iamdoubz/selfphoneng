@@ -48,6 +48,7 @@ import type {
   SettingsDto,
   SipCredentials,
   SoundDto,
+  MohClassDto,
   TimeConditionCreate,
   TimeConditionDto,
   TimeConditionUpdate,
@@ -234,6 +235,21 @@ export const soundsApi = {
     ),
   rename: (id: string, name: string) => api<SoundDto>('PATCH', `/api/sounds/${id}`, { name }),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/sounds/${id}`),
+};
+
+export const mohApi = {
+  list: () => api<ListResponse<MohClassDto>>('GET', '/api/moh-classes').then((r) => r.items),
+  create: (name: string) => api<MohClassDto>('POST', '/api/moh-classes', { name }),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/moh-classes/${id}`),
+  addFile: (id: string, name: string, file: File) =>
+    upload<MohClassDto>(
+      'POST',
+      `/api/moh-classes/${id}/files?${new URLSearchParams({ name, filename: file.name })}`,
+      file,
+    ),
+  audioUrl: (id: string, fileId: string) => `/api/moh-classes/${id}/files/${fileId}/audio`,
+  removeFile: (id: string, fileId: string) =>
+    api<{ ok: true }>('DELETE', `/api/moh-classes/${id}/files/${fileId}`),
 };
 
 export const ringGroupsApi = {

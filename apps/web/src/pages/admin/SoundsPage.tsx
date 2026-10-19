@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Sounds & music (05 §2): recorded prompts for digital receptionists and announcements.
-// Upload by picking or dropping a file; play, rename, delete. Music on hold arrives with M8.
+// Upload by picking or dropping a file; play, rename, delete. Music-on-hold classes and their
+// files (03 §8) and announcements live here too.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
   AnnouncementCreateSchema,
+  MohClassName,
   SOUND_MAX_BYTES,
   type AnnouncementCreate,
   type AnnouncementDto,
   type Destination,
+  type MohClassDto,
   type SoundDto,
 } from '@selfphoneng/shared';
-import { announcementsApi, soundsApi } from '../../api/client.ts';
+import { announcementsApi, mohApi, soundsApi } from '../../api/client.ts';
 import { DestinationPicker } from '../../components/DestinationPicker.tsx';
 import { SoundPicker } from '../../components/SoundPicker.tsx';
 import { ConfirmDialog, Dialog } from '../../components/Dialog.tsx';
@@ -172,8 +175,180 @@ export function SoundsPage() {
         }}
         onConfirm={() => deleting && remove.mutate(deleting.id)}
       />
+      <MusicOnHold />
       <Announcements />
     </section>
+  );
+}
+
+/** Music on hold (03 §8): sets of music; users and queues pick one. 'default' is built in. */
+function MusicOnHold() {
+  const qc = useQueryClient();
+  const classes = useQuery({ queryKey: ['moh-classes'], queryFn: mohApi.list });
+  const refresh = () => qc.invalidateQueries({ queryKey: ['moh-classes'] });
+  const [name, setName] = useState('');
+  const [nameError, setNameError] = useState<string>();
+  const [deleting, setDeleting] = useState<MohClassDto | null>(null);
+  const create = useMutation({
+    mutationFn: (n: string) => mohApi.create(n),
+    onSuccess: async () => {
+      setName('');
+      await refresh();
+    },
+  });
+  const remove = useMutation({
+    mutationFn: (id: string) => mohApi.remove(id),
+    onSuccess: async () => {
+      setDeleting(null);
+      await refresh();
+    },
+  });
+
+  return (
+    <section aria-labelledby="moh-h" className="flex flex-col gap-3">
+      <h2 id="moh-h" className="text-lg font-semibold">
+        Music on hold
+      </h2>
+      <p className="text-sm text-zinc-500">
+        What callers hear on hold or waiting in a queue. Default music is built in. Make your own
+        set here, then choose it for a user (Phone tab) or a queue.
+      </p>
+      <form
+        aria-label="New music on hold"
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const parsed = MohClassName.safeParse(name.trim());
+          setNameError(parsed.success ? undefined : parsed.error.issues[0]?.message);
+          if (parsed.success) create.mutate(parsed.data);
+        }}
+      >
+        <Field label="New set" error={nameError} hint="Like sales-jazz">
+          {(p) => (
+            <input
+              {...p}
+              className={inputClass}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          )}
+        </Field>
+        <Button type="submit" disabled={!name.trim() || create.isPending}>
+          Add set
+        </Button>
+      </form>
+      {create.error && <Alert>{create.error.message}</Alert>}
+      {classes.isError && <Alert>{classes.error.message}</Alert>}
+      {classes.data?.map((c) => (
+        <MohClassCard key={c.id} cls={c} onChanged={refresh} onDelete={() => setDeleting(c)} />
+      ))}
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Delete music on hold"
+        message={<p>Delete "{deleting?.name}" and its music? This can't be undone.</p>}
+        confirmLabel="Delete"
+        busy={remove.isPending}
+        error={remove.error?.message}
+        onCancel={() => {
+          setDeleting(null);
+          remove.reset();
+        }}
+        onConfirm={() => deleting && remove.mutate(deleting.id)}
+      />
+    </section>
+  );
+}
+
+function MohClassCard({
+  cls,
+  onChanged,
+  onDelete,
+}: {
+  cls: MohClassDto;
+  onChanged: () => Promise<unknown>;
+  onDelete: () => void;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const add = useMutation({
+    mutationFn: (f: File) => mohApi.addFile(cls.id, stem(f.name) || 'Music', f),
+    onSuccess: async () => {
+      setFile(null);
+      await onChanged();
+    },
+  });
+  const removeFile = useMutation({
+    mutationFn: (fileId: string) => mohApi.removeFile(cls.id, fileId),
+    onSuccess: onChanged,
+  });
+  const tooBig = file !== null && file.size > SOUND_MAX_BYTES;
+
+  return (
+    <div
+      aria-label={`Music on hold ${cls.name}`}
+      role="group"
+      className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex-1 font-medium">{cls.name}</span>
+        <Button variant="ghost" onClick={onDelete}>
+          Delete set
+        </Button>
+      </div>
+      {cls.files.length === 0 && (
+        <p className="text-sm text-zinc-500">No music yet: callers hear the default music.</p>
+      )}
+      <ul className="flex flex-col gap-1">
+        {cls.files.map((f) => (
+          <li key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            <span className="min-w-0 flex-1">
+              {f.name} <span className="text-zinc-500">{secs(f.durationMs)}</span>
+            </span>
+            <audio
+              controls
+              preload="none"
+              src={mohApi.audioUrl(cls.id, f.id)}
+              aria-label={`Play ${f.name}`}
+              className="h-9 w-full sm:w-64"
+            />
+            <Button
+              variant="ghost"
+              disabled={removeFile.isPending}
+              onClick={() => removeFile.mutate(f.id)}
+            >
+              Remove
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <form
+        className="flex flex-wrap items-end gap-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (file && !tooBig) add.mutate(file);
+        }}
+      >
+        <Field label={`Add music to ${cls.name}`}>
+          {(p) => (
+            <input
+              {...p}
+              type="file"
+              accept="audio/*"
+              className="text-sm"
+              onChange={(e) => {
+                add.reset();
+                setFile(e.target.files?.[0] ?? null);
+              }}
+            />
+          )}
+        </Field>
+        <Button type="submit" disabled={!file || tooBig || add.isPending}>
+          {add.isPending ? 'Converting…' : 'Upload'}
+        </Button>
+      </form>
+      {tooBig && <Alert>That file is larger than 20 MB.</Alert>}
+      {add.error && <Alert>{add.error.message}</Alert>}
+      {removeFile.error && <Alert>{removeFile.error.message}</Alert>}
+    </div>
   );
 }
 

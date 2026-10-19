@@ -25,6 +25,7 @@ export function loadCase(name: string): Snapshot {
     timeConditions?: Partial<Snapshot['timeConditions'][number]>[];
     holidays?: Snapshot['holidays'];
     announcements?: Snapshot['announcements'];
+    mohClasses?: string[];
   };
   const settings = Object.fromEntries(
     (Object.keys(SettingsSchemas) as SettingKey[])
@@ -116,6 +117,7 @@ export function loadCase(name: string): Snapshot {
       id: c.id!,
       number: c.number!,
     })),
+    mohClasses: raw.mohClasses ?? [],
     pagingGroups: (raw.pagingGroups ?? []).map((g, i) => ({
       name: `Paging ${i + 1}`,
       duplex: false,
