@@ -373,7 +373,7 @@ Admin resources (all `requireAdmin`; standard CRUD = `GET /x`, `POST /x`, `GET /
 |---|---|
 | `/api/users` | `POST /:id/reset-password` (sets a temp password, `must_change_password`) |
 | `/api/extensions` | `POST /:id/regenerate-sip-password`, `GET /:id/sip-credentials` (audited), `GET /:id/softphone-qr` (07 §5) |
-| `/api/trunks` | `POST /:id/test` (live registration status + OPTIONS RTT), `POST /:id/import-dids` (voip.ms API, 06 §5) |
+| `/api/trunks` | `POST /:id/test` (live registration status + OPTIONS RTT), `POST /:id/import-dids` (voip.ms API, 06 §5). As built (M9-T1): `GET /:id/voipms-servers` → `{servers: [hostname]}`; `GET /:id/import-dids` → the account's numbers `{number, description, smsEnabled, added}`; `POST /:id/import-dids {numbers}` adds only numbers voip.ms lists and that aren't added yet → `{added}`. 400 without API credentials on the trunk, 502 `provider_error` with voip.ms's reason (never the request URL). `VOIPMS_API_URL` overrides the endpoint for tests |
 | `/api/dids` | |
 | `/api/outbound-routes` | `POST /reorder {ids: []}`, `POST /test {extensionId, number}` → which route/trunk would be used, or why it's denied |
 | `/api/ring-groups` | members are set via `members: [{extensionId}]` in POST/PATCH |

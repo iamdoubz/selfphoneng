@@ -167,3 +167,11 @@ set is empty.
 come in from the trunk entry and wait; 341 comes back, gets caller 1, parks them on 701 (AMI
 BlindTransfer to 700), 343 dials 701 and picks up; 341 takes caller 2 and caller 3 rings 342 after
 30 s. The stats count 3 offered, 2 answered, 1 timed out.
+
+`m9-t1.mjs` starts a fake voip.ms API on 127.0.0.1:18090 (start the api with
+`VOIPMS_API_URL=http://127.0.0.1:18090/api/v1/rest.php`; the optional 5th argument is the api log).
+With a wrong API password the trunk form shows voip.ms's reason and the built-in server list; with
+the right one the list comes from `getServersInfo`. **Import numbers from voip.ms** imports one of
+two numbers with its description as the label, the list marks it added, Phone numbers shows it,
+and the api log never contains the API password. The trunk is created turned off, so nothing
+registers to the real voip.ms.

@@ -20,7 +20,7 @@ import { ThemeToggle } from '../components/ThemeToggle.tsx';
 import { Alert, Button, Field, inputClass } from '../components/ui.tsx';
 import { subscribeLive, useLive } from '../live/store.ts';
 import { EmailTab, EmergencyTab } from './admin/SettingsPage.tsx';
-import { TrunkForm, trunkStatus } from './admin/TrunksPage.tsx';
+import { ImportNumbers, TrunkForm, trunkStatus } from './admin/TrunksPage.tsx';
 
 const STEPS = [
   'Password',
@@ -450,6 +450,7 @@ function NumbersStep({ next }: { next: () => void }) {
       <p className="text-sm text-zinc-500">
         Add the phone numbers (DIDs) you have at voip.ms. You choose where their calls go in step 8.
       </p>
+      {trunks.data[0]!.hasApiPassword && <ImportNumbers trunk={trunks.data[0]!} />}
       {dids.data.length > 0 && (
         <ul className="text-sm">
           {dids.data.map((d) => (

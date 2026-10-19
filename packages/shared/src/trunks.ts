@@ -93,3 +93,19 @@ export const VOIPMS_SERVERS = [
   'toronto1.voip.ms',
   'vancouver1.voip.ms',
 ] as const;
+
+/** A number on the voip.ms account, offered by "Import numbers" (06 §7). */
+export type VoipmsDidDto = {
+  number: string;
+  description: string;
+  smsEnabled: boolean;
+  /** Already a phone number here. */
+  added: boolean;
+};
+export const ImportDidsSchema = z.object({
+  numbers: z
+    .array(z.string().regex(/^\d{7,15}$/))
+    .min(1, 'Pick at least one number')
+    .max(500),
+});
+export type ImportDids = z.input<typeof ImportDidsSchema>;

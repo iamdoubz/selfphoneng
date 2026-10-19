@@ -6,20 +6,28 @@ import { arrayContains, asc, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
+  ImportDidsSchema,
   TrunkCreateSchema,
   formatNumber,
   TrunkUpdateSchema,
   type ListResponse,
   type TrunkDto,
   type TrunkTestResult,
+  type VoipmsDidDto,
 } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
 import { dids, outboundRoutes, trunks } from '../db/schema.ts';
 import { badRequest, conflict, HttpError, notFound } from '../errors.ts';
 import { requireAdmin } from '../auth/guards.ts';
-import { encrypt } from '../crypto/secrets.ts';
+import { decrypt, encrypt } from '../crypto/secrets.ts';
+import {
+  getDids,
+  getServers,
+  VoipmsError,
+  type VoipmsCreds,
+} from '../integrations/voipms/client.ts';
 import { audit } from '../services/audit.ts';
-import { getSetting } from '../services/settings.ts';
+import { getSetting, setSetting } from '../services/settings.ts';
 import { createDefaultRoutes } from '../services/outbound.ts';
 
 type TrunkRow = typeof trunks.$inferSelect;
@@ -213,5 +221,76 @@ export async function trunkRoutes(app: FastifyInstance) {
               ? `${t.serverHost} answers but the registration hasn't completed yet. Try again in a minute.`
               : `${t.serverHost} answers (IP authentication: no registration)`;
     return { registration: reg ? live.registration : 'unknown', rttMs, detail };
+  });
+
+  /** The trunk's voip.ms API login, or 400 when it has none. */
+  function apiCreds(t: TrunkRow): VoipmsCreds {
+    if (t.provider !== 'voipms' || !t.voipmsApiUsername || !t.voipmsApiPasswordEnc)
+      throw badRequest('Add the voip.ms API username and password to this trunk first');
+    return { username: t.voipmsApiUsername, password: decrypt(t.voipmsApiPasswordEnc) };
+  }
+  /** voip.ms errors → 502 with a message for the admin (never the request URL). */
+  async function voipms<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (e) {
+      if (e instanceof VoipmsError) throw new HttpError(502, 'provider_error', e.message);
+      throw e;
+    }
+  }
+  const apiUrl = app.config.VOIPMS_API_URL;
+
+  /** POP servers for the form's server list (06 §2). */
+  app.get('/api/trunks/:id/voipms-servers', async (req) => {
+    const t = await getTrunk(db, IdParams.parse(req.params).id);
+    return { servers: await voipms(() => getServers(apiUrl, apiCreds(t))) };
+  });
+
+  /** The account's numbers, marked when already added (06 §7). */
+  app.get('/api/trunks/:id/import-dids', async (req): Promise<ListResponse<VoipmsDidDto>> => {
+    const t = await getTrunk(db, IdParams.parse(req.params).id);
+    const remote = await voipms(() => getDids(apiUrl, apiCreds(t)));
+    const have = new Set((await db.select({ n: dids.number }).from(dids)).map((d) => d.n));
+    return {
+      items: remote.map((d) => ({ ...d, added: have.has(d.number) })),
+      nextCursor: null,
+    };
+  });
+
+  /** Adds the picked numbers on this trunk, not routed yet (destination hangup). */
+  app.post('/api/trunks/:id/import-dids', async (req) => {
+    const t = await getTrunk(db, IdParams.parse(req.params).id);
+    const { numbers } = ImportDidsSchema.parse(req.body);
+    // Only numbers that really are on the account (and not added yet).
+    const remote = new Map(
+      (await voipms(() => getDids(apiUrl, apiCreds(t)))).map((d) => [d.number, d]),
+    );
+    const have = new Set((await db.select({ n: dids.number }).from(dids)).map((d) => d.n));
+    const picked = [...new Set(numbers)].filter((n) => remote.has(n) && !have.has(n));
+    if (!picked.length) throw badRequest('None of those numbers can be added');
+    const rows = await db
+      .insert(dids)
+      .values(
+        picked.map((n) => ({
+          number: n,
+          trunkId: t.id,
+          label: remote.get(n)!.description || null,
+          destination: { type: 'hangup' as const },
+        })),
+      )
+      .onConflictDoNothing()
+      .returning({ id: dids.id, number: dids.number });
+    if (rows[0] && (await getSetting(db, 'routing.defaultCallerIdDidId')) === null)
+      await setSetting(db, 'routing.defaultCallerIdDidId', rows[0].id);
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'create',
+      entityType: 'did',
+      entityId: t.id,
+      summary: `Imported ${rows.length} number(s) from voip.ms: ${rows.map((r) => formatNumber(r.number)).join(', ')}`,
+    });
+    app.generator.requestApply('api-change');
+    return { added: rows.length };
   });
 }

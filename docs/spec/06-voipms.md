@@ -137,3 +137,10 @@ How SelfPhoneNG meets this:
 ## 7. DID import (`POST /api/trunks/:id/import-dids`)
 Calls `getDIDsInfo`. Shows a list with checkboxes in the UI. Imported DIDs get
 destination `{type:'hangup'}` and a warning chip "Not routed yet" until edited.
+
+As built (M9-T1): `integrations/voipms/client.ts`. Assumed shapes (**verify** with a real account,
+voip.ms's API docs need a login): `getServersInfo` → `servers[].server_hostname`; `getDIDsInfo` →
+`dids[].did` (10 digits), `.description`, `.sms_enabled` ("1"); status `no_did` = no numbers;
+`invalid_credentials`, `ip_not_enabled` get their own messages. "Import numbers from voip.ms" is in
+the trunk form's API section and the setup wizard's numbers step; the label comes from the DID's
+description. The server list falls back to the built-in one when the API can't be reached.

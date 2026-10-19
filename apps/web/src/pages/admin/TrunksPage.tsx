@@ -7,6 +7,7 @@ import { useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import {
   CODECS,
+  formatNumber,
   Hostname,
   VOIPMS_SERVERS,
   type TrunkDto,
@@ -183,6 +184,7 @@ export function TrunkForm({
   trunk: TrunkDto | null;
   onSaved: (t: TrunkDto) => void;
 }) {
+  const qc = useQueryClient();
   const [error, setError] = useState<string>();
   const [saved, setSaved] = useState(false);
   const form = useForm<FormValues>({
@@ -212,6 +214,13 @@ export function TrunkForm({
     name: ['provider', 'authMode', 'transport'],
   });
   const voipms = provider === 'voipms';
+  // The account's POP servers once the trunk has API access (06 §2); the built-in list otherwise.
+  const servers = useQuery({
+    queryKey: ['voipms-servers', trunk?.id],
+    queryFn: () => trunksApi.voipmsServers(trunk!.id),
+    enabled: voipms && !!trunk?.hasApiPassword,
+    retry: false,
+  });
 
   function setTransport(t: FormValues['transport']) {
     form.setValue('transport', t);
@@ -235,6 +244,9 @@ export function TrunkForm({
     try {
       const t = trunk ? await trunksApi.update(trunk.id, body) : await trunksApi.create(body);
       form.reset({ ...v, password: '', voipmsApiPassword: '' });
+      // New API login: ask voip.ms again.
+      void qc.invalidateQueries({ queryKey: ['voipms-servers', t.id] });
+      void qc.invalidateQueries({ queryKey: ['voipms-dids', t.id] });
       setSaved(true);
       onSaved(t);
     } catch (e) {
@@ -266,7 +278,13 @@ export function TrunkForm({
       <Field
         label="Server"
         error={errors.serverHost?.message}
-        hint={voipms ? 'The voip.ms POP your sub-account and numbers use.' : undefined}
+        hint={
+          !voipms
+            ? undefined
+            : servers.isError
+              ? `The voip.ms POP your sub-account and numbers use. (Couldn't get the list from voip.ms: ${servers.error.message})`
+              : 'The voip.ms POP your sub-account and numbers use.'
+        }
       >
         {(a) => (
           <>
@@ -279,7 +297,7 @@ export function TrunkForm({
               className={inputClass}
             />
             <datalist id="voipms-servers">
-              {VOIPMS_SERVERS.map((s) => (
+              {(servers.data ?? VOIPMS_SERVERS).map((s) => (
                 <option key={s} value={s} />
               ))}
             </datalist>
@@ -449,10 +467,84 @@ export function TrunkForm({
                 />
               )}
             </Field>
+            {trunk?.hasApiPassword && <ImportNumbers trunk={trunk} />}
           </div>
         </details>
       )}
     </form>
+  );
+}
+
+/** "Import numbers from voip.ms" (06 §7): the account's DIDs with checkboxes. Also in /setup. */
+export function ImportNumbers({ trunk }: { trunk: TrunkDto }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [done, setDone] = useState<number | null>(null);
+  const list = useQuery({
+    queryKey: ['voipms-dids', trunk.id],
+    queryFn: () => trunksApi.voipmsDids(trunk.id),
+    enabled: open,
+    retry: false,
+  });
+  const run = useMutation({
+    mutationFn: () => trunksApi.importDids(trunk.id, picked),
+    onSuccess: async (r) => {
+      setDone(r.added);
+      setPicked([]);
+      await qc.invalidateQueries({ queryKey: ['dids'] });
+      await list.refetch();
+    },
+  });
+  if (!open)
+    return (
+      <div>
+        <Button onClick={() => setOpen(true)}>Import numbers from voip.ms</Button>
+      </div>
+    );
+  const fresh = list.data?.filter((d) => !d.added) ?? [];
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="mb-1 font-medium">Your voip.ms numbers</legend>
+      {list.isPending && <p className="text-zinc-500">Asking voip.ms…</p>}
+      {list.isError && <Alert>{list.error.message}</Alert>}
+      {list.data?.length === 0 && <p className="text-zinc-500">voip.ms lists no numbers.</p>}
+      {list.data?.map((d) => (
+        <label key={d.number} className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            disabled={d.added}
+            checked={d.added || picked.includes(d.number)}
+            onChange={(e) =>
+              setPicked((p) =>
+                e.target.checked ? [...p, d.number] : p.filter((n) => n !== d.number),
+              )
+            }
+          />
+          {formatNumber(d.number)}
+          {d.description && <span className="text-zinc-500">{d.description}</span>}
+          {d.added && <span className="text-zinc-500">(added)</span>}
+        </label>
+      ))}
+      {fresh.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="primary"
+            disabled={!picked.length || run.isPending}
+            onClick={() => run.mutate()}
+          >
+            Import {picked.length || ''} {picked.length === 1 ? 'number' : 'numbers'}
+          </Button>
+          <Button onClick={() => setPicked(fresh.map((d) => d.number))}>Pick all</Button>
+        </div>
+      )}
+      {done !== null && (
+        <p role="status" className="text-green-700 dark:text-green-400">
+          Added {done}. They hang up until you choose where their calls go (Phone numbers).
+        </p>
+      )}
+      {run.error && <Alert>{run.error.message}</Alert>}
+    </fieldset>
   );
 }
 

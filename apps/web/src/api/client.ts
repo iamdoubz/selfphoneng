@@ -49,6 +49,7 @@ import type {
   SipCredentials,
   SoundDto,
   MohClassDto,
+  VoipmsDidDto,
   TimeConditionCreate,
   TimeConditionDto,
   TimeConditionUpdate,
@@ -153,6 +154,12 @@ export const trunksApi = {
   update: (id: string, t: TrunkUpdate) => api<TrunkDto>('PATCH', `/api/trunks/${id}`, t),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/trunks/${id}`),
   test: (id: string) => api<TrunkTestResult>('POST', `/api/trunks/${id}/test`),
+  voipmsServers: (id: string) =>
+    api<{ servers: string[] }>('GET', `/api/trunks/${id}/voipms-servers`).then((r) => r.servers),
+  voipmsDids: (id: string) =>
+    api<ListResponse<VoipmsDidDto>>('GET', `/api/trunks/${id}/import-dids`).then((r) => r.items),
+  importDids: (id: string, numbers: string[]) =>
+    api<{ added: number }>('POST', `/api/trunks/${id}/import-dids`, { numbers }),
 };
 
 export const didsApi = {

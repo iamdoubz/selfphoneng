@@ -53,7 +53,10 @@ export function fakeAmi() {
 export const ADMIN = { email: 'admin@example.com', password: 'initial-admin-pw' };
 export const H = { 'x-requested-with': 'selfphoneng' };
 
-export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) => void) {
+export async function createTestApp(
+  extend?: (app: ReturnType<typeof buildApp>) => void,
+  env: Record<string, string> = {},
+) {
   const t = await createTestDb();
   const config = loadConfig({
     APP_SECRET: randomBytes(32).toString('base64'),
@@ -66,6 +69,7 @@ export async function createTestApp(extend?: (app: ReturnType<typeof buildApp>) 
     RECORDINGS_DIR: mkdtempSync(join(tmpdir(), 'sp-rec-')),
     SOUNDS_DIR: mkdtempSync(join(tmpdir(), 'sp-sounds-')),
     MOH_DIR: mkdtempSync(join(tmpdir(), 'sp-moh-')),
+    ...env,
   });
   setSecretKey(config.APP_SECRET);
   const pub = mkdtempSync(join(tmpdir(), 'sp-public-'));
