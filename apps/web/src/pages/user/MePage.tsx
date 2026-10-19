@@ -4,10 +4,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Link, NavLink, Route, Routes, useNavigate } from 'react-router';
-import { APP_NAME, type AuthUser } from '@selfphoneng/shared';
+import type { AuthUser } from '@selfphoneng/shared';
 import { authApi, meApi } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
-import { Alert, Button } from '../../components/ui.tsx';
+import { Alert, Brand, Button } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
 import { SoftphoneDock } from '../../softphone/SoftphoneDock.tsx';
 import { PresencePanel } from '../../softphone/PresencePanel.tsx';
@@ -40,7 +40,9 @@ export function MePage({ user }: { user: AuthUser }) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-6 p-4 sm:p-8">
       <header className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-xl font-semibold">{APP_NAME}</h1>
+        <h1 className="text-xl">
+          <Brand />
+        </h1>
         <div className="flex items-center gap-2">
           {user.role === 'admin' && (
             <Link className={`${link} text-sm`} to="/admin">

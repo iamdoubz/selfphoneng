@@ -3,10 +3,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Navigate, NavLink, Outlet, useNavigate } from 'react-router';
-import { APP_NAME, type AuthUser } from '@selfphoneng/shared';
+import type { AuthUser } from '@selfphoneng/shared';
 import { authApi, systemApi } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
-import { Button } from '../../components/ui.tsx';
+import { Brand, Button } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
 
 export const ADMIN_PAGES = [
@@ -75,7 +75,9 @@ export function AdminLayout({ user }: { user: AuthUser }) {
   return (
     <div className="flex min-h-dvh">
       <aside className="sticky top-0 hidden h-dvh w-60 flex-col border-r border-zinc-200 bg-zinc-50 md:flex dark:border-zinc-800 dark:bg-zinc-900">
-        <p className="px-4 py-4 text-lg font-semibold">{APP_NAME}</p>
+        <p className="px-4 py-4 text-lg">
+          <Brand />
+        </p>
         {links}
       </aside>
 
@@ -91,7 +93,7 @@ export function AdminLayout({ user }: { user: AuthUser }) {
           >
             ☰
           </Button>
-          <span className="font-semibold md:hidden">{APP_NAME}</span>
+          <Brand className="md:hidden" />
           <div className="ml-auto flex items-center gap-1 whitespace-nowrap sm:gap-2">
             <span className="hidden text-sm text-zinc-600 sm:inline dark:text-zinc-400">
               {user.displayName}

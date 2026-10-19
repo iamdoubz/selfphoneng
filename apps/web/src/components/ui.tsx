@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Small form building blocks shared by every page.
 import { useId, type ComponentProps, type ReactNode } from 'react';
+import { APP_NAME } from '@selfphoneng/shared';
 
 const focus =
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500';
@@ -12,6 +13,16 @@ const variants = {
   danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/50',
   ghost: 'hover:bg-zinc-100 dark:hover:bg-zinc-800',
 };
+
+/** The icon (public/icon-192.png, cut from public/logo.png) and the product name. */
+export function Brand({ className = '' }: { className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-2 font-semibold ${className}`}>
+      <img src="/icon-192.png" alt="" className="size-7 rounded-md" />
+      {APP_NAME}
+    </span>
+  );
+}
 
 export function Button({
   variant = 'secondary',
