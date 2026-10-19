@@ -45,6 +45,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build /out/ /
 COPY conf/ /etc/asterisk/
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh && mkdir -p /etc/asterisk/selfphoneng /var/lib/asterisk/db /var/lib/asterisk/moh /var/run/asterisk \
+COPY sp-vm-pincheck /usr/local/bin/sp-vm-pincheck
+RUN chmod +x /entrypoint.sh /usr/local/bin/sp-vm-pincheck && mkdir -p /etc/asterisk/selfphoneng /var/lib/asterisk/db /var/lib/asterisk/moh /var/run/asterisk \
  && chown -R asterisk:asterisk /etc/asterisk /var/lib/asterisk /var/spool/asterisk /var/log/asterisk /var/run/asterisk
 ENTRYPOINT ["/entrypoint.sh"]

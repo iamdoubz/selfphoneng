@@ -7,7 +7,7 @@
 | SIP scanners / password guessing | "friendly-scanner", sipvicious hitting 5060 | Generated 24-char SIP passwords; no anonymous endpoint; fail2ban/CrowdSec on `security.log`; optional phone ACL (§2.2); firewall allow-list |
 | **Toll fraud** (the expensive one) | Stolen SIP creds used to call premium international numbers | International route disabled by default; per-user outbound class; `max_channels`; voip.ms-side international block + balance limits (06 §1); forward targets checked against class |
 | Web credential stuffing | Login brute force | argon2id, rate limits, audit log, TOTP for admins (M11) |
-| Voicemail PIN guessing | Calling *98 and trying PINs | 6-digit default PIN, `maxlogins=3`, reject trivial PINs (`000000`, `123456`, the extension number repeated) |
+| Voicemail PIN guessing | Calling *98 and trying PINs | 6-digit default PIN, `maxlogins=3`, reject trivial PINs (`000000`, `123456`, the extension number repeated). As built (M11-T1): also for PINs changed from the phone's voicemail menu: `externpasscheck = /usr/local/bin/sp-vm-pincheck` (asterisk image, same rules, a unit test keeps it in step with `isTrivialPin`), `minpassword = 4`; the api stores accepted ones from AMI `VoicemailPasswordChange` (`services/vmpin.ts`), otherwise the next config write would put the old PIN back |
 | Provisioning leaks | Fetching `/prov/<mac>.cfg` to steal SIP passwords | Per-device Basic auth, 404 on unknown MAC, rate limit + temporary IP block, optional LAN-only |
 | Dialplan injection | Name `x); System(...)` | Sanitizers (03 §2), no `System()` anywhere |
 | SSRF via webhooks | Webhook to `http://127.0.0.1:5038` | Private IP block by default (04 §9) |
@@ -22,14 +22,20 @@
   server IPs (from the voip.ms wiki list, **verify**) plus `sip.extraAllowedNets`, for setups with no remote phones.
 
 ### 2.2 Phone ACL (setting `sip.restrictPhonesToLocalNets`)
-When true, the generator adds:
+When true, the generator adds to every **desk** extension endpoint (not `-web`, not trunks):
 ```ini
-[sp-phone-acl]
-type = acl
-contact_deny = 0.0.0.0/0.0.0.0
-contact_permit = 192.168.0.0/16        ; each network.localNets + sip.extraAllowedNets
+deny = 0.0.0.0/0.0.0.0
+permit = 192.168.0.0/16                ; each network.localNets + sip.extraAllowedNets (deduplicated)
 ```
-and `contact_acl = sp-phone-acl` on every extension endpoint (not trunks). Golden test required.
+Golden case `phone-acl`; `scripts/e2e/m11-t1.mjs` shows Asterisk refusing a REGISTER ("Not match
+Endpoint ACL") and accepting it once the network is listed.
+
+Changed from the first draft (M11-T1): `contact_acl = sp-phone-acl` names a section of **acl.conf**,
+not pjsip.conf, and a `type = acl` section in pjsip.conf is res_pjsip_acl's *global* ACL, which would
+filter trunks too. Contact-header rules alone are also weak: a phone behind NAT at home advertises a
+private address. Source-address `deny`/`permit` on the endpoint is what keeps remote phones out.
+Browser phones arrive through the reverse proxy (their source is the proxy), so `-web` endpoints
+aren't filtered. The setting is on Settings → Security, with the provisioning switches (07 §2).
 
 ### 2.3 fail2ban / CrowdSec
 - `logger.conf` writes `security.log` (01 §3.3).
@@ -45,6 +51,9 @@ and `contact_acl = sp-phone-acl` on every extension endpoint (not trunks). Golde
 - HSTS is set by the reverse proxy (Caddy does it by default; nginx example adds `add_header Strict-Transport-Security "max-age=31536000" always;`).
 - `TRUST_PROXY=true` → Fastify `trustProxy: '127.0.0.1'` only.
 - Admin TOTP (M11): RFC 6238, 30 s, 6 digits, ±1 window, 10 single-use recovery codes (stored hashed).
+- As built (M11-T1): the headers come from an `onSend` hook on every response (UI, API, `/prov`);
+  `connect-src` also allows `WEBRTC_WS_URL`'s origin when it's set. The dark-mode bootstrap moved
+  from an inline `<script>` in `index.html` to `/theme.js`, so `script-src` stays `'self'`.
 
 ### 2.5 Files and permissions
 - `/etc/asterisk/selfphoneng/*` mode 0640, owner app UID.

@@ -148,4 +148,16 @@ describe.skipIf(!hasTestDb)('auth', () => {
     expect((await get('/api/nope')).statusCode).toBe(404);
     expect((await get('/prov/x.cfg')).statusCode).toBe(404);
   });
+
+  it('M11-T1: security headers on every response (08 §2.4)', async () => {
+    for (const url of ['/admin/users', '/api/nope', '/healthz']) {
+      const h = (await get(url)).headers;
+      expect(h['content-security-policy'], url).toBe(
+        "default-src 'self'; connect-src 'self' wss://pbx.test; media-src 'self' blob:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
+      );
+      expect(h['x-content-type-options']).toBe('nosniff');
+      expect(h['referrer-policy']).toBe('same-origin');
+      expect(h['permissions-policy']).toBe('microphone=(self), camera=()');
+    }
+  });
 });

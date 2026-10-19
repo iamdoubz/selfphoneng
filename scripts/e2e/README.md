@@ -196,3 +196,10 @@ name and password from the XML registers. Scanning the QR with the Linphone app 
 `m10-t4.mjs` (after `m1-t4.mjs`): 380 calls 381; the admin, whose extension is 382 (desk phone),
 presses **Listen**, **Whisper** and **Barge** on the dashboard. Each time 382 rings, answers and
 runs `ChanSpy(PJSIP/380-…, qE / qEw / qEB)`; hanging up the call ends the barge leg too.
+
+`m11-t1.mjs` (after `m1-t4.mjs`; needs the Asterisk image with `sp-vm-pincheck`; 5th argument: the
+generated config dir) clicks through admin pages and fails on any Content-Security-Policy
+violation; turns the phone ACL on with the phones' Docker network unlisted (390 can't register:
+"Not match Endpoint ACL") and then listed (it registers); and changes 391's voicemail PIN from the
+phone with `*98` and DTMF: `1111` is refused by `sp-vm-pincheck`, `7391` is stored by the api and
+survives a later config write.

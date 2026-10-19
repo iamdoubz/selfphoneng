@@ -28,6 +28,7 @@ describe('golden', () => {
         'queue',
         'conferences',
         'paging',
+        'phone-acl',
       ]),
     );
   });

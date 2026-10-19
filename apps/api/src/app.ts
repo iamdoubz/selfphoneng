@@ -89,6 +89,27 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
       return sendError(reply, forbidden('Missing X-Requested-With header', 'csrf'));
   });
 
+  // Security headers on every response (08 §2.4). The softphone's WebSocket may live elsewhere
+  // (WEBRTC_WS_URL, e.g. in dev), so its origin is allowed too. HSTS is the reverse proxy's job.
+  const wsOrigins = [
+    `wss://${config.PUBLIC_HOSTNAME}`,
+    ...(config.WEBRTC_WS_URL ? [new URL(config.WEBRTC_WS_URL).origin] : []),
+  ];
+  const csp = [
+    "default-src 'self'",
+    `connect-src 'self' ${[...new Set(wsOrigins)].join(' ')}`,
+    "media-src 'self' blob:",
+    "img-src 'self' data:",
+    "style-src 'self' 'unsafe-inline'",
+    "frame-ancestors 'none'",
+  ].join('; ');
+  app.addHook('onSend', async (_req, reply) => {
+    reply.header('Content-Security-Policy', csp);
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Referrer-Policy', 'same-origin');
+    reply.header('Permissions-Policy', 'microphone=(self), camera=()');
+  });
+
   app.get('/healthz', async (_req, reply) => {
     try {
       await db.execute(sql`select 1`);

@@ -1,0 +1,20 @@
+#!/bin/sh
+# Voicemail PIN check for PINs changed from the phone (app_voicemail externpasscheck).
+# Args: mailbox context oldpin newpin. Prints VALID or INVALID. Same rules as the api
+# (crypto/secrets.ts isTrivialPin): 4-10 digits, not one digit repeated, not a run like
+# 1234 or 4321, not the extension repeated.
+box=$1
+pin=$4
+case $pin in
+  '' | *[!0-9]*) echo INVALID; exit 0 ;;
+esac
+len=${#pin}
+if [ "$len" -lt 4 ] || [ "$len" -gt 10 ]; then echo INVALID; exit 0; fi
+first=$(printf %.1s "$pin")
+if [ -z "$(printf %s "$pin" | tr -d "$first")" ]; then echo INVALID; exit 0; fi
+case 01234567890 in *"$pin"*) echo INVALID; exit 0 ;; esac
+case 09876543210 in *"$pin"*) echo INVALID; exit 0 ;; esac
+rep=$box
+while [ ${#rep} -lt "$len" ]; do rep=$rep$box; done
+if [ -n "$box" ] && [ "$(printf %s "$rep" | cut -c1-"$len")" = "$pin" ]; then echo INVALID; exit 0; fi
+echo VALID

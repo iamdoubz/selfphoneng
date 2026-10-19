@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Settings (05 §2). M3: Email and Emergency; M7: Recording. The other tabs arrive with their features.
+// Settings (05 §2). M3: Email and Emergency; M7: Recording; M11: Security (phone ACL, provisioning).
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NavLink, useParams } from 'react-router';
@@ -12,6 +12,7 @@ const TABS = [
   { id: 'email', label: 'Email' },
   { id: 'emergency', label: 'Emergency' },
   { id: 'recording', label: 'Recording' },
+  { id: 'security', label: 'Security' },
 ] as const;
 
 export function SettingsPage() {
@@ -40,6 +41,7 @@ export function SettingsPage() {
       {settings.data && tab === 'email' && <EmailTab s={settings.data} />}
       {settings.data && tab === 'emergency' && <EmergencyTab s={settings.data} />}
       {settings.data && tab === 'recording' && <RecordingTab s={settings.data} />}
+      {settings.data && tab === 'security' && <SecurityTab s={settings.data} />}
     </section>
   );
 }
@@ -363,6 +365,65 @@ function RecordingTab({ s }: { s: SettingsDto }) {
           />
         )}
       </Field>
+      <div className="flex items-center gap-3">
+        <Button type="submit" variant="primary" disabled={save.isPending}>
+          Save
+        </Button>
+        {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+      </div>
+      {save.error && <Alert>{save.error.message}</Alert>}
+    </form>
+  );
+}
+
+/** Phone ACL (08 §2.2) and provisioning access (07 §2). */
+function SecurityTab({ s }: { s: SettingsDto }) {
+  const save = useSave();
+  const [restrict, setRestrict] = useState(s['sip.restrictPhonesToLocalNets']);
+  const [extra, setExtra] = useState(s['sip.extraAllowedNets'].join(', '));
+  const [lanOnly, setLanOnly] = useState(s['provisioning.lanOnly']);
+  const [provOn, setProvOn] = useState(s['provisioning.enabled']);
+  const box = (checked: boolean, set: (v: boolean) => void, label: string) => (
+    <label className="flex items-center gap-2 text-sm">
+      <input type="checkbox" checked={checked} onChange={(e) => set(e.target.checked)} />
+      {label}
+    </label>
+  );
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate({
+          'sip.restrictPhonesToLocalNets': restrict,
+          'sip.extraAllowedNets': extra.split(/[,\s]+/).filter(Boolean),
+          'provisioning.lanOnly': lanOnly,
+          'provisioning.enabled': provOn,
+        });
+      }}
+    >
+      <h2 className="font-medium">Desk phones</h2>
+      {box(restrict, setRestrict, 'Only accept desk phones from the networks below')}
+      <p className="-mt-2 text-xs text-zinc-500">
+        Local networks: {s['network.localNets'].join(', ')}. Phones anywhere else (at home, on a
+        mobile network) can't sign in while this is on. Browser phones aren't affected.
+      </p>
+      <Field
+        label="Other networks allowed"
+        hint="For example a branch office: 203.0.113.0/24. Separate with commas."
+      >
+        {(p) => (
+          <input
+            {...p}
+            className={inputClass}
+            value={extra}
+            onChange={(e) => setExtra(e.target.value)}
+          />
+        )}
+      </Field>
+      <h2 className="font-medium">Phone setup files</h2>
+      {box(provOn, setProvOn, 'Serve setup files to phones (Phones page)')}
+      {box(lanOnly, setLanOnly, 'Only to phones on the local networks')}
       <div className="flex items-center gap-3">
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save

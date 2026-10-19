@@ -1,0 +1,25 @@
+{
+  "settings": {
+    "sip.restrictPhonesToLocalNets": true,
+    "network.localNets": ["192.168.1.0/24", "10.0.0.0/8"],
+    "sip.extraAllowedNets": ["203.0.113.0/24", "10.0.0.0/8"]
+  },
+  "extensions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000101",
+      "number": "101",
+      "name": "Dan Doe",
+      "sipPassword": "Ab3dEf9hIj2kLm4nOp6qRs8t",
+      "webrtcEnabled": true
+    }
+  ],
+  "trunks": [
+    {
+      "id": "7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37",
+      "name": "voip.ms",
+      "serverHost": "chicago1.voip.ms",
+      "username": "123456_pbx",
+      "password": "TrunkPw123"
+    }
+  ]
+}

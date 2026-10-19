@@ -16,6 +16,7 @@ import { syncAstDb } from './services/astdb.ts';
 import { watchToggles } from './services/toggles.ts';
 import { watchCdr } from './services/cdr.ts';
 import { watchQueueCalls } from './services/queuestats.ts';
+import { watchPinChanges } from './services/vmpin.ts';
 import { cleanupRecordings } from './routes/recordings.ts';
 import { getSetting } from './services/settings.ts';
 import { todayIn } from './generator/load.ts';
@@ -62,6 +63,7 @@ app.decorate('sendMail', sendMail);
 watchEmergencies({ db, ami, live, send: sendMail, log: app.log }, ami);
 watchToggles({ db, ami, live, log: app.log }, ami);
 watchQueueCalls({ db, log: app.log }, ami);
+watchPinChanges({ db, log: app.log, requestApply: () => generator.requestApply('phone-pin') }, ami);
 const history = watchCdr({ db, log: app.log, recordingsDir: resolve(config.RECORDINGS_DIR) }, ami);
 const voicemail = watchVoicemail(
   {

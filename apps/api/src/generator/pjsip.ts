@@ -68,7 +68,21 @@ export function renderTransports(snap: Snapshot): string {
     .join('\n\n');
 }
 
-function extensionSections(e: SnapExtension): string {
+/**
+ * Phone ACL (08 §2.2): desk phones may only talk to us from these nets. Source-address rules on
+ * each desk endpoint, not `contact_acl` (that names acl.conf sections) nor a pjsip `type = acl`
+ * (global: it would filter trunks too). Browsers (-web) arrive through the reverse proxy: not
+ * filtered.
+ */
+function phoneAcl(snap: Snapshot): string[] {
+  if (!snap.settings['sip.restrictPhonesToLocalNets']) return [];
+  const nets = [
+    ...new Set([...snap.settings['network.localNets'], ...snap.settings['sip.extraAllowedNets']]),
+  ];
+  return ['deny = 0.0.0.0/0.0.0.0', ...nets.map((n) => `permit = ${s.cidr(n)}`)];
+}
+
+function extensionSections(e: SnapExtension, acl: string[]): string {
   const num = s.digits(e.number);
   const name = s.name(e.name) || num;
   const groups = e.pickupGroup ? s.ident(e.pickupGroup) : null;
@@ -111,6 +125,7 @@ function extensionSections(e: SnapExtension): string {
         'force_rport = yes',
         'rewrite_contact = yes',
         'send_pai = yes',
+        ...acl,
         ...common,
       ]),
     section(`${num}-auth`, [
@@ -229,7 +244,8 @@ function trunkSections(t: SnapTrunk, snap: Snapshot): string {
 }
 
 export function renderPjsip(snap: Snapshot): string {
-  const exts = [...snap.extensions].sort(byNumber).map(extensionSections);
+  const acl = phoneAcl(snap);
+  const exts = [...snap.extensions].sort(byNumber).map((e) => extensionSections(e, acl));
   const trunks = snap.trunks
     .filter((t) => t.enabled)
     .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id))

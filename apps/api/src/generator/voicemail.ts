@@ -21,6 +21,10 @@ minsecs = 1
 maxsilence = 10
 silencethreshold = 128
 maxlogins = 3
+minpassword = 4
+; PINs changed from the phone pass the api's rules first (asterisk/sp-vm-pincheck); the api
+; stores them from VoicemailPasswordChange (services/vmpin.ts).
+externpasscheck = /usr/local/bin/sp-vm-pincheck
 envelope = yes
 saycid = yes
 review = no
