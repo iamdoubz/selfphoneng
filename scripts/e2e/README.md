@@ -148,3 +148,22 @@ A second park takes 702 (`findslot = next`) and 292 picks it up by dialing 702.
 channels typing with `SendDTMF`: a wrong PIN plays `conf-invalidpin` and asks again, the admin PIN
 joins with flags `AM` in `confbridge list`, a 4th caller is turned away, and the recordings appear
 on the Recordings page. Room 801 has no PIN; desk phones 300 and 301 dial in.
+
+`m8-t4.mjs`: phones 320 and 321 answer manually but honor the auto-answer headers
+(`sip_autoanswer=yes`, like a Yealink or Grandstream); 322 auto-answers and does the paging. It
+builds paging group 850 in the UI. An ordinary call to 320 keeps ringing; a page from 322 is
+answered by 320 and 321 by themselves (the INVITE carries `Call-Info: …;answer-after=0` and
+`Alert-Info`, seen with `pjsip set logger on`), muted (`m` in `confbridge list`), and 322 (busy,
+a member too) isn't paged. `*80320` is two-way; `*80999` plays `ss-noservice`.
+
+`m8-t5.mjs` needs m2-live with a moh dir (`m2-live.mjs up` 5th argument, the api with `MOH_DIR`).
+It makes the set `sales-jazz` on **Sounds & music** (refusing a bad name), uploads a tone into it,
+and checks `moh show files`, a queue caller hearing it ("Started music on hold, class
+'sales-jazz'"), a user's `moh_suggest`, delete refused while used, and the default music once the
+set is empty.
+
+`m8-check.mjs` is the M8 milestone check (after `m1-t4.mjs`): phones 340–343, a DID to queue 550
+(agents 340 and 341, 30 s, then 342). 340 pauses with `*45550` and 341 from the api, three callers
+come in from the trunk entry and wait; 341 comes back, gets caller 1, parks them on 701 (AMI
+BlindTransfer to 700), 343 dials 701 and picks up; 341 takes caller 2 and caller 3 rings 342 after
+30 s. The stats count 3 offered, 2 answered, 1 timed out.

@@ -207,7 +207,7 @@ Legend: 📖 read · 🔨 build · ✅ done when
 **M8-T4** Paging/intercom (`sp-page-*`, `*80`) + auto-answer test on a real Yealink or Grandstream.
 As built: tested with baresip phones that honor the auto-answer headers (`sip_autoanswer`). **Open:** the check on a real Yealink or Grandstream, when one is available.
 **M8-T5** MOH classes (03 §8).
-✅ Golden `queue` case passes. Scenario: 3 callers wait in a queue with 2 agents. One agent pauses with `*45550`. The caller who waits past `max_wait_seconds` goes to the timeout destination. A parked call on 701 can be picked up from another phone.
+✅ **Milestone check:** golden `queue` case passes. Scenario: 3 callers wait in a queue with 2 agents. One agent pauses with `*45550`. The caller who waits past `max_wait_seconds` goes to the timeout destination. A parked call on 701 can be picked up from another phone. **Done as `scripts/e2e/m8-check.mjs` (callers from a DID; the agent who answers parks the call and another phone picks up 701).**
 
 ---
 
