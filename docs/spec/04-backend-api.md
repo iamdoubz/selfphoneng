@@ -419,7 +419,7 @@ Reports, history, system:
 | GET | `/api/live` | WebSocket (§5.2) |
 | POST | `/api/live/calls/:linkedid/hangup` | admin |
 | POST | `/api/live/calls/:linkedid/transfer` | admin `{target}` → AMI `Redirect` of the external party's channel to `sp-local-numbers,<target>,1` |
-| POST | `/api/live/calls/:linkedid/spy` | admin `{mode: 'listen'|'whisper'|'barge'}` → Originate to admin's ext running `ChanSpy(<channel>,q{''|w|B})` (M10) |
+| POST | `/api/live/calls/:linkedid/spy` | admin `{mode: 'listen'|'whisper'|'barge'}` → Originate to admin's ext running `ChanSpy(<channel>,q{''|w|B})` (M10). As built (M10-T4): rings the admin's **desk** phone (`PJSIP/<ext>`, 409 if it isn't connected; 400 without an extension); spies on the call's first user leg (`PJSIP/<n>` or `-web`, not the admin's own, never a trunk or Local channel), which for an inbound or queue call is the agent; options `qE`, `qEw`, `qEB` (`E`: the spy leg ends with the call). Audited as `call_spy`. The spy leg shows on the dashboard as its own call ("Listen 101"); hanging it up stops listening |
 | GET | `/healthz` | unauthenticated; 200 if DB ok, AMI connected, else 503 with JSON reasons |
 
 SMS (06 §5): `GET /api/sms/threads`, `GET /api/sms/threads/:didId/:remoteNumber`,

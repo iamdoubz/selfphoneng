@@ -229,6 +229,7 @@ As built: done against a fake voip.ms API. **Open:** check the response shapes w
 **M10-T2** Yealink + Grandstream templates + phonebook XML + timezone table (07 §3).
 **M10-T3** Linphone QR provisioning (07 §5) + "Set up a phone app" page.
 **M10-T4** Spy/whisper/barge (04 §7.3).
+As built: all four tasks done and tested with simulated phones (`scripts/e2e/m10-t1…t4.mjs`). **Open:** the milestone check below needs a real Yealink (and a Grandstream for its keys) and the Linphone app scanning the QR; the owner has neither yet (2026-10-19). Vendor key names stay (verify per model) until then.
 ✅ A factory-reset Yealink pointed at the URL registers with the right name and BLF keys. Linphone on a phone registers by scanning the QR.
 
 ---

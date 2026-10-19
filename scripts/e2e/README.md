@@ -192,3 +192,7 @@ show UTC (the zone is put back after).
 app** shows the Linphone QR and its link. Fetching the link with no other credentials (as Linphone
 does) returns the account XML; a changed token gets 404; and a baresip phone given only the user
 name and password from the XML registers. Scanning the QR with the Linphone app is left to a person.
+
+`m10-t4.mjs` (after `m1-t4.mjs`): 380 calls 381; the admin, whose extension is 382 (desk phone),
+presses **Listen**, **Whisper** and **Barge** on the dashboard. Each time 382 rings, answers and
+runs `ChanSpy(PJSIP/380-…, qE / qEw / qEB)`; hanging up the call ends the barge leg too.

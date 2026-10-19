@@ -374,4 +374,8 @@ export const liveApi = {
   hangup: (linkedid: string) => api<{ ok: true }>('POST', `/api/live/calls/${linkedid}/hangup`, {}),
   transfer: (linkedid: string, target: string) =>
     api<{ ok: true }>('POST', `/api/live/calls/${linkedid}/transfer`, { target }),
+  spy: (linkedid: string, mode: SpyMode) =>
+    api<{ ok: true }>('POST', `/api/live/calls/${linkedid}/spy`, { mode }),
 };
+
+export type SpyMode = 'listen' | 'whisper' | 'barge';

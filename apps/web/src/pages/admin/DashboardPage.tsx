@@ -5,7 +5,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { ActiveCall, QueueLive } from '@selfphoneng/shared';
 import { Link } from 'react-router';
-import { liveApi, settingsApi } from '../../api/client.ts';
+import { liveApi, settingsApi, type SpyMode } from '../../api/client.ts';
 import { ConfirmDialog } from '../../components/Dialog.tsx';
 import { Alert, Button, inputClass } from '../../components/ui.tsx';
 import { fmtNumber } from './CallsPage.tsx';
@@ -198,6 +198,17 @@ export const since = (iso: string, now: number) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
+const SPY_MODES = [
+  ['listen', 'Listen', 'Your desk phone rings, then you hear the call; nobody hears you'],
+  ['whisper', 'Whisper', 'Only your user hears you (coaching); the caller does not'],
+  ['barge', 'Barge', 'You join the call: both sides hear you'],
+] as const satisfies readonly (readonly [SpyMode, string, string])[];
+const SPY_DONE = {
+  listen: 'listen in',
+  whisper: 'whisper to your user',
+  barge: 'join the call',
+} as const;
+
 /** Calls in progress, from the live socket (04 §5.1). */
 function LiveCalls() {
   const calls = Object.values(useLive((s) => s.calls)).sort((a, b) =>
@@ -214,10 +225,20 @@ function LiveCalls() {
     mutationFn: ({ c, target }: { c: ActiveCall; target: string }) =>
       liveApi.transfer(c.linkedid, target),
   });
+  // Listen in (04 §7.3): the admin's desk phone rings, then hears the call.
+  const spy = useMutation({
+    mutationFn: ({ c, mode }: { c: ActiveCall; mode: SpyMode }) => liveApi.spy(c.linkedid, mode),
+  });
   return (
     <div>
       <h2 className="mb-2 font-medium">Calls now ({calls.length})</h2>
       {transfer.error && <Alert>{transfer.error.message}</Alert>}
+      {spy.error && <Alert>{spy.error.message}</Alert>}
+      {spy.isSuccess && (
+        <p role="status" className="mb-2 text-sm text-green-700 dark:text-green-400">
+          Your desk phone is ringing: answer it to {SPY_DONE[spy.variables.mode]}.
+        </p>
+      )}
       {calls.length === 0 ? (
         <p className="text-sm text-zinc-500">No calls right now.</p>
       ) : (
@@ -266,6 +287,21 @@ function LiveCalls() {
                 />
                 <Button type="submit">Transfer</Button>
               </form>
+              {c.extensions.length > 0 && c.state === 'talking' && (
+                <span className="flex gap-1">
+                  {SPY_MODES.map(([mode, label, title]) => (
+                    <Button
+                      key={mode}
+                      variant="ghost"
+                      title={title}
+                      disabled={spy.isPending}
+                      onClick={() => spy.mutate({ c, mode })}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </span>
+              )}
               <Button variant="danger" onClick={() => setHangingUp(c)}>
                 Hang up
               </Button>
