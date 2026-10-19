@@ -447,6 +447,22 @@ Provisioning and inbound hooks (outside `/api`, no session):
 
 Jobs must never overlap with themselves (use a running flag).
 
+As built (M11-T4): `jobs.ts`, one setInterval a minute instead of croner (every schedule above is
+whole minutes). Each job has a running flag; an error is logged, not fatal.
+- `nightlyRegenerate` and `retentionCleanup` run when the date in `general.timezone` changes and
+  at start, not at 00:05 / 02:00. Retention waits for AMI: voicemail is removed with
+  `VoicemailRemove`, so Asterisk renumbers the folder and updates MWI. It also deletes recordings,
+  expired sessions and webhook deliveries older than 30 days.
+- `publicIpWatch` asks api.ipify.org (then ifconfig.me), only when the setting is on (Settings →
+  Network). A changed IP is saved, audited, applied (which sets `restartRequired`; the job doesn't
+  restart Asterisk, that drops calls) and emailed.
+- `trunkWatch` only knows registering trunks (IP-auth trunks are always `unknown`): rejected or
+  unregistered for 5 minutes in a row → one email; registered again ends the outage. Skipped while
+  AMI is down. No "back up" email.
+- `diskWatch` checks the filesystem of `RECORDINGS_DIR` (`statfs`).
+- Admin emails go to every active admin; the texts are in `jobs.ts`, not `mail.ts`. A failed daily
+  backup emails them too (08 §3.2). Email not set up: logged, nothing else.
+
 ### 8.1 Backups
 Folder `/var/lib/selfphoneng/backups/selfphoneng-YYYYMMDD-HHMM.tar.gz` containing:
 `db.sql` (`pg_dump --no-owner`), `voicemail/`, `sounds-custom/`, `moh/`,

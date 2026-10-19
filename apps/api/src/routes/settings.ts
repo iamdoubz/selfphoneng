@@ -22,6 +22,7 @@ import { getAllSettings, getSetting, setSetting } from '../services/settings.ts'
 import { notifyEmergency } from '../services/emergency.ts';
 import { readTlsCert } from '../services/tls.ts';
 import { backupMissed } from '../services/backup.ts';
+import { detectPublicIp } from '../jobs.ts';
 import type { SendMail } from '../services/mail.ts';
 
 declare module 'fastify' {
@@ -179,12 +180,8 @@ export async function settingsRoutes(app: FastifyInstance) {
 
   /** The server's public IPv4, as an outside service sees it (only sent when asked). */
   app.post('/api/settings/network/detect-public-ip', async () => {
-    for (const url of ['https://api.ipify.org', 'https://ifconfig.me/ip']) {
-      const ip = await fetch(url, { signal: AbortSignal.timeout(5000) })
-        .then((r) => (r.ok ? r.text() : ''))
-        .catch(() => '');
-      if (z.ipv4().safeParse(ip.trim()).success) return { ip: ip.trim() };
-    }
+    const ip = await detectPublicIp();
+    if (ip) return { ip };
     throw new HttpError(502, 'unavailable', "Couldn't detect the public IP. Enter it by hand.");
   });
 

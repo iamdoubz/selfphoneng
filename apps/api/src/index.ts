@@ -17,10 +17,7 @@ import { watchToggles } from './services/toggles.ts';
 import { watchCdr } from './services/cdr.ts';
 import { watchQueueCalls } from './services/queuestats.ts';
 import { watchPinChanges } from './services/vmpin.ts';
-import { cleanupRecordings } from './routes/recordings.ts';
-import { getSetting } from './services/settings.ts';
-import { todayIn } from './generator/load.ts';
-import { backupDue, runBackup } from './services/backup.ts';
+import { startJobs } from './jobs.ts';
 
 let config;
 try {
@@ -108,42 +105,21 @@ ami.on('connected', () => {
 });
 ami.start();
 
-// Holidays roll over at midnight (03 §6.10): render again when the local date changes.
-// ponytail: a once-a-minute check instead of croner; the M11 jobs can take this over.
-let lastDay = '';
-const regenerateOnNewDay = async () => {
-  const today = todayIn(await getSetting(db, 'general.timezone'));
-  if (lastDay && today !== lastDay) await generator.apply({ trigger: 'nightly', force: true });
-  if (today !== lastDay) {
-    // Once a day (and at start): recordings past their retention (04 §8, 08).
-    const removed = await cleanupRecordings(
-      db,
-      resolve(config.RECORDINGS_DIR),
-      await getSetting(db, 'recordings.retentionDays'),
-    );
-    if (removed) app.log.info({ removed }, 'old recordings deleted');
-  }
-  lastDay = today;
-};
-/** The daily backup at backup.time (04 §8.1). A failure shows on the dashboard (backup_old). */
-let backupTriedDay = ''; // one try a day: a failing pg_dump shouldn't run every minute
-const backupIfDue = async () => {
-  const today = todayIn(await getSetting(db, 'general.timezone'));
-  if (backupTriedDay === today || !(await backupDue(config, db))) return;
-  backupTriedDay = today;
-  const b = await runBackup(config, db);
-  app.log.info({ backup: b.name, size: b.size }, 'backup made');
-};
-void regenerateOnNewDay();
-const dayTimer = setInterval(() => {
-  void regenerateOnNewDay().catch((err) => app.log.error({ err }, 'nightly regenerate failed'));
-  void backupIfDue().catch((err) => app.log.error({ err }, 'backup failed'));
-}, 60_000);
+const stopJobs = startJobs({
+  config,
+  db,
+  ami,
+  live,
+  generator,
+  voicemail,
+  send: sendMail,
+  log: app.log,
+});
 
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {
   process.once(sig, () => {
     generator.cancelPending();
-    clearInterval(dayTimer);
+    stopJobs();
     history.stop();
     ami.stop();
     void app

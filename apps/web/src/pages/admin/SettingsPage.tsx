@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Settings (05 §2). M3: Email and Emergency; M7: Recording; M11: Security (phone ACL, provisioning, SIP TLS), Backups.
+// Settings (05 §2). M3: Email and Emergency; M7: Recording; M11: Network (public IP watch), Security (phone ACL, provisioning, SIP TLS), Backups.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NavLink, useParams } from 'react-router';
@@ -12,6 +12,7 @@ const TABS = [
   { id: 'email', label: 'Email' },
   { id: 'emergency', label: 'Emergency' },
   { id: 'recording', label: 'Recording' },
+  { id: 'network', label: 'Network' },
   { id: 'security', label: 'Security' },
   { id: 'backups', label: 'Backups' },
 ] as const;
@@ -42,6 +43,7 @@ export function SettingsPage() {
       {settings.data && tab === 'email' && <EmailTab s={settings.data} />}
       {settings.data && tab === 'emergency' && <EmergencyTab s={settings.data} />}
       {settings.data && tab === 'recording' && <RecordingTab s={settings.data} />}
+      {settings.data && tab === 'network' && <NetworkTab s={settings.data} />}
       {settings.data && tab === 'security' && <SecurityTab s={settings.data} />}
       {settings.data && tab === 'backups' && <BackupsTab s={settings.data} />}
     </section>
@@ -322,6 +324,7 @@ export function EmergencyTab({ s }: { s: SettingsDto }) {
 function RecordingTab({ s }: { s: SettingsDto }) {
   const save = useSave();
   const [days, setDays] = useState(String(s['recordings.retentionDays']));
+  const [vmDays, setVmDays] = useState(String(s['voicemail.retentionDays']));
   const [notice, setNotice] = useState<string | null>(s['recordings.announcementSoundId']);
   return (
     <form
@@ -330,6 +333,7 @@ function RecordingTab({ s }: { s: SettingsDto }) {
         e.preventDefault();
         save.mutate({
           'recordings.retentionDays': Number(days),
+          'voicemail.retentionDays': Number(vmDays),
           'recordings.announcementSoundId': notice,
         });
       }}
@@ -367,6 +371,17 @@ function RecordingTab({ s }: { s: SettingsDto }) {
           />
         )}
       </Field>
+      <Field label="Keep voicemail for (days)" hint="0 keeps it until the user deletes it">
+        {(p) => (
+          <input
+            {...p}
+            className={`${inputClass} max-w-32`}
+            inputMode="numeric"
+            value={vmDays}
+            onChange={(e) => setVmDays(e.target.value)}
+          />
+        )}
+      </Field>
       <div className="flex items-center gap-3">
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save
@@ -374,6 +389,57 @@ function RecordingTab({ s }: { s: SettingsDto }) {
         {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
       </div>
       {save.error && <Alert>{save.error.message}</Alert>}
+    </form>
+  );
+}
+
+/** The public IP Asterisk tells callers about, and re-checking it on a dynamic IP (01 §4.3, 04 §8). */
+function NetworkTab({ s }: { s: SettingsDto }) {
+  const save = useSave();
+  const [ip, setIp] = useState(s['network.publicIp'] ?? '');
+  const [watch, setWatch] = useState(s['network.publicIpWatch']);
+  const detect = useMutation({ mutationFn: systemApi.detectPublicIp, onSuccess: setIp });
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate({ 'network.publicIp': ip.trim() || null, 'network.publicIpWatch': watch });
+      }}
+    >
+      <Field
+        label="Public IP"
+        hint="Changing it needs a telephony restart (the dashboard offers one)"
+      >
+        {(p) => (
+          <div className="flex gap-2">
+            <input
+              {...p}
+              className={`${inputClass} max-w-48`}
+              value={ip}
+              onChange={(e) => setIp(e.target.value)}
+            />
+            <Button type="button" onClick={() => detect.mutate()} disabled={detect.isPending}>
+              Detect
+            </Button>
+          </div>
+        )}
+      </Field>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={watch} onChange={(e) => setWatch(e.target.checked)} />
+        Re-check the public IP every 5 minutes (dynamic IP)
+      </label>
+      <p className="-mt-2 text-xs text-zinc-500">
+        When it changes, the new IP is saved and admins get an email asking for a telephony restart.
+        Asks api.ipify.org (or ifconfig.me) for the address.
+      </p>
+      <div className="flex items-center gap-3">
+        <Button type="submit" variant="primary" disabled={save.isPending}>
+          Save
+        </Button>
+        {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+      </div>
+      {(save.error ?? detect.error) && <Alert>{(save.error ?? detect.error)!.message}</Alert>}
     </form>
   );
 }

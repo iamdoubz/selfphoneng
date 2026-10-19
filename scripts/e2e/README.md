@@ -227,3 +227,12 @@ user Dan with 201, a trunk with a password, voicemail, a sound, music on hold, a
 `APP_SECRET` and on a "no", then restores it: the admin signs in with A's password, 201 and the
 trunk are back, the trunk password decrypts into Asterisk's config, the files match byte for byte.
 `KEEP=1` leaves both servers running.
+
+`m11-t4.mjs` (m2-live started with a voicemail dir, after `m1-t4.mjs`; stop your api first: the
+script starts and restarts it, with the api's environment taken from its own) is the M11-T4
+acceptance, with mail going to a local SMTP sink on 127.0.0.1:2525. Settings → Network turns on
+the public IP watch and Settings → Recording keeps voicemail 30 days. A real voicemail, made 40
+days old in the database, is removed through Asterisk (files gone) when the api restarts. The
+watch finds the real public IP (needs internet), saves it, asks for a restart and emails the
+admins. A trunk to 192.0.2.1 (nothing answers) gets exactly one "is down" email after 5 minutes,
+and a disk under 10% free gets a "Disk almost full" email. About 8 minutes.
