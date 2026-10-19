@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Settings (05 §2). M3: Email and Emergency; M7: Recording; M11: Security (phone ACL, provisioning, SIP TLS).
+// Settings (05 §2). M3: Email and Emergency; M7: Recording; M11: Security (phone ACL, provisioning, SIP TLS), Backups.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NavLink, useParams } from 'react-router';
@@ -13,6 +13,7 @@ const TABS = [
   { id: 'emergency', label: 'Emergency' },
   { id: 'recording', label: 'Recording' },
   { id: 'security', label: 'Security' },
+  { id: 'backups', label: 'Backups' },
 ] as const;
 
 export function SettingsPage() {
@@ -42,6 +43,7 @@ export function SettingsPage() {
       {settings.data && tab === 'emergency' && <EmergencyTab s={settings.data} />}
       {settings.data && tab === 'recording' && <RecordingTab s={settings.data} />}
       {settings.data && tab === 'security' && <SecurityTab s={settings.data} />}
+      {settings.data && tab === 'backups' && <BackupsTab s={settings.data} />}
     </section>
   );
 }
@@ -459,5 +461,110 @@ function SecurityTab({ s }: { s: SettingsDto }) {
       </div>
       {save.error && <Alert>{save.error.message}</Alert>}
     </form>
+  );
+}
+
+/** Backups (04 §8.1): schedule, list + download, Back up now. Restore is scripts/restore.sh. */
+function BackupsTab({ s }: { s: SettingsDto }) {
+  const save = useSave();
+  const qc = useQueryClient();
+  const list = useQuery({ queryKey: ['backups'], queryFn: systemApi.backups });
+  const now = useMutation({
+    mutationFn: systemApi.backupNow,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['backups'] });
+      void qc.invalidateQueries({ queryKey: ['warnings'] });
+    },
+  });
+  const [enabled, setEnabled] = useState(s['backup.enabled']);
+  const [time, setTime] = useState(s['backup.time']);
+  const [keep, setKeep] = useState(String(s['backup.keep']));
+  const [recs, setRecs] = useState(s['backup.includeRecordings']);
+  const box = (checked: boolean, set: (v: boolean) => void, label: string) => (
+    <label className="flex items-center gap-2 text-sm">
+      <input type="checkbox" checked={checked} onChange={(e) => set(e.target.checked)} />
+      {label}
+    </label>
+  );
+  return (
+    <div className="flex flex-col gap-6">
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save.mutate({
+            'backup.enabled': enabled,
+            'backup.time': time,
+            'backup.keep': Number(keep),
+            'backup.includeRecordings': recs,
+          });
+        }}
+      >
+        {box(enabled, setEnabled, 'Back up every day')}
+        <Field label="At" hint="In the PBX's time zone">
+          {(p) => (
+            <input
+              {...p}
+              type="time"
+              className={`${inputClass} max-w-32`}
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="Keep the newest">
+          {(p) => (
+            <input
+              {...p}
+              className={`${inputClass} max-w-32`}
+              inputMode="numeric"
+              value={keep}
+              onChange={(e) => setKeep(e.target.value)}
+            />
+          )}
+        </Field>
+        {box(recs, setRecs, 'Include call recordings (they can be large)')}
+        <p className="-mt-2 text-xs text-zinc-500">
+          Backups hold the database, voicemail, sounds and music on hold, in data/backups on the
+          server. Copy them somewhere else too. Passwords inside are encrypted with APP_SECRET from
+          .env: keep a copy of .env, or a backup can't be restored. To restore, run
+          scripts/restore.sh with the file.
+        </p>
+        <div className="flex items-center gap-3">
+          <Button type="submit" variant="primary" disabled={save.isPending}>
+            Save
+          </Button>
+          {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+        </div>
+        {save.error && <Alert>{save.error.message}</Alert>}
+      </form>
+      <section className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <h2 className="font-medium">Backups on the server</h2>
+          <Button onClick={() => now.mutate()} disabled={now.isPending}>
+            {now.isPending ? 'Backing up…' : 'Back up now'}
+          </Button>
+        </div>
+        {now.error && <Alert>{now.error.message}</Alert>}
+        {list.data?.length === 0 && <p className="text-sm text-zinc-500">No backups yet.</p>}
+        <ul aria-label="Backups" className="divide-y divide-zinc-200 dark:divide-zinc-800">
+          {list.data?.map((b) => (
+            <li key={b.name} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <span>
+                {new Date(b.createdAt).toLocaleString()}{' '}
+                <span className="text-zinc-500">({(b.size / 1048576).toFixed(1)} MB)</span>
+              </span>
+              <a
+                className="text-sky-700 hover:underline dark:text-sky-400"
+                href={`/api/system/backups/${b.name}/download`}
+                download
+              >
+                Download
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </div>
   );
 }

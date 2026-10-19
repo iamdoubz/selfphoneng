@@ -217,3 +217,13 @@ telephony restarts. A TLS + SRTP trunk must not register while the CA is untrust
 logs "certificate is untrusted"), then registers once it is; a call carries `RTP/SAVP` with an
 `a=crypto` key and audio both ways; a renewed PBX certificate is served after
 `module reload res_pjsip.so` (what `scripts/tls-cert.sh` runs) while that call stays up.
+
+`m11-t3.mjs` (no api, no m2-live; needs the images from `docker compose build`) is the M11-T3
+acceptance on two throwaway servers: privileged `docker:28-dind` containers, each running the real
+compose stack with the images loaded from this host. Server A gets data (a new admin password,
+user Dan with 201, a trunk with a password, voicemail, a sound, music on hold, a recording) and
+**Back up now** (0600, no generated config, no recordings, the trunk password only encrypted in
+`db.sql`). Server B, a fresh install with the same `.env`, refuses the backup under another
+`APP_SECRET` and on a "no", then restores it: the admin signs in with A's password, 201 and the
+trunk are back, the trunk password decrypts into Asterisk's config, the files match byte for byte.
+`KEEP=1` leaves both servers running.

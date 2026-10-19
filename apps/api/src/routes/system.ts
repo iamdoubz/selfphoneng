@@ -2,13 +2,14 @@
 // /api/system/* (04 §7.3). Admin only.
 import { readFile } from 'node:fs/promises';
 import { networkInterfaces } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
 import { requireAdmin } from '../auth/guards.ts';
 import { audit } from '../services/audit.ts';
 import { getSetting } from '../services/settings.ts';
-import { HttpError } from '../errors.ts';
+import { BACKUP_NAME, listBackups, runBackup } from '../services/backup.ts';
+import { HttpError, notFound } from '../errors.ts';
 import { AmiDisconnectedError } from '../ami/client.ts';
 import { GENERATED_FILES } from '../generator/index.ts';
 
@@ -76,6 +77,33 @@ export async function systemRoutes(app: FastifyInstance) {
       summary: `Restarted telephony${now === 'true' ? ' now' : ' (after active calls)'}`,
     });
     return { ok: true };
+  });
+
+  // Backups (04 §8.1). Restore is scripts/restore.sh only.
+  app.get('/api/system/backups', () => listBackups(resolve(app.config.BACKUPS_DIR)));
+  app.post('/api/system/backups', async (req) => {
+    let b;
+    try {
+      b = await runBackup(app.config, app.db);
+    } catch (err) {
+      req.log.error({ err }, 'backup failed');
+      throw new HttpError(500, 'backup_failed', `The backup failed: ${(err as Error).message}`);
+    }
+    await audit(app.db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'backup',
+      summary: `Made backup ${b.name}`,
+    });
+    return b;
+  });
+  app.get('/api/system/backups/:name/download', async (req, reply) => {
+    const { name } = z.object({ name: z.string() }).parse(req.params);
+    const dir = resolve(app.config.BACKUPS_DIR);
+    if (!BACKUP_NAME.test(name) || !(await listBackups(dir)).some((b) => b.name === name))
+      throw notFound('Backup not found');
+    reply.header('content-disposition', `attachment; filename="${name}"`);
+    return reply.sendFile(name, dir);
   });
 
   app.get('/api/system/generated-files', async () => ({

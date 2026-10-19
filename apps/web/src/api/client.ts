@@ -70,6 +70,7 @@ import type {
   VoicemailDto,
   WebRtcCreds,
   TlsCert,
+  BackupDto,
   Warning,
 } from '@selfphoneng/shared';
 
@@ -225,6 +226,8 @@ export const systemApi = {
   detectPublicIp: () =>
     api<{ ip: string }>('POST', '/api/settings/network/detect-public-ip').then((r) => r.ip),
   tls: () => api<TlsCert>('GET', '/api/system/tls'),
+  backups: () => api<BackupDto[]>('GET', '/api/system/backups'),
+  backupNow: () => api<BackupDto>('POST', '/api/system/backups'),
   setupStatus: () => api<{ completed: boolean }>('GET', '/api/setup/status'),
   completeSetup: () => api<{ ok: true }>('POST', '/api/setup/complete'),
 };

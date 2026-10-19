@@ -21,6 +21,8 @@ const EnvSchema = z.object({
   SOUNDS_DIR: z.string().default('/var/lib/asterisk/sounds/custom'),
   /** Music-on-hold classes, one folder each (04 §6, 03 §8). Dev: ../../data/moh */
   MOH_DIR: z.string().default('/var/lib/asterisk/moh'),
+  /** Backups (04 §8.1). Dev: ../../data/backups */
+  BACKUPS_DIR: z.string().default('/var/lib/selfphoneng/backups'),
   /** SIP TLS certificate, fullchain.pem + privkey.pem (M11-T2). Dev: ../../data/tls */
   TLS_DIR: z.string().default('/var/lib/selfphoneng/tls'),
   /** voip.ms REST endpoint (06 §5.1); tests and e2e point it at a fake. */

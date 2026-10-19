@@ -37,4 +37,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - run: docker build -f apps/api/Dockerfile -t selfphoneng-api:ci .
+      # Loads every module the way the container does: catches files tsc doesn't copy into dist.
+      - run: docker run --rm --entrypoint node selfphoneng-api:ci --input-type=module -e "await import('/app/dist/app.js')"
       - run: docker build -t selfphoneng-asterisk:ci asterisk

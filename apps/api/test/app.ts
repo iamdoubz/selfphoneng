@@ -69,6 +69,7 @@ export async function createTestApp(
     RECORDINGS_DIR: mkdtempSync(join(tmpdir(), 'sp-rec-')),
     SOUNDS_DIR: mkdtempSync(join(tmpdir(), 'sp-sounds-')),
     MOH_DIR: mkdtempSync(join(tmpdir(), 'sp-moh-')),
+    BACKUPS_DIR: mkdtempSync(join(tmpdir(), 'sp-backups-')),
     ...env,
   });
   setSecretKey(config.APP_SECRET);

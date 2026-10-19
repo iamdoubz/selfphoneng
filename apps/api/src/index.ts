@@ -20,6 +20,7 @@ import { watchPinChanges } from './services/vmpin.ts';
 import { cleanupRecordings } from './routes/recordings.ts';
 import { getSetting } from './services/settings.ts';
 import { todayIn } from './generator/load.ts';
+import { backupDue, runBackup } from './services/backup.ts';
 
 let config;
 try {
@@ -108,7 +109,7 @@ ami.on('connected', () => {
 ami.start();
 
 // Holidays roll over at midnight (03 §6.10): render again when the local date changes.
-// ponytail: a 10-minute check instead of croner; the M11 jobs can take this over.
+// ponytail: a once-a-minute check instead of croner; the M11 jobs can take this over.
 let lastDay = '';
 const regenerateOnNewDay = async () => {
   const today = todayIn(await getSetting(db, 'general.timezone'));
@@ -124,12 +125,20 @@ const regenerateOnNewDay = async () => {
   }
   lastDay = today;
 };
+/** The daily backup at backup.time (04 §8.1). A failure shows on the dashboard (backup_old). */
+let backupTriedDay = ''; // one try a day: a failing pg_dump shouldn't run every minute
+const backupIfDue = async () => {
+  const today = todayIn(await getSetting(db, 'general.timezone'));
+  if (backupTriedDay === today || !(await backupDue(config, db))) return;
+  backupTriedDay = today;
+  const b = await runBackup(config, db);
+  app.log.info({ backup: b.name, size: b.size }, 'backup made');
+};
 void regenerateOnNewDay();
-const dayTimer = setInterval(
-  () =>
-    void regenerateOnNewDay().catch((err) => app.log.error({ err }, 'nightly regenerate failed')),
-  10 * 60_000,
-);
+const dayTimer = setInterval(() => {
+  void regenerateOnNewDay().catch((err) => app.log.error({ err }, 'nightly regenerate failed'));
+  void backupIfDue().catch((err) => app.log.error({ err }, 'backup failed'));
+}, 60_000);
 
 for (const sig of ['SIGTERM', 'SIGINT'] as const) {
   process.once(sig, () => {

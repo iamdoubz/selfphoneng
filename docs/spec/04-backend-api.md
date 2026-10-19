@@ -407,7 +407,7 @@ Reports, history, system:
 | GET/PATCH | `/api/settings` | whole settings object; PATCH merges known keys only. `smtp` comes back as `{host, port, secure, username, from, hasPassword}` and is written with an optional `password` (empty keeps the stored one). `system.*`, `sms.webhookToken` and `setup.completed` are read-only. References (DIDs, extensions, destinations) are checked, and a transport a trunk uses can't be turned off |
 | POST | `/api/settings/smtp/test` | `{to}` sends a test email |
 | POST | `/api/settings/emergency/test` | runs 04 §5.3 steps 2–4 with `TEST` in front (email, ring-out, banner); records nothing and dials nothing (06 §6.5). Returns `{notified}` |
-| GET | `/api/system/warnings` | `{items: [{code, message, link}]}` for the dashboard banner: `restart_required`, `e911_cid_missing` (a trunk exists, no default E911 caller ID), `e911_address_unconfirmed` (that DID has no `e911_address`), `smtp_missing`, `tls_cert` (TLS on and the cert missing or expiring within 14 days, M11-T2). "Trunk down" comes from live state in the browser |
+| GET | `/api/system/warnings` | `{items: [{code, message, link}]}` for the dashboard banner: `restart_required`, `e911_cid_missing` (a trunk exists, no default E911 caller ID), `e911_address_unconfirmed` (that DID has no `e911_address`), `smtp_missing`, `tls_cert` (TLS on and the cert missing or expiring within 14 days, M11-T2), `backup_old` (backups on and today's not made yet though the job had its chance, M11-T3). "Trunk down" comes from live state in the browser |
 | POST | `/api/settings/network/detect-public-ip` | |
 | GET | `/api/system/status` | `{ db: ok, ami: connected, asteriskVersion, uptime, trunks: [...], disk: {free, total}, restartRequired, lastGeneratorRun }` |
 | GET | `/api/system/tls` | the SIP TLS certificate in `TLS_DIR`: `{ok: true, subject, names, notAfter}` or `{ok: false, error}` (M11-T2) |
@@ -455,6 +455,22 @@ Folder `/var/lib/selfphoneng/backups/selfphoneng-YYYYMMDD-HHMM.tar.gz` containin
 (setting `backup.includeRecordings`, default false, because they get large). Keep the newest `backup.keep` backups.
 Restore is a CLI script only: `scripts/restore.sh <file>`. It stops api+asterisk, restores the DB and files, and starts them again.
 `APP_SECRET` must be the same as when the backup was made. The script warns about this.
+
+As built (M11-T3):
+- `services/backup.ts`: `pg_dump --no-owner` and GNU tar (both in the api image), folders renamed
+  in the archive to their `data/` names (`voicemail`, `sounds-custom`, `moh`, `recordings`) so
+  restore untars straight into `data/`. Written as `.<name>.tmp`, then renamed. `BACKUPS_DIR`.
+- `manifest.json` = `{version: 1 (the backup format), createdAt, includesRecordings, folders,
+  secretCheck}`. `secretCheck` is the first 16 hex of `sha256("selfphoneng-backup:" + APP_SECRET)`:
+  restore.sh computes the same from `.env` and **refuses** (not just warns) when they differ.
+- Restore runs from the install folder: asks for `yes`, stops api + asterisk, drops and recreates
+  the database, loads `db.sql`, replaces only the folders the backup has (owner `APP_UID`), starts
+  them again. AstDB and the generated config come back from the database when the api starts.
+- Schedule: the api's once-a-minute timer (no croner yet) runs it when it's past `backup.time` in
+  `general.timezone` and no backup from today exists, so a fresh install backs up within a minute
+  of starting. One try a day; a missed one shows as the `backup_old` dashboard warning.
+- Tested on two throwaway Docker hosts (`scripts/e2e/m11-t3.mjs`): back up on one, restore on the
+  other.
 
 ## 9. Webhooks
 

@@ -21,6 +21,7 @@ import { assertDestinationExists } from '../services/destinations.ts';
 import { getAllSettings, getSetting, setSetting } from '../services/settings.ts';
 import { notifyEmergency } from '../services/emergency.ts';
 import { readTlsCert } from '../services/tls.ts';
+import { backupMissed } from '../services/backup.ts';
 import type { SendMail } from '../services/mail.ts';
 
 declare module 'fastify' {
@@ -244,6 +245,12 @@ export async function settingsRoutes(app: FastifyInstance) {
           link: '/admin/settings/security',
         });
     }
+    if (await backupMissed(app.config, db))
+      items.push({
+        code: 'backup_old',
+        message: "Today's backup hasn't been made. Check the api log, or press Back up now.",
+        link: '/admin/settings/backups',
+      });
     if (!s.smtp)
       items.push({
         code: 'smtp_missing',
