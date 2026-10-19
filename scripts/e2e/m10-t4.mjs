@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// M10-T4 with real phones: 380 calls 381; the admin (desk phone 382) presses Listen, then Whisper,
-// then Barge on the dashboard. Each time 382 rings, answers, and Asterisk runs ChanSpy on the
+// M10-T4 with real phones: 380 calls 381; the admin (desk phone 382, or theirs) presses Listen, then Whisper,
+// then Barge on the dashboard. Each time it rings, answers, and Asterisk runs ChanSpy on the
 // caller's leg with the mode's options (q, E, and w / B). When the call ends, the spy leg ends too.
 // Runs on m2-live, after m1-t4.mjs.
 // Usage: node scripts/e2e/m10-t4.mjs <baseUrl> <adminEmail> <adminPassword> <shotsDir>
@@ -58,19 +58,20 @@ const channels = () =>
     });
 
 const me = (await api('GET', '/api/auth/me')).user;
+// The admin's own extension is the spy phone; another script may have given them one already.
+const boss =
+  me.extension ??
+  (await api('POST', '/api/extensions', { number: '382', name: 'Boss Bo', userId: me.id }));
+const BOSS = boss.number;
 const phoneList = [];
-for (const [n, name, userId] of [
-  ['380', 'Cal Caller', null],
-  ['381', 'Agent Ava', null],
-  ['382', 'Boss Bo', me.id],
+for (const [n, name] of [
+  ['380', 'Cal Caller'],
+  ['381', 'Agent Ava'],
+  [BOSS, null],
 ]) {
-  const e = await api('POST', '/api/extensions', {
-    number: n,
-    name,
-    ...(userId ? { userId } : {}),
-  });
+  const e = name ? await api('POST', '/api/extensions', { number: n, name }) : boss;
   const pass = (await api('GET', `/api/extensions/${e.id}/sip-credentials`)).password;
-  phoneList.push({ ext: n, password: pass, answer: 'auto', toneHz: 300 + Number(n) });
+  phoneList.push({ ext: n, password: pass, answer: 'auto', toneHz: 300 + (Number(n) % 500) });
 }
 const phones = startPhones({ name: 'sp-live-phones-m10t4', net: NET, ast: AST, phones: phoneList });
 
@@ -85,7 +86,7 @@ const press = (label) =>
 try {
   await waitUntil(
     () =>
-      ['380', '381', '382'].every((e) =>
+      ['380', '381', BOSS].every((e) =>
         new RegExp(`${e}/sip:.*Avail`).test(cli('pjsip show contacts')),
       ),
     'phones',
@@ -109,8 +110,8 @@ try {
   ]) {
     await press(label);
     const spyLeg = await waitUntil(
-      () => channels().find((c) => c.name.startsWith('PJSIP/382-') && c.app === 'ChanSpy'),
-      `${label}: 382 runs ChanSpy`,
+      () => channels().find((c) => c.name.startsWith(`PJSIP/${BOSS}-`) && c.app === 'ChanSpy'),
+      `${label}: ${BOSS} runs ChanSpy`,
     );
     assert.equal(spyLeg.state, 'Up');
     assert.match(spyLeg.data, new RegExp(`^PJSIP/38[01]-[0-9a-f]+,${opts}$`), spyLeg.data);
@@ -119,10 +120,13 @@ try {
       `${label}: status shown`,
     );
     if (label === 'Listen') await p.shot('m10-t4-01-listening');
-    console.log(`${label}: 382 answered and runs ChanSpy(${spyLeg.data})`);
+    console.log(`${label}: ${BOSS} answered and runs ChanSpy(${spyLeg.data})`);
     if (label !== 'Barge') {
       cli(`channel request hangup ${spyLeg.name}`);
-      await waitUntil(() => !channels().some((c) => c.name.startsWith('PJSIP/382-')), 'spy off');
+      await waitUntil(
+        () => !channels().some((c) => c.name.startsWith(`PJSIP/${BOSS}-`)),
+        'spy off',
+      );
     }
   }
 
@@ -130,7 +134,7 @@ try {
   const caller = channels().find((c) => c.name.startsWith('PJSIP/380-'));
   cli(`channel request hangup ${caller.name}`);
   await waitUntil(
-    () => !channels().some((c) => c.name.startsWith('PJSIP/382-')),
+    () => !channels().some((c) => c.name.startsWith(`PJSIP/${BOSS}-`)),
     'spy ends',
     15_000,
   );

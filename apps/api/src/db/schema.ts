@@ -57,6 +57,10 @@ export const users = pgTable('users', {
   role: userRole().notNull().default('user'),
   isActive: boolean().notNull().default(true),
   totpSecretEnc: text(),
+  /** sha256 of the unused recovery codes (08 §2.4). */
+  totpRecoveryHashes: emptyTextArray(),
+  /** The last 30 s step a code was accepted for: the same code can't sign in twice. */
+  totpLastStep: bigint({ mode: 'number' }),
   mustChangePassword: boolean().notNull().default(false),
   lastLoginAt: tstz(),
   ...timestamps,

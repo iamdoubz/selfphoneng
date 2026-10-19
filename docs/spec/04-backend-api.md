@@ -23,7 +23,9 @@
 - Minimum 10 characters. Reject the 1,000 most common passwords (bundle a list in `auth/common-passwords.txt`).
 
 ### 2.2 Sessions (browser)
-- `POST /api/auth/login {email, password, totp?}` → on success, create a 32-byte random
+- `POST /api/auth/login {email, password, totp?}` (`totp`: the code or a recovery code; when 2FA is on
+  and it's missing, 401 `totp_required`; wrong, 401 `totp_invalid`; M11-T1; also `GET /api/auth/totp`,
+  `POST /api/auth/totp/setup|enable|disable|recovery-codes`, 08 §2.4) → on success, create a 32-byte random
   token. Store `sha256(token)` in `sessions.id` and set the cookie
   `sp_session=<token>; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=1209600` (14 days).
 - Sliding expiry: if a session has less than 7 days left when used, extend it to 14 days.

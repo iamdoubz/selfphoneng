@@ -29,6 +29,8 @@ export type UserDto = {
   role: 'admin' | 'user';
   isActive: boolean;
   mustChangePassword: boolean;
+  /** Two-step sign-in (TOTP) is on. */
+  twoStep: boolean;
   lastLoginAt: string | null;
   createdAt: string;
   extension: { id: string; number: string } | null;

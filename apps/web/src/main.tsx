@@ -20,6 +20,7 @@ import { QueuesPage } from './pages/admin/QueuesPage.tsx';
 import { ConferencesPage } from './pages/admin/ConferencesPage.tsx';
 import { PagingPage } from './pages/admin/PagingPage.tsx';
 import { PhonesPage } from './pages/admin/PhonesPage.tsx';
+import { AccountPage } from './pages/admin/AccountPage.tsx';
 import { IvrsPage } from './pages/admin/IvrsPage.tsx';
 import { OfficeHoursPage } from './pages/admin/OfficeHoursPage.tsx';
 import { BlockedPage } from './pages/admin/BlockedPage.tsx';
@@ -80,6 +81,7 @@ const router = createBrowserRouter([
       })),
       { path: 'settings/:tab', element: <SettingsPage /> },
       { path: 'queues/:id', element: <QueuesPage /> },
+      { path: 'account', element: <AccountPage /> },
     ],
   },
   { path: '/me/*', element: <RequireAuth>{(user) => <MePage user={user} />}</RequireAuth> },

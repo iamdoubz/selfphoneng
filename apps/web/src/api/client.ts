@@ -53,6 +53,8 @@ import type {
   SoundDto,
   SoftphoneQr,
   MohClassDto,
+  TotpSetup,
+  TotpStatus,
   VoipmsDidDto,
   TimeConditionCreate,
   TimeConditionDto,
@@ -121,8 +123,20 @@ async function upload<T>(method: string, url: string, body: Blob): Promise<T> {
 
 export const authApi = {
   me: () => api<{ user: AuthUser }>('GET', '/api/auth/me').then((r) => r.user),
-  login: (email: string, password: string) =>
-    api<{ user: AuthUser }>('POST', '/api/auth/login', { email, password }).then((r) => r.user),
+  login: (email: string, password: string, totp?: string) =>
+    api<{ user: AuthUser }>('POST', '/api/auth/login', {
+      email,
+      password,
+      ...(totp ? { totp } : {}),
+    }).then((r) => r.user),
+  totp: () => api<TotpStatus>('GET', '/api/auth/totp'),
+  totpSetup: () => api<TotpSetup>('POST', '/api/auth/totp/setup', {}),
+  totpEnable: (secret: string, code: string) =>
+    api<{ recoveryCodes: string[] }>('POST', '/api/auth/totp/enable', { secret, code }),
+  totpDisable: (password: string) =>
+    api<{ ok: true }>('POST', '/api/auth/totp/disable', { password }),
+  totpNewCodes: (password: string) =>
+    api<{ recoveryCodes: string[] }>('POST', '/api/auth/totp/recovery-codes', { password }),
   logout: () => api<{ ok: true }>('POST', '/api/auth/logout'),
   changePassword: (currentPassword: string, newPassword: string) =>
     api<{ ok: true }>('POST', '/api/auth/change-password', { currentPassword, newPassword }),
@@ -136,6 +150,7 @@ export const usersApi = {
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/users/${id}`),
   resetPassword: (id: string) =>
     api<{ temporaryPassword: string }>('POST', `/api/users/${id}/reset-password`),
+  resetTwoStep: (id: string) => api<{ ok: true }>('POST', `/api/users/${id}/reset-two-step`, {}),
 };
 
 export const extensionsApi = {

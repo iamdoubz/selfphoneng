@@ -83,7 +83,9 @@ try {
   const entry = (n) => new RegExp(`<entry name="${n}">([^<]*)</entry>`).exec(xml)?.[1];
   assert.equal(entry('username'), '370');
   assert.match(xml, /reg_identity">"Lin Mobile" &lt;sip:370@/);
-  const tampered = path.replace(/.(\.xml)$/, (m, x) => (m[0] === 'A' ? 'B' : 'A') + x);
+  // Change a character in the middle (the last one of base64 may only hold padding bits).
+  const i = path.lastIndexOf('/') + 20;
+  const tampered = path.slice(0, i) + (path[i] === 'A' ? 'B' : 'A') + path.slice(i + 1);
   assert.equal((await fetch(`${base}${tampered}`)).status, 404, 'a changed token');
   console.log('the link gives the account XML; a changed token gets 404');
 

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate, useSearchParams } from 'react-router';
 import { APP_NAME, LoginSchema } from '@selfphoneng/shared';
-import { authApi } from '../api/client.ts';
+import { ApiError, authApi } from '../api/client.ts';
 import { homeFor } from '../auth/RequireAuth.tsx';
 import { Alert, Button, Field, inputClass } from '../components/ui.tsx';
 
@@ -26,13 +26,16 @@ export function LoginPage() {
   const [params] = useSearchParams();
   const qc = useQueryClient();
   const [error, setError] = useState<string>();
+  // Two-step sign-in: shown once the server says the password was right and a code is needed.
+  const [needCode, setNeedCode] = useState(false);
+  const [code, setCode] = useState('');
   const form = useForm({ resolver: zodResolver(LoginSchema.omit({ totp: true })) });
   const { errors, isSubmitting } = form.formState;
 
   const onSubmit = form.handleSubmit(async ({ email, password }) => {
     setError(undefined);
     try {
-      const user = await authApi.login(email, password);
+      const user = await authApi.login(email, password, needCode ? code : undefined);
       qc.setQueryData(['me'], user);
       const next = params.get('next');
       // Only same-site paths: never redirect to another origin.
@@ -40,6 +43,10 @@ export function LoginPage() {
         replace: true,
       });
     } catch (e) {
+      if (e instanceof ApiError && e.code === 'totp_required') {
+        setNeedCode(true);
+        return;
+      }
       setError((e as Error).message);
     }
   });
@@ -70,6 +77,23 @@ export function LoginPage() {
             />
           )}
         </Field>
+        {needCode && (
+          <Field
+            label="Authentication code"
+            hint="From your authenticator app, or one of your recovery codes"
+          >
+            {(a) => (
+              <input
+                {...a}
+                autoFocus
+                autoComplete="one-time-code"
+                className={inputClass}
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+            )}
+          </Field>
+        )}
         <Button type="submit" variant="primary" disabled={isSubmitting}>
           {isSubmitting ? 'Signing in…' : 'Sign in'}
         </Button>

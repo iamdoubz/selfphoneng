@@ -15,6 +15,14 @@ const [base, email, pw, shotsDir] = process.argv.slice(2);
 const p = await launch({ shotsDir });
 const body = () => p.evaluate('document.body.innerText');
 async function testNumber(n) {
+  // As Dan (101): other scripts may have made extensions that sort first.
+  await p.evaluate(`(() => {
+    const s = [...document.querySelectorAll('select')].find(s => s.labels?.[0]?.textContent === 'Caller');
+    const o = [...s.options].find(o => o.textContent.startsWith('101 '));
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(s, o.value);
+    s.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  })()`);
   await p.fill('Dials', n);
   await p.evaluate(
     `[...document.querySelectorAll('form button[type=submit]')].find(b => b.textContent === 'Test').click(), true`,

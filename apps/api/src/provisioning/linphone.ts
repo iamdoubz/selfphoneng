@@ -22,7 +22,10 @@ export function linphoneToken(secret: string, extensionId: string, now = Date.no
 
 /** The extension id in a valid, unexpired token, or null. */
 export function verifyLinphoneToken(secret: string, token: string, now = Date.now()) {
-  const parts = Buffer.from(token, 'base64url').toString('utf8').split('.');
+  const raw = Buffer.from(token, 'base64url');
+  // Only the exact token we issued: base64's last character can carry ignored padding bits.
+  if (raw.toString('base64url') !== token) return null;
+  const parts = raw.toString('utf8').split('.');
   if (parts.length !== 3) return null;
   const [id, expS, mac] = parts as [string, string, string];
   const exp = Number(expS);

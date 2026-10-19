@@ -73,6 +73,8 @@ create table users (
   role             user_role not null default 'user',
   is_active        boolean not null default true,
   totp_secret_enc  text,                          -- null = 2FA off (M11)
+  totp_recovery_hashes text[] not null default '{}', -- sha256 of unused recovery codes (M11)
+  totp_last_step   bigint,                        -- last 30 s step signed in with: no replay (M11)
   must_change_password boolean not null default false,
   last_login_at    timestamptz
 );

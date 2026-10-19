@@ -27,6 +27,7 @@ export const toUserDto = (u: UserRow, extension: UserDto['extension'] = null): U
   role: u.role,
   isActive: u.isActive,
   mustChangePassword: u.mustChangePassword,
+  twoStep: u.totpSecretEnc !== null,
   lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
   createdAt: u.createdAt.toISOString(),
   extension,
@@ -188,5 +189,25 @@ export async function userRoutes(app: FastifyInstance) {
       summary: `Reset the password of ${u.email}`,
     });
     return { temporaryPassword: password };
+  });
+
+  /** For an admin who lost their phone and their recovery codes: another admin turns it off. */
+  app.post('/api/users/:id/reset-two-step', async (req) => {
+    const { id } = IdParams.parse(req.params);
+    const u = await getUser(db, id);
+    await db
+      .update(users)
+      .set({ totpSecretEnc: null, totpLastStep: null, totpRecoveryHashes: [] })
+      .where(eq(users.id, id));
+    await deleteUserSessions(db, id);
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'totp_disabled',
+      entityType: 'user',
+      entityId: id,
+      summary: `Turned off two-step sign-in for ${u.email}`,
+    });
+    return { ok: true };
   });
 }

@@ -30,6 +30,12 @@ describe('linphone token', () => {
       verifyLinphoneToken(SECRET, forge(`${id}.${Number(exp) + 3600}.${mac}`), now),
     ).toBeNull();
     expect(verifyLinphoneToken(SECRET, 'nope', now)).toBeNull();
+    // Another spelling of the same bytes: the token is 112 bytes, so its last base64 character
+    // holds 4 unused bits; flipping the lowest one decodes to the very same token.
+    const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    const other = token.slice(0, -1) + B64[B64.indexOf(token.at(-1)!) ^ 1];
+    expect(Buffer.from(other, 'base64url').equals(Buffer.from(token, 'base64url'))).toBe(true);
+    expect(verifyLinphoneToken(SECRET, other, now)).toBeNull();
     expect(verifyLinphoneToken(SECRET, forge('a.b'), now)).toBeNull();
   });
 });

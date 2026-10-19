@@ -89,6 +89,11 @@ try {
     const e = await api('POST', '/api/extensions', { number: n, name, voicemailPin: '4826' });
     exts[n] = e;
   }
+  // With a public IP set, the local nets are also in the SIP transports, which only change on a
+  // restart (01 §4.3); another script may have set one. Without it, they reload at once.
+  // Clearing it is itself a transport change (that apply skips the PJSIP reload), so on its own.
+  await api('PATCH', '/api/settings', { 'network.publicIp': null });
+  await sleep(3000);
   await api('PATCH', '/api/settings', {
     'sip.restrictPhonesToLocalNets': true,
     'network.localNets': ['192.168.0.0/16'],
@@ -158,6 +163,7 @@ try {
   await api('PATCH', '/api/settings', {
     'sip.restrictPhonesToLocalNets': settings['sip.restrictPhonesToLocalNets'],
     'network.localNets': settings['network.localNets'],
+    'network.publicIp': settings['network.publicIp'],
   }).catch(() => {});
   cli('channel request hangup all');
   await p.close();

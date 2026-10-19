@@ -2,7 +2,7 @@
 // User + extension editor (05 §2). Tabs so far: General, Phone, Calling, Emergency, Credentials.
 // Emergency too. Voicemail (M4) and Forwarding (M6) arrive with their features.
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -237,6 +237,7 @@ function GeneralTab({
           <p className="mt-1 text-xs text-zinc-500">
             Creates a new temporary password and signs them out everywhere.
           </p>
+          {user.twoStep && <ResetTwoStep user={user} />}
         </div>
       )}
     </form>
@@ -558,5 +559,29 @@ function EmergencyTab({ ext, onSaved }: { ext: ExtensionDto; onSaved: () => void
         {(a) => <input {...a} {...form.register('emergencyLocation')} className={inputClass} />}
       </Field>
     </form>
+  );
+}
+
+/** For a user who lost their phone and recovery codes (08 §2.4). */
+function ResetTwoStep({ user }: { user: UserDto }) {
+  const qc = useQueryClient();
+  const reset = useMutation({
+    mutationFn: () => usersApi.resetTwoStep(user.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+  return (
+    <div className="mt-4">
+      {reset.isSuccess ? (
+        <p className="text-sm text-green-700 dark:text-green-400">Two-step sign-in is off.</p>
+      ) : (
+        <Button onClick={() => reset.mutate()} disabled={reset.isPending}>
+          Turn off two-step sign-in
+        </Button>
+      )}
+      <p className="mt-1 text-xs text-zinc-500">
+        For a lost phone: they sign in with their password alone and can turn it on again.
+      </p>
+      {reset.error && <Alert>{reset.error.message}</Alert>}
+    </div>
   );
 }

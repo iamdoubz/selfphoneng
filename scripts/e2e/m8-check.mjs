@@ -172,12 +172,13 @@ try {
     Context: 'sp-from-ext',
     Exten: '700',
   });
-  await waitUntil(() => parkedSlot() === '701', 'caller 1 parked on 701');
-  console.log('341 parked caller 1 on 701');
-  cli('channel originate PJSIP/343 extension 701@sp-from-ext');
+  // findslot = next: 701 on a fresh system, the slot after the last one used otherwise.
+  const slot = await waitUntil(() => parkedSlot(), 'caller 1 parked');
+  console.log(`341 parked caller 1 on ${slot}`);
+  cli(`channel originate PJSIP/343 extension ${slot}@sp-from-ext`);
   await waitUntil(() => talkingTo('343', callers[0]), '343 talks to caller 1', 20_000);
-  await waitUntil(() => !parkedSlot(), 'slot 701 free');
-  console.log('343 dialed 701 and talks to caller 1');
+  await waitUntil(() => !parkedSlot(), 'slot free');
+  console.log(`343 dialed ${slot} and talks to caller 1`);
 
   // 341 is free again: caller 2 reaches 341; caller 3 waits past the limit and goes to 342.
   await waitUntil(() => talkingTo('341', callers[1]), 'caller 2 talks to 341', 20_000);

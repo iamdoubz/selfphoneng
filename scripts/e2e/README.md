@@ -203,3 +203,8 @@ violation; turns the phone ACL on with the phones' Docker network unlisted (390 
 "Not match Endpoint ACL") and then listed (it registers); and changes 391's voicemail PIN from the
 phone with `*98` and DTMF: `1111` is refused by `sp-vm-pincheck`, `7391` is stored by the api and
 survives a later config write.
+
+`m11-t1-totp.mjs` (after `m1-t4.mjs`): the admin turns two-step sign-in on from **My account**
+(a wrong code refused, 10 recovery codes shown), signs out and back in with password then a code,
+then with a recovery code (9 left), and turns it off with the password. Codes come from
+`apps/api/src/auth/totp.ts` (node runs it directly).

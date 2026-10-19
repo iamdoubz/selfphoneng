@@ -19,6 +19,8 @@ const EXPECTED: Record<string, Record<string, string>> = {
     role: "USER-DEFINED:user_role|NO|'user'::user_role",
     is_active: 'boolean|NO|true',
     totp_secret_enc: 'text|YES|',
+    totp_recovery_hashes: "ARRAY:_text|NO|'{}'::text[]",
+    totp_last_step: 'bigint|YES|',
     must_change_password: 'boolean|NO|false',
     last_login_at: 'timestamp with time zone|YES|',
     ...ts,

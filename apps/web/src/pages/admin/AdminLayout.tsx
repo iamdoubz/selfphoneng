@@ -101,8 +101,8 @@ export function AdminLayout({ user }: { user: AuthUser }) {
             <ThemeToggle />
             {/* On phones this lives in the menu instead. */}
             <span className="hidden sm:contents">
-              <Button variant="ghost" onClick={() => nav('/change-password')}>
-                Password
+              <Button variant="ghost" onClick={() => nav('/admin/account')}>
+                Account
               </Button>
             </span>
             <Button variant="ghost" onClick={logout}>
@@ -120,9 +120,9 @@ export function AdminLayout({ user }: { user: AuthUser }) {
               <Button
                 variant="ghost"
                 className="w-full justify-start"
-                onClick={() => nav('/change-password')}
+                onClick={() => nav('/admin/account')}
               >
-                Change password
+                My account
               </Button>
             </div>
           </div>

@@ -1,11 +1,36 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // /api/auth/* (04 §2, §7.3).
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
-import { ChangePasswordSchema, LoginSchema, type AuthUser } from '@selfphoneng/shared';
+import {
+  ChangePasswordSchema,
+  LoginSchema,
+  PasswordConfirmSchema,
+  TotpEnableSchema,
+  APP_NAME,
+  type AuthUser,
+  type TotpSetup,
+  type TotpStatus,
+} from '@selfphoneng/shared';
+import QRCode from 'qrcode';
+import { decrypt, encrypt } from '../crypto/secrets.ts';
+import {
+  checkTotp,
+  hashRecovery,
+  newRecoveryCodes,
+  newTotpSecret,
+  otpauthUrl,
+} from '../auth/totp.ts';
 import type { Db } from '../db/client.ts';
 import { extensions, users } from '../db/schema.ts';
-import { unauthorized, rateLimited, badRequest } from '../errors.ts';
+import {
+  unauthorized,
+  rateLimited,
+  badRequest,
+  conflict,
+  forbidden,
+  HttpError,
+} from '../errors.ts';
 import { audit } from '../services/audit.ts';
 import { requireAuth, type CurrentUser } from '../auth/guards.ts';
 import { isLoginBlocked, recordLoginFailure } from '../auth/login-limiter.ts';
@@ -42,6 +67,115 @@ export async function toAuthUser(db: Db, u: CurrentUser): Promise<AuthUser> {
 export async function authRoutes(app: FastifyInstance) {
   const { db } = app;
 
+  /**
+   * A TOTP code (each 30 s step once) or an unused recovery code, consumed atomically so two
+   * logins can't both use it.
+   */
+  async function useSecondFactor(u: typeof users.$inferSelect, code: string): Promise<boolean> {
+    const step = checkTotp(decrypt(u.totpSecretEnc!), code, u.totpLastStep);
+    if (step !== null) {
+      const r = await db
+        .update(users)
+        .set({ totpLastStep: step })
+        .where(
+          and(eq(users.id, u.id), or(isNull(users.totpLastStep), lt(users.totpLastStep, step))),
+        )
+        .returning({ id: users.id });
+      return r.length === 1;
+    }
+    if (/^\d+$/.test(code)) return false;
+    const h = hashRecovery(code);
+    const r = await db
+      .update(users)
+      .set({ totpRecoveryHashes: sql`array_remove(${users.totpRecoveryHashes}, ${h})` })
+      .where(and(eq(users.id, u.id), sql`${h} = any(${users.totpRecoveryHashes})`))
+      .returning({ id: users.id });
+    return r.length === 1;
+  }
+
+  const myRow = async (id: string) => (await db.select().from(users).where(eq(users.id, id)))[0]!;
+  /** Two-step sign-in is for admins (08 §2.4). */
+  const adminOnly = (u: CurrentUser) => {
+    if (u.role !== 'admin') throw forbidden('Two-step sign-in is for admins');
+  };
+
+  app.get('/api/auth/totp', { preHandler: requireAuth }, async (req): Promise<TotpStatus> => {
+    const u = await myRow(req.user!.id);
+    return { enabled: !!u.totpSecretEnc, recoveryCodesLeft: u.totpRecoveryHashes.length };
+  });
+
+  /** A fresh secret to scan; nothing is stored until /enable confirms a code from it. */
+  app.post('/api/auth/totp/setup', { preHandler: requireAuth }, async (req): Promise<TotpSetup> => {
+    adminOnly(req.user!);
+    const secret = newTotpSecret();
+    const url = otpauthUrl(secret, req.user!.email, `${APP_NAME} ${app.config.PUBLIC_HOSTNAME}`);
+    return { secret, otpauthUrl: url, qr: await QRCode.toDataURL(url, { margin: 2, width: 240 }) };
+  });
+
+  app.post('/api/auth/totp/enable', { preHandler: requireAuth }, async (req) => {
+    adminOnly(req.user!);
+    const { secret, code } = TotpEnableSchema.parse(req.body);
+    if ((await myRow(req.user!.id)).totpSecretEnc) throw conflict('Two-step sign-in is already on');
+    const step = checkTotp(secret, code, null);
+    if (step === null)
+      throw badRequest('That code doesn’t match. Check the phone’s clock and try again.');
+    const { codes, hashes } = newRecoveryCodes();
+    await db
+      .update(users)
+      .set({ totpSecretEnc: encrypt(secret), totpLastStep: step, totpRecoveryHashes: hashes })
+      .where(eq(users.id, req.user!.id));
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'totp_enabled',
+      entityType: 'user',
+      entityId: req.user!.id,
+      summary: `${req.user!.email} turned on two-step sign-in`,
+    });
+    return { recoveryCodes: codes };
+  });
+
+  /** Turning it off or making new recovery codes needs the password again. */
+  async function confirmPassword(id: string, body: unknown) {
+    const { password } = PasswordConfirmSchema.parse(body);
+    const u = await myRow(id);
+    if (!(await verifyPassword(u.passwordHash, password))) throw badRequest('Wrong password');
+    return u;
+  }
+
+  app.post('/api/auth/totp/disable', { preHandler: requireAuth }, async (req) => {
+    await confirmPassword(req.user!.id, req.body);
+    await db
+      .update(users)
+      .set({ totpSecretEnc: null, totpLastStep: null, totpRecoveryHashes: [] })
+      .where(eq(users.id, req.user!.id));
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'totp_disabled',
+      entityType: 'user',
+      entityId: req.user!.id,
+      summary: `${req.user!.email} turned off two-step sign-in`,
+    });
+    return { ok: true };
+  });
+
+  app.post('/api/auth/totp/recovery-codes', { preHandler: requireAuth }, async (req) => {
+    const u = await confirmPassword(req.user!.id, req.body);
+    if (!u.totpSecretEnc) throw badRequest('Two-step sign-in is off');
+    const { codes, hashes } = newRecoveryCodes();
+    await db.update(users).set({ totpRecoveryHashes: hashes }).where(eq(users.id, u.id));
+    await audit(db, {
+      actorUserId: u.id,
+      actorIp: req.ip,
+      action: 'totp_recovery_codes',
+      entityType: 'user',
+      entityId: u.id,
+      summary: `${u.email} made new recovery codes`,
+    });
+    return { recoveryCodes: codes };
+  });
+
   app.post('/api/auth/login', async (req, reply) => {
     const body = LoginSchema.parse(req.body);
     if (isLoginBlocked(req.ip, body.email)) throw rateLimited();
@@ -61,6 +195,24 @@ export async function authRoutes(app: FastifyInstance) {
         summary: `Failed login for ${body.email}`,
       });
       throw unauthorized('Wrong email or password');
+    }
+    // Two-step sign-in (08 §2.4): the password was right; now the code.
+    if (user.totpSecretEnc) {
+      if (!body.totp)
+        throw new HttpError(401, 'totp_required', 'Enter the code from your authenticator app');
+      if (!(await useSecondFactor(user, body.totp))) {
+        recordLoginFailure(req.ip, body.email);
+        req.log.warn({ event: 'auth.failed', ip: req.ip }, 'login failed: code');
+        await audit(db, {
+          actorUserId: user.id,
+          actorIp: req.ip,
+          action: 'login_failed',
+          entityType: 'user',
+          entityId: user.id,
+          summary: `Failed login for ${body.email} (wrong authenticator or recovery code)`,
+        });
+        throw new HttpError(401, 'totp_invalid', 'That code is wrong or was used already');
+      }
     }
     const token = await createSession(db, user.id, req.ip, req.headers['user-agent'] ?? null);
     setSessionCookie(reply, token);

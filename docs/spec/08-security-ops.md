@@ -51,6 +51,14 @@ aren't filtered. The setting is on Settings → Security, with the provisioning 
 - HSTS is set by the reverse proxy (Caddy does it by default; nginx example adds `add_header Strict-Transport-Security "max-age=31536000" always;`).
 - `TRUST_PROXY=true` → Fastify `trustProxy: '127.0.0.1'` only.
 - Admin TOTP (M11): RFC 6238, 30 s, 6 digits, ±1 window, 10 single-use recovery codes (stored hashed).
+- As built (M11-T1), TOTP (`auth/totp.ts`, node:crypto only, RFC 6238 test vectors in its test):
+  opt-in for admins on **My account** (header → Account): scan the QR or type the key, confirm one
+  code, get 10 recovery codes once (`k7m3q-x9tpw`; case and dashes don't matter). Login asks for
+  the code only after the password is right (401 `totp_required`, no session); a wrong code is a
+  failed login (rate limit, audit). Each 30 s step signs in once (`users.totp_last_step`, updated
+  atomically) and each recovery code once (`array_remove` with an `any()` guard). Turning it off or
+  making new codes needs the password. Another admin can turn it off for a lost phone
+  (`POST /api/users/:id/reset-two-step`, signs that user out). `scripts/e2e/m11-t1-totp.mjs`.
 - As built (M11-T1): the headers come from an `onSend` hook on every response (UI, API, `/prov`);
   `connect-src` also allows `WEBRTC_WS_URL`'s origin when it's set. The dark-mode bootstrap moved
   from an inline `<script>` in `index.html` to `/theme.js`, so `script-src` stays `'self'`.
