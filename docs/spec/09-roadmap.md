@@ -214,6 +214,9 @@ As built: tested with baresip phones that honor the auto-answer headers (`sip_au
 ## M9 — SMS
 
 **M9-T1** voip.ms API client (06 §5.1) + DID import + server list.
+As built: done against a fake voip.ms API. **Open:** check the response shapes with a real account (API enabled, this server's IP allowed; no SMS needed), 06 §7.
+
+**Parked (2026-10-19, owner):** the owner's voip.ms account has no SMS, so M9-T2 and M9-T3 wait until SMS is wanted. Pick them up from here; nothing else depends on them (the SMS admin page stays "coming later").
 **M9-T2** Inbound hook (06 §5.2) with a captured real fixture.
 **M9-T3** SMS UI (admin + `/me/sms`), unread badges, `did_sms_users`.
 ✅ Two-way SMS with a mobile phone works. Messages show in < 2 s.
