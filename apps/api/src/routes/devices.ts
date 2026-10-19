@@ -151,14 +151,15 @@ export async function deviceRoutes(app: FastifyInstance) {
       d.vendor === 'yealink' ? yealink : d.vendor === 'grandstream' ? grandstream : null;
     if (!render) throw badRequest('Nothing is served to this kind of phone: set it up by hand');
     const { ctx } = (await loadContext(db, app.config, d.mac))!;
-    const masked = '********';
+    // Both secrets wherever they appear (the phonebook URL carries the provisioning password).
+    const content = render(ctx)
+      .replaceAll(ctx.ext.sipPassword, '********')
+      .replaceAll(ctx.provPassword, '********');
     return {
       file: d.vendor === 'yealink' ? `${d.mac}.cfg` : `cfg${d.mac}.xml`,
-      content: render({
-        ...ctx,
-        ext: { ...ctx.ext, sipPassword: masked },
-        provPassword: masked,
-      }),
+      content,
+      /** The company time zone isn't in the phone table: phones show UTC. */
+      timezoneWarning: !ctx.timezone.supported,
     };
   });
 }

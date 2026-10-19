@@ -181,3 +181,9 @@ URL, user name and password from the drawer, and checks the preview masks the pa
 as the phone: `/prov/<mac>.cfg` answers 401 without credentials and the file with them, and a
 baresip phone given only the account from that file registers. The list then shows when it
 fetched its settings.
+
+`m10-t2.mjs` (after `m1-t4.mjs`) gives 360 BLF keys for 361 and the parking slot 701 and a
+Yealink. From the phone's side: the config names the keys, clears the rest, has Central time, and
+its phonebook URL (with the phone's credentials in it) returns the extensions. Asterisk has hints
+for 361 and 701. With the company time zone set to Asia/Tokyo, the Phones page warns that phones
+show UTC (the zone is put back after).

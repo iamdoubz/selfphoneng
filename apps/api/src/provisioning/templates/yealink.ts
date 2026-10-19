@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Yealink T3x/T4x/T5x <mac>.cfg (07 §3.1). Key names from Yealink's docs, (verify per model).
-import { oneLine, type ProvisionContext } from '../context.ts';
+import { oneLine, xml, type PhonebookEntry, type ProvisionContext } from '../context.ts';
 
 const TRANSPORT = { udp: 0, tcp: 1, tls: 2 } as const;
+/** Line key 1 is the line; BLF keys are 2…; keys past the last BLF up to here are cleared. */
+const LAST_KEY = 33;
 
 export function yealink(c: ProvisionContext): string {
   const v = oneLine;
@@ -26,12 +28,47 @@ export function yealink(c: ProvisionContext): string {
     'features.pickup.direct_pickup_code = **',
     'features.pickup.group_pickup_enable = 1',
     'features.pickup.group_pickup_code = *8',
+    '## BLF keys (line key 1 is the line); keys the PBX no longer uses are cleared',
+    ...c.blf.flatMap((b, i) => [
+      `linekey.${i + 2}.type = 16`,
+      `linekey.${i + 2}.line = 1`,
+      `linekey.${i + 2}.value = ${b.number}`,
+      `linekey.${i + 2}.label = ${v(b.label)}`,
+      `linekey.${i + 2}.pickup_value = **${b.number}`,
+    ]),
+    ...Array.from(
+      { length: LAST_KEY - c.blf.length - 1 },
+      (_, i) => `linekey.${i + c.blf.length + 2}.type = 0`,
+    ),
+    '## time',
+    `local_time.time_zone = ${c.timezone.yealinkOffset}`,
+    `local_time.time_zone_name = ${c.timezone.yealinkName}`,
+    `local_time.ntp_server1 = ${c.ntpServer}`,
+    '## phonebook',
+    `remote_phonebook.data.1.url = ${c.phonebookUrl}`,
+    'remote_phonebook.data.1.name = Company',
     '## keep provisioning',
     `static.auto_provision.server.url = ${c.provUrl}`,
     `static.auto_provision.server.username = ${c.provUser}`,
     `static.auto_provision.server.password = ${c.provPassword}`,
     'static.auto_provision.repeat.enable = 1',
     'static.auto_provision.repeat.minutes = 1440',
+    '',
+  ].join('\n');
+}
+
+/** Remote phonebook XML (07 §3.1). */
+export function yealinkPhonebook(entries: PhonebookEntry[]): string {
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<YealinkIPPhoneDirectory>',
+    ...entries.map(
+      (e) =>
+        `  <DirectoryEntry><Name>${xml(e.name)}</Name>${e.numbers
+          .map((n) => `<Telephone label="${xml(n.label)}">${xml(n.number)}</Telephone>`)
+          .join('')}</DirectoryEntry>`,
+    ),
+    '</YealinkIPPhoneDirectory>',
     '',
   ].join('\n');
 }

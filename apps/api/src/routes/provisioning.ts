@@ -7,24 +7,25 @@ import { BlockList, isIPv4 } from 'node:net';
 import { eq, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { devices } from '../db/schema.ts';
-import { loadContext, type ProvisionContext } from '../provisioning/context.ts';
+import { loadContext, loadPhonebook, type ProvisionContext } from '../provisioning/context.ts';
 import { allowProvRequest, recordProvFailure } from '../provisioning/limiter.ts';
-import { grandstream } from '../provisioning/templates/grandstream.ts';
-import { yealink, yealinkCommon } from '../provisioning/templates/yealink.ts';
+import { grandstream, grandstreamPhonebook } from '../provisioning/templates/grandstream.ts';
+import { yealink, yealinkCommon, yealinkPhonebook } from '../provisioning/templates/yealink.ts';
 import { getSetting } from '../services/settings.ts';
 
 /** File name → what it is. Anything else is a plain 404 (phones ask for files we don't serve). */
 const FILES: {
   re: RegExp;
-  vendor: ProvisionContext['vendor'];
-  render: (c: ProvisionContext) => string;
+  /** null: the phonebook, in the device's own vendor's format. */
+  vendor: ProvisionContext['vendor'] | null;
   type: string;
 }[] = [
-  { re: /^([0-9a-f]{12})\.cfg$/, vendor: 'yealink', render: yealink, type: 'text/plain' },
+  { re: /^([0-9a-f]{12})\.cfg$/, vendor: 'yealink', type: 'text/plain' },
+  { re: /^cfg([0-9a-f]{12})\.xml$/, vendor: 'grandstream', type: 'application/xml' },
+  // Yealink: phonebook/<mac>.xml; Grandstream appends /phonebook.xml to the path it's given.
   {
-    re: /^cfg([0-9a-f]{12})\.xml$/,
-    vendor: 'grandstream',
-    render: grandstream,
+    re: /^phonebook\/([0-9a-f]{12})(?:\.xml|\/phonebook\.xml)$/,
+    vendor: null,
     type: 'application/xml',
   },
 ];
@@ -60,6 +61,13 @@ export async function provisioningRoutes(app: FastifyInstance) {
     return nets.check(v4, 'ipv4');
   }
 
+  /** The config, or (phonebook) the directory in the phone's vendor's format. */
+  async function render(c: ProvisionContext, phonebook = false): Promise<string> {
+    if (!phonebook) return c.vendor === 'yealink' ? yealink(c) : grandstream(c);
+    const entries = await loadPhonebook(db);
+    return c.vendor === 'yealink' ? yealinkPhonebook(entries) : grandstreamPhonebook(entries);
+  }
+
   const deny = (reply: FastifyReply, code: number, text: string) =>
     reply.code(code).header('Cache-Control', 'no-store').type('text/plain').send(text);
 
@@ -78,7 +86,11 @@ export async function provisioningRoutes(app: FastifyInstance) {
     const mac = kind.m![1]!;
 
     const found = await loadContext(db, app.config, mac);
-    if (!found || found.ctx.vendor !== kind.f.vendor) {
+    if (
+      !found ||
+      found.ctx.vendor === 'generic' ||
+      (kind.f.vendor && found.ctx.vendor !== kind.f.vendor)
+    ) {
       recordProvFailure(req.ip);
       req.log.warn({ ip: req.ip, mac }, 'provisioning: unknown MAC');
       return deny(reply, 404, 'Not found');
@@ -107,6 +119,6 @@ export async function provisioningRoutes(app: FastifyInstance) {
     return reply
       .header('Cache-Control', 'no-store')
       .type(kind.f.type)
-      .send(kind.f.render(found.ctx));
+      .send(await render(found.ctx, kind.f.vendor === null));
   });
 }

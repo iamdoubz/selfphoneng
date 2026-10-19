@@ -7,11 +7,12 @@ import { useState } from 'react';
 import {
   DeviceCreateSchema,
   PHONE_VENDORS,
+  phoneTimezone,
   type DeviceCreate,
   type DeviceDto,
   type PhoneVendor,
 } from '@selfphoneng/shared';
-import { devicesApi, extensionsApi } from '../../api/client.ts';
+import { devicesApi, extensionsApi, settingsApi } from '../../api/client.ts';
 import { ConfirmDialog, Dialog } from '../../components/Dialog.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
@@ -25,6 +26,8 @@ const fmtMac = (m: string) => m.match(/../g)!.join(':');
 export function PhonesPage() {
   const qc = useQueryClient();
   const phones = useQuery({ queryKey: ['devices'], queryFn: devicesApi.list });
+  const settings = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get });
+  const tz = settings.data?.['general.timezone'];
   const [editing, setEditing] = useState<DeviceDto | 'new' | null>(null);
   const [deleting, setDeleting] = useState<DeviceDto | null>(null);
   const refresh = () => qc.invalidateQueries({ queryKey: ['devices'] });
@@ -48,6 +51,12 @@ export function PhonesPage() {
         Add a desk phone by its MAC address (on a sticker under the phone) and it sets itself up:
         account, voicemail and pickup keys.
       </p>
+      {tz && !phoneTimezone(tz).supported && (
+        <Alert>
+          Desk phones don't know the time zone {tz}, so they show UTC. Phones know the US and Canada
+          zones, UTC and London.
+        </Alert>
+      )}
       {phones.isError && <Alert>{phones.error.message}</Alert>}
       {phones.data?.length === 0 && <p className="text-sm text-zinc-500">No phones yet.</p>}
       {phones.data && phones.data.length > 0 && (

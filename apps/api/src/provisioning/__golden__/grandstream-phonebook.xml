@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AddressBook>
+  <Contact><LastName>Ann Lee</LastName><Phone><phonenumber>102</phonenumber><accountindex>1</accountindex></Phone></Contact>
+  <Contact><LastName>Acme &lt;Supplies&gt; &amp; &quot;Parts&quot;</LastName><Phone><phonenumber>13125551234</phonenumber><accountindex>1</accountindex></Phone><Phone><phonenumber>13125559876</phonenumber><accountindex>1</accountindex></Phone></Contact>
+</AddressBook>

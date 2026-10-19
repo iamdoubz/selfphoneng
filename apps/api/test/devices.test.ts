@@ -4,7 +4,7 @@
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { devices } from '../src/db/schema.ts';
+import { contacts, devices } from '../src/db/schema.ts';
 import { resetProvLimiter } from '../src/provisioning/limiter.ts';
 import { setSetting } from '../src/services/settings.ts';
 import { hasTestDb } from './db.ts';
@@ -182,6 +182,52 @@ describe.skipIf(!hasTestDb)('/api/devices and /prov', () => {
       (await prov('112233445566.cfg', '192.168.1.40', generic.provisioningPassword, '112233445566'))
         .statusCode,
     ).toBe(404);
+  });
+
+  it('M10-T2: BLF keys named after their users, the time zone, and the phonebook', async () => {
+    await req('POST', '/api/extensions', { number: '102', name: 'Ann Lee' });
+    await req('PATCH', `/api/extensions/${extId}`, { blfNumbers: ['102', '701'] });
+    await t.db.insert(contacts).values([
+      { name: 'Acme', numbers: [{ label: 'office', number: '13125551234' }] },
+      { name: 'Private', ownerUserId: null, numbers: [] }, // no numbers: left out
+    ]);
+    const cfg = (await prov(`${device.mac}.cfg`, '192.168.1.60', device.provisioningPassword)).body;
+    expect(cfg).toContain('linekey.2.value = 102\nlinekey.2.label = Ann Lee');
+    expect(cfg).toContain('linekey.3.label = 701');
+    expect(cfg).toContain('local_time.time_zone_name = United States-Central Time');
+    expect(cfg).toContain(
+      `remote_phonebook.data.1.url = https://${device.mac}:${device.provisioningPassword}@pbx.test/prov/phonebook/${device.mac}.xml`,
+    );
+    const book = await prov(
+      `phonebook/${device.mac}.xml`,
+      '192.168.1.60',
+      device.provisioningPassword,
+    );
+    expect(book.statusCode).toBe(200);
+    expect(book.body).toContain('<Name>Ann Lee</Name><Telephone label="Extension">102</Telephone>');
+    expect(book.body).toContain('<Telephone label="office">13125551234</Telephone>');
+    expect(book.body).not.toContain('Private');
+    expect((await prov(`phonebook/${device.mac}.xml`, '192.168.1.60')).statusCode).toBe(401);
+    // Grandstream asks for <path>/phonebook.xml and gets its own format
+    const gs = (await req('GET', '/api/devices'))
+      .json()
+      .items.find((d: { vendor: string }) => d.vendor === 'grandstream');
+    const gsBook = await prov(
+      `phonebook/${gs.mac}/phonebook.xml`,
+      '192.168.1.61',
+      gs.provisioningPassword,
+      gs.mac,
+    );
+    expect(gsBook.body).toContain('<AddressBook>');
+    // the preview hides the password in the phonebook URL too
+    const p = (await req('GET', `/api/devices/${device.id}/config-preview`)).json();
+    expect(p.content).not.toContain(device.provisioningPassword);
+    expect(p.timezoneWarning).toBe(false);
+    await setSetting(t.db, 'general.timezone', 'Asia/Tokyo');
+    const tokyo = (await req('GET', `/api/devices/${device.id}/config-preview`)).json();
+    expect(tokyo.timezoneWarning).toBe(true);
+    expect(tokyo.content).toContain('local_time.time_zone_name = UTC');
+    await setSetting(t.db, 'general.timezone', 'America/Chicago');
   });
 
   it('delete: the phone gets nothing any more', async () => {

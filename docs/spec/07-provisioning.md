@@ -155,6 +155,21 @@ points to `phone-<mac>.cfg` with `reg.1.address`, `reg.1.auth.userId`,
 Mountain, Arizona, Pacific, Alaska, Hawaii, Atlantic, Newfoundland) plus UTC and London,
 mapping IANA → Yealink offset/name → POSIX TZ string. Anything else falls back to UTC with a UI warning.
 
+As built (M10-T2):
+- The table is `packages/shared/src/phone-timezones.ts` (the Phones page warns from it too), with
+  aliases (Toronto, Detroit, Winnipeg, Edmonton, Boise, Vancouver). Yealink names and the POSIX
+  form for Grandstream `P64` are **(verify per model)**.
+- Yealink BLF keys start at line key 2, labeled with the extension's name (the number for
+  anything else, e.g. a parking slot), and keys up to 33 past the last BLF are written `type = 0`
+  so removed BLFs disappear from the phone.
+- Phonebook: every extension, then the company contacts (`owner_user_id` null) that have numbers.
+  The URL in the config carries the phone's credentials
+  (`https://<mac>:<password>@<host>/prov/phonebook/<mac>.xml`): phones fetch it like the config.
+  Grandstream gets `P330 = 3` (HTTPS), `P331` = that path without `.xml` and asks for
+  `<path>/phonebook.xml`, which is served too; `P332 = 1440`. All **(verify per model)**.
+- NTP server: `pool.ntp.org` (no setting). Golden files for both vendors and both phonebooks:
+  `apps/api/src/provisioning/__golden__/` (update with `vitest -u`, review the diff).
+
 ## 4. Generic devices
 Vendor `generic`: no file is served. The device page shows manual settings instead:
 server, port, transport, username, password (reveal), voicemail `*97`.

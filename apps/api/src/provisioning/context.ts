@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // What a vendor template gets (07 §1). Templates are pure functions of this; no I/O there.
-// ponytail: M10-T1 has what a phone needs to register and stay provisioned; BLF keys, time zone
-// and the phonebook (07 §3) arrive with M10-T2.
-import { eq } from 'drizzle-orm';
-import type { PhoneVendor } from '@selfphoneng/shared';
+import { asc, eq, inArray, isNull } from 'drizzle-orm';
+import { phoneTimezone, type PhoneTimezone, type PhoneVendor } from '@selfphoneng/shared';
 import type { Config } from '../config.ts';
 import { decrypt } from '../crypto/secrets.ts';
 import type { Db } from '../db/client.ts';
-import { devices, extensions } from '../db/schema.ts';
+import { contacts, devices, extensions } from '../db/schema.ts';
 import { getSetting } from '../services/settings.ts';
 
 export type ProvisionContext = {
@@ -19,10 +17,18 @@ export type ProvisionContext = {
   transport: 'udp';
   ext: { number: string; name: string; sipPassword: string };
   voicemailNumber: '*97';
+  /** extensions.blf_numbers in order, labeled with the extension's name when there is one. */
+  blf: { number: string; label: string }[];
+  timezone: PhoneTimezone & { iana: string; supported: boolean };
   provUrl: string;
   provUser: string;
   provPassword: string;
+  /** The phonebook with this phone's credentials in it (phones fetch it like the config). */
+  phonebookUrl: string;
+  ntpServer: string;
 };
+
+export const NTP_SERVER = 'pool.ntp.org';
 
 export const provisioningUrl = (config: Pick<Config, 'PUBLIC_HOSTNAME'>) =>
   `https://${config.PUBLIC_HOSTNAME}/prov/`;
@@ -40,6 +46,18 @@ export async function loadContext(
     .where(eq(devices.mac, mac));
   if (!row) return null;
   const { d, e } = row;
+  const names = new Map(
+    e.blfNumbers.length
+      ? (
+          await db
+            .select({ number: extensions.number, name: extensions.name })
+            .from(extensions)
+            .where(inArray(extensions.number, e.blfNumbers))
+        ).map((x) => [x.number, x.name])
+      : [],
+  );
+  const iana = await getSetting(db, 'general.timezone');
+  const provPassword = decrypt(d.provisioningPasswordEnc);
   return {
     id: d.id,
     ctx: {
@@ -52,11 +70,39 @@ export async function loadContext(
       transport: 'udp',
       ext: { number: e.number, name: e.name, sipPassword: decrypt(e.sipPasswordEnc) },
       voicemailNumber: '*97',
+      blf: e.blfNumbers.map((n) => ({ number: n, label: names.get(n) ?? n })),
+      timezone: { ...phoneTimezone(iana), iana },
       provUrl: provisioningUrl(config),
       provUser: d.mac,
-      provPassword: decrypt(d.provisioningPasswordEnc),
+      provPassword,
+      phonebookUrl: `https://${d.mac}:${provPassword}@${config.PUBLIC_HOSTNAME}/prov/phonebook/${d.mac}.xml`,
+      ntpServer: NTP_SERVER,
     },
   };
+}
+
+export type PhonebookEntry = { name: string; numbers: { label: string; number: string }[] };
+
+/** The company phonebook (07 §2): every extension, then the company contacts, by name. */
+export async function loadPhonebook(db: Db): Promise<PhonebookEntry[]> {
+  const exts = await db
+    .select({ name: extensions.name, number: extensions.number })
+    .from(extensions)
+    .orderBy(asc(extensions.name));
+  const company = await db
+    .select({ name: contacts.name, numbers: contacts.numbers })
+    .from(contacts)
+    .where(isNull(contacts.ownerUserId))
+    .orderBy(asc(contacts.name));
+  return [
+    ...exts.map((x) => ({ name: x.name, numbers: [{ label: 'Extension', number: x.number }] })),
+    ...company.map((c) => ({
+      name: c.name,
+      numbers: (c.numbers as { label?: string; number?: string }[])
+        .filter((n) => typeof n.number === 'string' && /^[0-9*#+]+$/.test(n.number))
+        .map((n) => ({ label: n.label ?? '', number: n.number! })),
+    })),
+  ].filter((x) => x.numbers.length);
 }
 
 /** One line of text for a config value: no line breaks or control characters. */

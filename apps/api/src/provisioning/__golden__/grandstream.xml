@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gs_provision version="1">
+  <mac>001565abcdef</mac>
+  <config version="1">
+    <P271>1</P271>                                 <!-- account 1 active -->
+    <P270>101 Dan &quot;D&quot; &lt;Doe&gt; &amp; Co  x = 1</P270>     <!-- account name -->
+    <P47>pbx.example.com:5060</P47>              <!-- SIP server -->
+    <P35>101</P35>                               <!-- SIP user ID -->
+    <P36>101</P36>                               <!-- auth ID -->
+    <P34>Ab3dEf9hIj2kLm4nOp6qRs8t</P34>          <!-- password -->
+    <P3>Dan &quot;D&quot; &lt;Doe&gt; &amp; Co  x = 1</P3>         <!-- display name -->
+    <P33>*97</P33>                               <!-- voicemail -->
+    <P130>0</P130>                                 <!-- SIP transport -->
+    <P212>2</P212>                                 <!-- config upgrade via HTTPS -->
+    <P237>pbx.example.com/prov</P237>              <!-- config server path -->
+    <P1360>001565abcdef</P1360>                      <!-- HTTP(S) username -->
+    <P1361>Pr0vPassw0rdXyZ12345</P1361>              <!-- HTTP(S) password -->
+    <P30>pool.ntp.org</P30>                      <!-- NTP server -->
+    <P64>CST6CDT,M3.2.0,M11.1.0</P64>            <!-- time zone (POSIX) -->
+    <P330>3</P330>                                 <!-- phonebook download: HTTPS -->
+    <P331>001565abcdef:Pr0vPassw0rdXyZ12345@pbx.example.com/prov/phonebook/001565abcdef</P331> <!-- phonebook path -->
+    <P332>1440</P332>                              <!-- phonebook refresh (minutes) -->
+  </config>
+</gs_provision>
