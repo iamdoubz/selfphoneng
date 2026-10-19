@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // "Where should the call go?" (05 §3): a type, then the target (or a number).
-// Every type that exists (M6-T6, queues M8-T1); conferences join with M8-T3.
+// Every type there is (M6-T6; queues M8-T1, conference rooms M8-T3).
 import { useQuery } from '@tanstack/react-query';
 import { useId, useState } from 'react';
 import { normalizeNumber, type Destination } from '@selfphoneng/shared';
 import {
   announcementsApi,
+  conferencesApi,
   extensionsApi,
   ivrsApi,
   queuesApi,
@@ -15,7 +16,14 @@ import {
 import { inputClass } from './ui.tsx';
 
 type IdKind =
-  'user' | 'voicemail' | 'ring_group' | 'queue' | 'ivr' | 'time_condition' | 'announcement';
+  | 'user'
+  | 'voicemail'
+  | 'ring_group'
+  | 'queue'
+  | 'ivr'
+  | 'time_condition'
+  | 'conference'
+  | 'announcement';
 type Kind = IdKind | 'external' | 'hangup';
 
 const KINDS: { kind: Kind; label: string }[] = [
@@ -25,6 +33,7 @@ const KINDS: { kind: Kind; label: string }[] = [
   { kind: 'queue', label: 'Queue' },
   { kind: 'ivr', label: 'Digital receptionist' },
   { kind: 'time_condition', label: 'Office hours' },
+  { kind: 'conference', label: 'Conference room' },
   { kind: 'announcement', label: 'Announcement' },
   { kind: 'external', label: 'Forward to an outside number' },
   { kind: 'hangup', label: 'Hang up' },
@@ -37,6 +46,7 @@ const TARGET_NOUN: Record<IdKind, string> = {
   queue: 'queue',
   ivr: 'digital receptionist',
   time_condition: 'office hours',
+  conference: 'conference room',
   announcement: 'announcement',
 };
 const isIdKind = (k: Kind): k is IdKind => k !== 'external' && k !== 'hangup';
@@ -147,6 +157,7 @@ function useTargets() {
   const ivrs = useQuery({ queryKey: ['ivrs'], queryFn: ivrsApi.list });
   const tcs = useQuery({ queryKey: ['time-conditions'], queryFn: timeConditionsApi.list });
   const anns = useQuery({ queryKey: ['announcements'], queryFn: announcementsApi.list });
+  const rooms = useQuery({ queryKey: ['conferences'], queryFn: conferencesApi.list });
   const rows = (q: { data?: { id: string; name: string; number?: string }[] }) =>
     q.data?.map((x) => ({ id: x.id, label: x.number ? `${x.number} ${x.name}` : x.name }));
   return {
@@ -156,6 +167,7 @@ function useTargets() {
     queue: rows(queues),
     ivr: rows(ivrs),
     time_condition: rows(tcs),
+    conference: rows(rooms),
     announcement: rows(anns),
   } satisfies Record<IdKind, unknown>;
 }

@@ -20,6 +20,7 @@ import { renderEmergency } from './dialplan/emergency.ts';
 import { renderRingGroups } from './dialplan/ringgroups.ts';
 import { renderQueueDialplan } from './dialplan/queues.ts';
 import { renderQueues } from './queues.ts';
+import { renderConfbridge, renderConferences } from './dialplan/conferences.ts';
 import { renderIvrs } from './dialplan/ivrs.ts';
 import { renderTimeConditions } from './dialplan/timeconditions.ts';
 import { renderAnnouncements } from './dialplan/announcements.ts';
@@ -52,12 +53,14 @@ const BODIES: Partial<Record<GeneratedFileName, (snap: Snapshot) => string>> = {
   'extensions_globals_selfphoneng.conf': renderGlobals,
   'voicemail_selfphoneng.conf': renderVoicemail,
   'queues_selfphoneng.conf': renderQueues,
+  'confbridge_selfphoneng.conf': renderConfbridge,
   'extensions_selfphoneng.conf': (snap) =>
     [
       STATIC_DIALPLAN,
       renderLocalNumbers(snap),
       renderRingGroups(snap),
       renderQueueDialplan(snap),
+      renderConferences(snap),
       renderIvrs(snap),
       renderTimeConditions(snap),
       renderAnnouncements(snap),

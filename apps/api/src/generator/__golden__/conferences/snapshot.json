@@ -1,0 +1,36 @@
+{
+  "extensions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000101",
+      "number": "101",
+      "name": "Dan Doe",
+      "sipPassword": "Ab3dEf9hIj2kLm4nOp6qRs8t"
+    }
+  ],
+  "conferences": [
+    { "id": "55555555-5555-4555-8555-555555555800", "number": "800", "name": "Open room" },
+    {
+      "id": "55555555-5555-4555-8555-555555555801",
+      "number": "801",
+      "name": "Board; \"private\"",
+      "pin": "4826",
+      "adminPin": "917355",
+      "maxMembers": 8,
+      "record": true
+    },
+    {
+      "id": "55555555-5555-4555-8555-555555555802",
+      "number": "802",
+      "name": "Team",
+      "pin": "1357"
+    }
+  ],
+  "dids": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "number": "13125551234",
+      "destination": { "type": "conference", "id": "55555555-5555-4555-8555-555555555801" }
+    }
+  ],
+  "trunks": [{ "id": "7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37" }]
+}

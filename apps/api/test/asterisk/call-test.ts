@@ -66,6 +66,7 @@ function snapshot(): Snapshot {
     routes: [],
     ringGroups: [],
     queues: [],
+    conferences: [],
     ivrs: [],
     timeConditions: [],
     holidays: [],

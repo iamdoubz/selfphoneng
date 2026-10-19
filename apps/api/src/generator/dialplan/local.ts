@@ -27,10 +27,13 @@ export function renderLocalNumbers(snap: Snapshot): string {
   if (snap.queues.length) lines.push('', '; queues');
   for (const q of [...snap.queues].sort(byNumber))
     lines.push(`exten => ${s.digits(q.number)},1,Goto(sp-queue-${s.ident(q.id)},s,1)`);
+  if (snap.conferences.length) lines.push('', '; conference rooms');
+  for (const c of [...snap.conferences].sort(byNumber))
+    lines.push(`exten => ${s.digits(c.number)},1,Goto(sp-conf-${s.ident(c.id)},s,1)`);
   if (snap.ivrs.length) lines.push('', '; digital receptionists');
   for (const r of [...snap.ivrs].sort(byNumber))
     lines.push(`exten => ${s.digits(r.number)},1,Goto(sp-ivr-${s.ident(r.id)},s,1)`);
-  // M8: conferences and paging groups add one line each here.
+  // M8-T4: paging groups add one line each here.
   return lines.join('\n') + '\n';
 }
 

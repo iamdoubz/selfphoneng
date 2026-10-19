@@ -31,6 +31,9 @@ import type {
   OutboundRouteCreate,
   OutboundRouteDto,
   OutboundRouteUpdate,
+  ConferenceCreate,
+  ConferenceDto,
+  ConferenceUpdate,
   QueueCreate,
   QueueDto,
   QueueStats,
@@ -248,6 +251,14 @@ export const queuesApi = {
   stats: (id: string) => api<QueueStats>('GET', `/api/queues/${id}/stats`),
   setPaused: (id: string, extId: string, paused: boolean) =>
     api<{ ok: true }>('POST', `/api/queues/${id}/members/${extId}/${paused ? 'pause' : 'unpause'}`),
+};
+
+export const conferencesApi = {
+  list: () => api<ListResponse<ConferenceDto>>('GET', '/api/conferences').then((r) => r.items),
+  create: (c: ConferenceCreate) => api<ConferenceDto>('POST', '/api/conferences', c),
+  update: (id: string, c: ConferenceUpdate) =>
+    api<ConferenceDto>('PATCH', `/api/conferences/${id}`, c),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/conferences/${id}`),
 };
 
 export const ivrsApi = {

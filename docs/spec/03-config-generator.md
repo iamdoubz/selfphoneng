@@ -692,15 +692,16 @@ exten => s,1,Answer()
 
 ; conference without PINs
 [sp-conf-{id}]
-exten => s,1,Answer()
- same => n,Set(CONFBRIDGE(bridge,max_members)={max_members})
- same => n,Set(CONFBRIDGE(bridge,record_conference)=yes)           ; only if record
- same => n,ConfBridge({number},default_bridge,default_user,default_menu)
+exten => s,1,Set(__SP_TARGET={number})
+ same => n,Answer()
+ same => n,Gosub(sp-sub-record,s,1)                               ; only if record
+ same => n,ConfBridge({number},sp_room_{number},default_user,default_menu)
  same => n,Hangup()
 
 ; conference with PIN (and optional admin PIN)
 [sp-conf-{id}]
-exten => s,1,Answer()
+exten => s,1,Set(__SP_TARGET={number})
+ same => n,Answer()
  same => n,Set(TRIES=0)
  same => n(ask),Read(PIN,conf-getpin,10,,1,8)
  same => n,GotoIf($["${PIN}" = "{admin_pin}"]?admin)               ; only if admin_pin
@@ -710,9 +711,9 @@ exten => s,1,Answer()
  same => n,Hangup()
  same => n(bad),Playback(conf-invalidpin)
  same => n,Goto(ask)
- same => n(admin),ConfBridge({number},default_bridge,sp_admin_user,default_menu)
+ same => n(admin),ConfBridge({number},sp_room_{number},sp_admin_user,default_menu)   ; (admin) on the Gosub when recorded
  same => n,Hangup()
- same => n(user),ConfBridge({number},default_bridge,default_user,default_menu)
+ same => n(user),ConfBridge({number},sp_room_{number},default_user,default_menu)
  same => n,Hangup()
 
 [sp-page-{id}]
@@ -721,14 +722,24 @@ exten => s,1,Page(PJSIP/101&PJSIP/102,{d if duplex}iqb(sp-sub-autoanswer^s^1),30
 ```
 Paging only rings desk endpoints (`PJSIP/<ext>`), not `-web`.
 
-`confbridge_selfphoneng.conf` always contains:
+`confbridge_selfphoneng.conf` always contains the admin profile, plus one bridge profile per room:
 ```ini
 [sp_admin_user]
 type = user
 admin = yes
 marked = yes
 music_on_hold_when_empty = yes
+
+[sp_room_800](default_bridge)        ; room 800
+max_members = 20
 ```
+As built (M8-T3), changed from the first draft: `Set(CONFBRIDGE(bridge,max_members)=…)` before
+`ConfBridge(…,default_bridge,…)` is ignored (a 4th caller got into a room of 3 on Asterisk 24), so
+each room has its own bridge profile. A recorded room runs `sp-sub-record` on each caller's leg,
+just before `ConfBridge()`, instead of `record_conference`: the files are ordinary call recordings
+(call history, Recordings page, retention). That is one file per participant, and a caller turned
+away from a full room leaves a few seconds of recording too. Golden case `conferences`;
+`scripts/e2e/m8-t3.mjs` checks PIN, admin PIN, the limit and recordings with real calls.
 
 ### 6.12 Outbound routes
 

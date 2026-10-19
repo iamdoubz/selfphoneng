@@ -5,6 +5,7 @@ import { alias } from 'drizzle-orm/pg-core';
 import type { Db } from '../db/client.ts';
 import {
   announcements,
+  conferences,
   dids,
   extensions,
   holidays,
@@ -115,6 +116,16 @@ export type SnapQueue = {
   timeoutDestination: Destination;
 };
 
+export type SnapConference = {
+  id: string;
+  number: string;
+  name: string;
+  pin: string | null; // decrypted
+  adminPin: string | null; // decrypted
+  maxMembers: number;
+  record: boolean;
+};
+
 export type SnapIvr = {
   id: string;
   number: string;
@@ -167,6 +178,7 @@ export type Snapshot = {
   routes: SnapRoute[];
   ringGroups: SnapRingGroup[];
   queues: SnapQueue[];
+  conferences: SnapConference[];
   ivrs: SnapIvr[];
   timeConditions: SnapTimeCondition[];
   holidays: SnapHoliday[];
@@ -220,6 +232,7 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
     })
     .from(queueMembers)
     .innerJoin(extensions, eq(extensions.id, queueMembers.extensionId));
+  const confRows = await db.select().from(conferences);
   const ivrRows = await db.select().from(ivrs);
   const tcRows = await db.select().from(timeConditions);
   const holidayRows = await db.select().from(holidays);
@@ -312,6 +325,15 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
         .filter((m) => m.queueId === q.id)
         .map(({ number, name, penalty }) => ({ number, name, penalty })),
       timeoutDestination: q.timeoutDestination as Destination,
+    })),
+    conferences: confRows.map((c) => ({
+      id: c.id,
+      number: c.number,
+      name: c.name,
+      pin: c.pinEnc ? decrypt(c.pinEnc) : null,
+      adminPin: c.adminPinEnc ? decrypt(c.adminPinEnc) : null,
+      maxMembers: c.maxMembers,
+      record: c.record,
     })),
     routes: routeRows.map((r) => ({
       id: r.id,

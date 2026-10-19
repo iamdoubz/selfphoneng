@@ -155,6 +155,7 @@ function snapshot(): Snapshot {
           ? ({ type: 'hangup' } as const)
           : ({ type: 'voicemail', id: CDR_IDS.ext('102') } as const),
     })),
+    conferences: [],
     ivrs: [
       {
         id: CDR_IDS.ivr,

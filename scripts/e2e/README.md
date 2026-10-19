@@ -142,3 +142,9 @@ reaches 290, which blind-transfers it to 700 (AMI BlindTransfer, what a phone's 
 it lands on 701 and the slot's hint goes InUse. The dashboard and the user's Home list it, the live
 call shows "Parked", and **Pick up 701** on Home rings 291, which dials 701 and talks to the caller.
 A second park takes 702 (`findslot = next`) and 292 picks it up by dialing 702.
+
+`m8-t3.mjs` needs m2-live with a recordings dir. It builds room 800 in the UI (PIN 4826, admin PIN
+917355, at most 3, recorded; the form refuses an admin PIN equal to the PIN). Callers are Local
+channels typing with `SendDTMF`: a wrong PIN plays `conf-invalidpin` and asks again, the admin PIN
+joins with flags `AM` in `confbridge list`, a 4th caller is turned away, and the recordings appear
+on the Recordings page. Room 801 has no PIN; desk phones 300 and 301 dial in.

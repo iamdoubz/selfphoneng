@@ -26,6 +26,7 @@ describe('golden', () => {
         'holidays',
         'ivr-business-hours',
         'queue',
+        'conferences',
       ]),
     );
   });

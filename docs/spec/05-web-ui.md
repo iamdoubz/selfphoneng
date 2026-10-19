@@ -37,7 +37,7 @@ Left sidebar navigation, in this order:
 | Queues | `/admin/queues` | Form: every column from 02. Detail page shows live waiting callers + agent list with pause/unpause buttons + today's stats. As built (M8-T1): detail at `/admin/queues/:id`; music on hold offers only the current class until M8-T5 |
 | IVRs (Digital receptionist) | `/admin/ivrs` | Form: number, name, greeting (SoundPicker), keypad grid 0–9 * # where each key gets a DestinationPicker or "unused", timeout, retries, invalid sound, direct dial toggle, timeout and invalid destinations |
 | Office hours | `/admin/hours` | Time conditions: weekly grid editor (click-drag hours per day) that saves to `open_ranges`; timezone; holidays toggle; open/closed/holiday destinations; override digit; big status chip "Open now / Closed now" with Force open / Force closed / Automatic buttons. Holidays sub-tab: list + "Add US federal holidays for {year}" |
-| Conferences | `/admin/conferences` | number, name, PIN, admin PIN, max members, record |
+| Conferences | `/admin/conferences` | number, name, PIN, admin PIN, max members, record. As built (M8-T3): admins see the PINs in the list (they hand them out); an admin PIN needs a different room PIN |
 | Paging | `/admin/paging` | number, name, members, duplex |
 | Sounds & music | `/admin/sounds` | Prompts list with play buttons, upload (drag-drop), TTS (M12). MOH classes with their files (M8). An **Announcements** section (play a sound, then a destination) lives here too: no page of its own (M6-T5) |
 | Phones (devices) | `/admin/devices` | Table: MAC, vendor, model, user, last provisioned. Form: MAC (any format → normalized), vendor, model, extension. Shows the provisioning URL to type into the phone, and "Preview config" |
