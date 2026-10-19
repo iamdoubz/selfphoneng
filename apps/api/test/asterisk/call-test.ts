@@ -67,6 +67,7 @@ function snapshot(): Snapshot {
     ringGroups: [],
     queues: [],
     conferences: [],
+    pagingGroups: [],
     ivrs: [],
     timeConditions: [],
     holidays: [],

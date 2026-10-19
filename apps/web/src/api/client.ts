@@ -34,6 +34,9 @@ import type {
   ConferenceCreate,
   ConferenceDto,
   ConferenceUpdate,
+  PagingGroupCreate,
+  PagingGroupDto,
+  PagingGroupUpdate,
   QueueCreate,
   QueueDto,
   QueueStats,
@@ -259,6 +262,14 @@ export const conferencesApi = {
   update: (id: string, c: ConferenceUpdate) =>
     api<ConferenceDto>('PATCH', `/api/conferences/${id}`, c),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/conferences/${id}`),
+};
+
+export const pagingApi = {
+  list: () => api<ListResponse<PagingGroupDto>>('GET', '/api/paging-groups').then((r) => r.items),
+  create: (g: PagingGroupCreate) => api<PagingGroupDto>('POST', '/api/paging-groups', g),
+  update: (id: string, g: PagingGroupUpdate) =>
+    api<PagingGroupDto>('PATCH', `/api/paging-groups/${id}`, g),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/paging-groups/${id}`),
 };
 
 export const ivrsApi = {

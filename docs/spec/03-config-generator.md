@@ -717,10 +717,14 @@ exten => s,1,Set(__SP_TARGET={number})
  same => n,Hangup()
 
 [sp-page-{id}]
-exten => s,1,Page(PJSIP/101&PJSIP/102,{d if duplex}iqb(sp-sub-autoanswer^s^1),30)
+exten => s,1,Page(PJSIP/101&PJSIP/102,{d if duplex}iqsb(sp-sub-autoanswer^s^1),30)
  same => n,Hangup()
 ```
-Paging only rings desk endpoints (`PJSIP/<ext>`), not `-web`.
+Paging only rings desk endpoints (`PJSIP/<ext>`), not `-web`. As built (M8-T4): `s` added, so phones
+already on a call aren't paged; that includes the pager when they're a member themselves. A group
+with no members is `exten => s,1,Hangup()`. Paging groups aren't call destinations. Golden case
+`paging`; `scripts/e2e/m8-t4.mjs` pages with real calls (baresip phones that honor the auto-answer
+headers, like Yealink/Grandstream do; a real desk phone is still to be checked).
 
 `confbridge_selfphoneng.conf` always contains the admin profile, plus one bridge profile per room:
 ```ini
@@ -855,7 +859,13 @@ exten => _*45X.,1,Answer()                                  ; *45<queue> toggle 
  same => n,Hangup()
  same => n(deny),Playback(ss-noservice)
  same => n,Hangup()
-exten => _*80X.,1,Page(PJSIP/${EXTEN:3},db(sp-sub-autoanswer^s^1),30)   ; intercom
+exten => _*80X.,1,Set(T=${FILTER(0-9,${EXTEN:3})})            ; *80<ext> intercom, both ways
+ same => n,GotoIf($["${T}" != "${EXTEN:3}"]?deny)
+ same => n,GotoIf($["${PJSIP_ENDPOINT(${T},context)}" != "sp-from-ext"]?deny)   ; desk phones only
+ same => n,Page(PJSIP/${T},db(sp-sub-autoanswer^s^1),30)
+ same => n,Hangup()
+ same => n(deny),Answer()
+ same => n,Playback(ss-noservice)
  same => n,Hangup()
 ; time condition overrides *31N open, *32N closed, *33N auto (admins only)
 exten => _*3[123]X,1,Answer()
@@ -880,6 +890,8 @@ deletes the AstDB key, stores nothing, and logs an audit entry. Dialplan also
 limits forwards via `SP_CLASS_<ext>` in `sp-sub-forward`.
 
 As built (M6-T7): everything above except `*45` (queues) and `*80` (intercom), which come with M8.
+`*80` (M8-T4) only pages a desk phone: digits only (no `&` sneaking in another channel), and the
+endpoint must exist with context `sp-from-ext`; anything else plays `ss-noservice`.
 `*45` (M8-T1) checks `PQMSTATUS`/`UPQMSTATUS`, so a code for a queue the caller isn't an agent of plays
 `ss-noservice` and stores nothing (the original snippet stored the key and said "logged off" anyway).
 `*8` also has a dialplan line (`Pickup()`): `pickupexten` only catches it straight from a phone's

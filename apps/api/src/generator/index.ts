@@ -21,6 +21,7 @@ import { renderRingGroups } from './dialplan/ringgroups.ts';
 import { renderQueueDialplan } from './dialplan/queues.ts';
 import { renderQueues } from './queues.ts';
 import { renderConfbridge, renderConferences } from './dialplan/conferences.ts';
+import { renderPaging } from './dialplan/paging.ts';
 import { renderIvrs } from './dialplan/ivrs.ts';
 import { renderTimeConditions } from './dialplan/timeconditions.ts';
 import { renderAnnouncements } from './dialplan/announcements.ts';
@@ -61,6 +62,7 @@ const BODIES: Partial<Record<GeneratedFileName, (snap: Snapshot) => string>> = {
       renderRingGroups(snap),
       renderQueueDialplan(snap),
       renderConferences(snap),
+      renderPaging(snap),
       renderIvrs(snap),
       renderTimeConditions(snap),
       renderAnnouncements(snap),

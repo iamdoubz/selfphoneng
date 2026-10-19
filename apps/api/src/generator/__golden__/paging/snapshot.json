@@ -1,0 +1,38 @@
+{
+  "extensions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000101",
+      "number": "101",
+      "name": "Dan Doe",
+      "sipPassword": "Ab3dEf9hIj2kLm4nOp6qRs8t"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000102",
+      "number": "102",
+      "name": "Ann Lee",
+      "sipPassword": "Zx8cVb7nMq6wEr5tYu4iOp3a"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000099",
+      "number": "99",
+      "name": "Front desk",
+      "sipPassword": "Qw2eRt4yUi6oPa8sDf0gHj1k"
+    }
+  ],
+  "pagingGroups": [
+    {
+      "id": "66666666-6666-4666-8666-666666666850",
+      "number": "850",
+      "name": "All phones; \"loud\"",
+      "members": ["102", "99", "101"]
+    },
+    {
+      "id": "66666666-6666-4666-8666-666666666851",
+      "number": "851",
+      "name": "Intercom",
+      "duplex": true,
+      "members": ["102"]
+    },
+    { "id": "66666666-6666-4666-8666-666666666852", "number": "852", "name": "Nobody yet" }
+  ]
+}

@@ -12,7 +12,9 @@ const docker = (...a) => {
 };
 
 /**
- * phones: [{ ext, password, answer: 'auto' | 'manual', toneHz = 440 }]
+ * phones: [{ ext, password, answer: 'auto' | 'manual', toneHz = 440, intercom = false }]
+ * intercom: a manual phone still answers by itself when the INVITE asks it to (Call-Info
+ * answer-after, Alert-Info auto-answer), like a Yealink or Grandstream.
  * Returns { log(ext) → text so far, stop() }.
  */
 export function startPhones({ name, net, ast, phones }) {
@@ -37,7 +39,7 @@ export function startPhones({ name, net, ast, phones }) {
     );
     writeFileSync(
       join(d, 'accounts'),
-      `<sip:${p.ext}@${ast};transport=udp>;auth_pass=${p.password};answermode=${p.answer};audio_codecs=PCMU\n`,
+      `<sip:${p.ext}@${ast};transport=udp>;auth_pass=${p.password};answermode=${p.answer}${p.intercom ? ';sip_autoanswer=yes;sip_autoanswer_beep=off' : ''};audio_codecs=PCMU\n`,
     );
   });
   const run = phones.map((p) => `(baresip -f /phones/${p.ext} > /phones/${p.ext}/log 2>&1 &)`);

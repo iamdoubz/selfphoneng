@@ -20,7 +20,7 @@ export const ADMIN_PAGES = [
   { path: 'ivrs', label: 'Digital receptionist', milestone: null },
   { path: 'hours', label: 'Office hours', milestone: null },
   { path: 'conferences', label: 'Conferences', milestone: null },
-  { path: 'paging', label: 'Paging', milestone: 'M8' },
+  { path: 'paging', label: 'Paging', milestone: null },
   { path: 'sounds', label: 'Sounds & music', milestone: null },
   { path: 'devices', label: 'Phones', milestone: 'M10' },
   { path: 'contacts', label: 'Contacts', milestone: 'M10' },

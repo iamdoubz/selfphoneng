@@ -10,6 +10,8 @@ import {
   extensions,
   holidays,
   ivrOptions,
+  pagingGroupMembers,
+  pagingGroups,
   ivrs,
   outboundRoutes,
   queueMembers,
@@ -126,6 +128,15 @@ export type SnapConference = {
   record: boolean;
 };
 
+export type SnapPagingGroup = {
+  id: string;
+  number: string;
+  name: string;
+  duplex: boolean;
+  /** Extension numbers. */
+  members: string[];
+};
+
 export type SnapIvr = {
   id: string;
   number: string;
@@ -179,6 +190,7 @@ export type Snapshot = {
   ringGroups: SnapRingGroup[];
   queues: SnapQueue[];
   conferences: SnapConference[];
+  pagingGroups: SnapPagingGroup[];
   ivrs: SnapIvr[];
   timeConditions: SnapTimeCondition[];
   holidays: SnapHoliday[];
@@ -233,6 +245,11 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
     .from(queueMembers)
     .innerJoin(extensions, eq(extensions.id, queueMembers.extensionId));
   const confRows = await db.select().from(conferences);
+  const pageRows = await db.select().from(pagingGroups);
+  const pagedRows = await db
+    .select({ groupId: pagingGroupMembers.pagingGroupId, number: extensions.number })
+    .from(pagingGroupMembers)
+    .innerJoin(extensions, eq(extensions.id, pagingGroupMembers.extensionId));
   const ivrRows = await db.select().from(ivrs);
   const tcRows = await db.select().from(timeConditions);
   const holidayRows = await db.select().from(holidays);
@@ -334,6 +351,13 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
       adminPin: c.adminPinEnc ? decrypt(c.adminPinEnc) : null,
       maxMembers: c.maxMembers,
       record: c.record,
+    })),
+    pagingGroups: pageRows.map((g) => ({
+      id: g.id,
+      number: g.number,
+      name: g.name,
+      duplex: g.duplex,
+      members: pagedRows.filter((m) => m.groupId === g.id).map((m) => m.number),
     })),
     routes: routeRows.map((r) => ({
       id: r.id,

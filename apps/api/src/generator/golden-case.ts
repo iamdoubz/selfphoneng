@@ -20,6 +20,7 @@ export function loadCase(name: string): Snapshot {
     ringGroups?: Partial<Snapshot['ringGroups'][number]>[];
     queues?: Partial<Snapshot['queues'][number]>[];
     conferences?: Partial<Snapshot['conferences'][number]>[];
+    pagingGroups?: Partial<Snapshot['pagingGroups'][number]>[];
     ivrs?: Partial<Snapshot['ivrs'][number]>[];
     timeConditions?: Partial<Snapshot['timeConditions'][number]>[];
     holidays?: Snapshot['holidays'];
@@ -114,6 +115,14 @@ export function loadCase(name: string): Snapshot {
       ...c,
       id: c.id!,
       number: c.number!,
+    })),
+    pagingGroups: (raw.pagingGroups ?? []).map((g, i) => ({
+      name: `Paging ${i + 1}`,
+      duplex: false,
+      members: [],
+      ...g,
+      id: g.id!,
+      number: g.number!,
     })),
     routes: (raw.routes ?? []).map((r, i) => ({
       name: `Route ${i + 1}`,

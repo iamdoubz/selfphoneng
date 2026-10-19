@@ -33,7 +33,9 @@ export function renderLocalNumbers(snap: Snapshot): string {
   if (snap.ivrs.length) lines.push('', '; digital receptionists');
   for (const r of [...snap.ivrs].sort(byNumber))
     lines.push(`exten => ${s.digits(r.number)},1,Goto(sp-ivr-${s.ident(r.id)},s,1)`);
-  // M8-T4: paging groups add one line each here.
+  if (snap.pagingGroups.length) lines.push('', '; paging groups');
+  for (const g of [...snap.pagingGroups].sort(byNumber))
+    lines.push(`exten => ${s.digits(g.number)},1,Goto(sp-page-${s.ident(g.id)},s,1)`);
   return lines.join('\n') + '\n';
 }
 

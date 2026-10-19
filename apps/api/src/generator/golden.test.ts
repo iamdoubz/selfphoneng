@@ -27,6 +27,7 @@ describe('golden', () => {
         'ivr-business-hours',
         'queue',
         'conferences',
+        'paging',
       ]),
     );
   });

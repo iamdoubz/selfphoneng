@@ -156,6 +156,7 @@ function snapshot(): Snapshot {
           : ({ type: 'voicemail', id: CDR_IDS.ext('102') } as const),
     })),
     conferences: [],
+    pagingGroups: [],
     ivrs: [
       {
         id: CDR_IDS.ivr,

@@ -381,7 +381,7 @@ Admin resources (all `requireAdmin`; standard CRUD = `GET /x`, `POST /x`, `GET /
 | `/api/holidays` | `POST /import-us-federal {year}` (generates the list in code, no network) |
 | `/api/announcements` | |
 | `/api/conferences` | |
-| `/api/paging-groups` | |
+| `/api/paging-groups` | members are set via `memberIds: [uuid]` in POST/PATCH (no order). Not a destination, so delete never returns 409 |
 | `/api/sounds` | upload is `POST /api/sounds?name=&filename=` with the raw file as the body (like greetings, no multipart), `GET /:id/audio`, `PATCH /:id {name}`, `DELETE /:id` (409 with `usedBy`: IVR greeting/invalid sound, announcements, the recording notice), `POST /tts` (M12). M6 lists prompts only; MOH classes and files come with M8 |
 | `/api/moh-classes` | |
 | `/api/devices` | `GET /:id/config-preview` (rendered provisioning file, passwords masked) |
