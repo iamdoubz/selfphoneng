@@ -16,7 +16,7 @@ trunk fallback (same fields, no voip.ms-specific help text or API features).
    - Allowed codecs: **G.711u (ulaw)**. Others optional.
    - DTMF mode: **RFC 2833**
    - NAT: **Yes**
-   - Encrypted SIP traffic (TLS/SRTP): optional. If on, set our trunk transport to TLS, port 5061, SRTP on.
+   - Encrypted SIP traffic (TLS/SRTP): optional. If on, set our trunk transport to TLS, port 5061, SRTP on. Needs Settings → Security → Accept SIP over TLS (a certificate in `data/tls`, 08 §2.1) first. voip.ms's certificate names every POP, so the trunk checks it (`verify_server`).
    - CallerID Number: your main DID.
    - International calling: leave **disabled** unless needed (toll-fraud protection on their side too).
 2. **Choose a POP server** close to the PBX (e.g. `chicago1.voip.ms`). The sub-account registers to this server.

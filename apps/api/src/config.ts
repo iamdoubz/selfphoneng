@@ -21,6 +21,8 @@ const EnvSchema = z.object({
   SOUNDS_DIR: z.string().default('/var/lib/asterisk/sounds/custom'),
   /** Music-on-hold classes, one folder each (04 §6, 03 §8). Dev: ../../data/moh */
   MOH_DIR: z.string().default('/var/lib/asterisk/moh'),
+  /** SIP TLS certificate, fullchain.pem + privkey.pem (M11-T2). Dev: ../../data/tls */
+  TLS_DIR: z.string().default('/var/lib/selfphoneng/tls'),
   /** voip.ms REST endpoint (06 §5.1); tests and e2e point it at a fake. */
   VOIPMS_API_URL: z.url().default('https://voip.ms/api/v1/rest.php'),
   /** MixMonitor's directory; recordings are YYYY/MM/DD/<uniqueid>.wav under it (03 sp-sub-record). */

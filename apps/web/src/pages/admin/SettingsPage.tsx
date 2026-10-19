@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Settings (05 §2). M3: Email and Emergency; M7: Recording; M11: Security (phone ACL, provisioning).
+// Settings (05 §2). M3: Email and Emergency; M7: Recording; M11: Security (phone ACL, provisioning, SIP TLS).
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NavLink, useParams } from 'react-router';
 import { formatNumber, type SettingsDto } from '@selfphoneng/shared';
-import { didsApi, extensionsApi, settingsApi } from '../../api/client.ts';
+import { didsApi, extensionsApi, settingsApi, systemApi } from '../../api/client.ts';
 import { SoundPicker } from '../../components/SoundPicker.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
@@ -376,9 +376,12 @@ function RecordingTab({ s }: { s: SettingsDto }) {
   );
 }
 
-/** Phone ACL (08 §2.2) and provisioning access (07 §2). */
+/** Phone ACL (08 §2.2), provisioning access (07 §2) and SIP over TLS (M11-T2). */
 function SecurityTab({ s }: { s: SettingsDto }) {
   const save = useSave();
+  const cert = useQuery({ queryKey: ['tls'], queryFn: systemApi.tls });
+  const [tlsOn, setTlsOn] = useState(s['sip.tlsEnabled']);
+  const [tlsPort, setTlsPort] = useState(String(s['sip.tlsPort']));
   const [restrict, setRestrict] = useState(s['sip.restrictPhonesToLocalNets']);
   const [extra, setExtra] = useState(s['sip.extraAllowedNets'].join(', '));
   const [lanOnly, setLanOnly] = useState(s['provisioning.lanOnly']);
@@ -399,6 +402,8 @@ function SecurityTab({ s }: { s: SettingsDto }) {
           'sip.extraAllowedNets': extra.split(/[,\s]+/).filter(Boolean),
           'provisioning.lanOnly': lanOnly,
           'provisioning.enabled': provOn,
+          'sip.tlsEnabled': tlsOn,
+          'sip.tlsPort': Number(tlsPort),
         });
       }}
     >
@@ -424,6 +429,28 @@ function SecurityTab({ s }: { s: SettingsDto }) {
       <h2 className="font-medium">Phone setup files</h2>
       {box(provOn, setProvOn, 'Serve setup files to phones (Phones page)')}
       {box(lanOnly, setLanOnly, 'Only to phones on the local networks')}
+      <h2 className="font-medium">Encrypted SIP (TLS)</h2>
+      <p className="text-sm" aria-label="TLS certificate">
+        {cert.data?.ok
+          ? `Certificate for ${cert.data.names.map((n) => n.replace(/^DNS:/, '')).join(', ') || cert.data.subject}, valid until ${new Date(cert.data.notAfter).toLocaleDateString()}.`
+          : (cert.data?.error ?? '…')}
+      </p>
+      {box(tlsOn, setTlsOn, 'Accept SIP over TLS')}
+      <p className="-mt-2 text-xs text-zinc-500">
+        Needed for an encrypted voip.ms trunk. Turning it on or changing the port needs a telephony
+        restart. After renewing the certificate, run scripts/tls-cert.sh.
+      </p>
+      <Field label="TLS port">
+        {(p) => (
+          <input
+            {...p}
+            className={`${inputClass} max-w-32`}
+            inputMode="numeric"
+            value={tlsPort}
+            onChange={(e) => setTlsPort(e.target.value)}
+          />
+        )}
+      </Field>
       <div className="flex items-center gap-3">
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save

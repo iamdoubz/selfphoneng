@@ -53,6 +53,47 @@ async function check(name) {
   const mohConf = readFileSync(join(tmp, 'musiconhold_selfphoneng.conf'), 'utf8');
   for (const [, d] of mohConf.matchAll(/^directory = \/var\/lib\/asterisk\/moh\/(.+)$/gm))
     mkdirSync(join(moh, d));
+  // transport-tls needs a certificate, or Asterisk quietly leaves it out: make a throwaway one.
+  const tls = mkdtempSync(join(tmpdir(), `sp-golden-tls-`));
+  const wantTls = /^\[transport-tls\]$/m.test(
+    readFileSync(join(tmp, 'pjsip_selfphoneng.conf'), 'utf8'),
+  );
+  if (wantTls) {
+    const cert = docker(
+      'run',
+      '--rm',
+      '-v',
+      `${tls}:/out`,
+      '--entrypoint',
+      'openssl',
+      IMAGE,
+      'req',
+      '-x509',
+      '-newkey',
+      'rsa:2048',
+      '-nodes',
+      '-days',
+      '1',
+      '-subj',
+      '/CN=golden.test',
+      '-keyout',
+      '/out/privkey.pem',
+      '-out',
+      '/out/fullchain.pem',
+    );
+    if (!cert.ok) throw new Error(`making a test certificate failed: ${cert.out}`);
+    docker(
+      'run',
+      '--rm',
+      '-v',
+      `${tls}:/out`,
+      '--entrypoint',
+      'chmod',
+      IMAGE,
+      '644',
+      '/out/privkey.pem',
+    );
+  }
   const run = docker(
     'run',
     '-d',
@@ -65,6 +106,8 @@ async function check(name) {
     `${tmp}:/etc/asterisk/selfphoneng`,
     '-v',
     `${moh}:/var/lib/asterisk/moh`,
+    '-v',
+    `${tls}:/var/lib/selfphoneng/tls:ro`,
     IMAGE,
   );
   if (!run.ok) throw new Error(`docker run failed: ${run.out}`);
@@ -78,6 +121,8 @@ async function check(name) {
     await sleep(500);
 
     const { endpoints, contexts, mailboxes, queues } = expectations(tmp);
+    if (wantTls && !/transport-tls\s+tls/.test(cli('pjsip show transports').out))
+      problems.push('transport-tls not loaded');
     const shown = cli('pjsip show endpoints').out;
     for (const e of endpoints)
       if (!new RegExp(`Endpoint:\\s+${e}[\\s/]`).test(shown))
@@ -106,6 +151,7 @@ async function check(name) {
     docker('rm', '-f', NAME);
     rmSync(tmp, { recursive: true, force: true });
     rmSync(moh, { recursive: true, force: true });
+    rmSync(tls, { recursive: true, force: true });
   }
 }
 

@@ -208,3 +208,12 @@ survives a later config write.
 (a wrong code refused, 10 recovery codes shown), signs out and back in with password then a code,
 then with a recovery code (9 left), and turns it off with the password. Codes come from
 `apps/api/src/auth/totp.ts` (node runs it directly).
+
+`m11-t2.mjs <baseUrl> <adminEmail> <adminPassword> <tlsDir> <shotsDir>` (after `m1-t4.mjs`; start
+the api with `TLS_DIR=<tlsDir>`, an empty folder) makes a throwaway CA with the image's openssl and
+starts a fake voip.ms that only speaks TLS (`sp-live-tlsprov`, certificate for its IP). Settings →
+Security first says there is no certificate, then shows the PBX's; the admin turns TLS on and
+telephony restarts. A TLS + SRTP trunk must not register while the CA is untrusted (`verify_server`
+logs "certificate is untrusted"), then registers once it is; a call carries `RTP/SAVP` with an
+`a=crypto` key and audio both ways; a renewed PBX certificate is served after
+`module reload res_pjsip.so` (what `scripts/tls-cert.sh` runs) while that call stays up.

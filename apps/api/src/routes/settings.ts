@@ -20,6 +20,7 @@ import { audit } from '../services/audit.ts';
 import { assertDestinationExists } from '../services/destinations.ts';
 import { getAllSettings, getSetting, setSetting } from '../services/settings.ts';
 import { notifyEmergency } from '../services/emergency.ts';
+import { readTlsCert } from '../services/tls.ts';
 import type { SendMail } from '../services/mail.ts';
 
 declare module 'fastify' {
@@ -112,6 +113,10 @@ export async function settingsRoutes(app: FastifyInstance) {
     }
     await checkRefs(db, values);
     const before = await getAllSettings(db);
+    if (values['sip.tlsEnabled'] === true && !before['sip.tlsEnabled']) {
+      const cert = await readTlsCert(app.config.TLS_DIR);
+      if (!cert.ok) throw badRequest(`Can't turn on TLS. ${cert.error}`);
+    }
     for (const [key, value] of Object.entries(values))
       await setSetting(db, key as SettingKey, value as never);
     const changed = Object.keys(values).filter(
@@ -197,6 +202,9 @@ export async function settingsRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
+  /** The SIP TLS certificate, for Settings → Security (M11-T2). */
+  app.get('/api/system/tls', () => readTlsCert(app.config.TLS_DIR));
+
   /** Things an admin should fix, for the dashboard banner (05 §2). */
   app.get('/api/system/warnings', async (): Promise<{ items: Warning[] }> => {
     const items: Warning[] = [];
@@ -222,6 +230,18 @@ export async function settingsRoutes(app: FastifyInstance) {
           code: 'e911_address_unconfirmed',
           message: 'Confirm the emergency caller ID number has an E911 address at voip.ms.',
           link: '/admin/numbers',
+        });
+    }
+    if (s['sip.tlsEnabled']) {
+      const cert = await readTlsCert(app.config.TLS_DIR);
+      const days = cert.ok ? (Date.parse(cert.notAfter) - Date.now()) / 86_400_000 : 0;
+      if (days < 14)
+        items.push({
+          code: 'tls_cert',
+          message: cert.ok
+            ? `The SIP TLS certificate ${days < 0 ? 'has expired' : `expires in ${Math.ceil(days)} days`}. Run scripts/tls-cert.sh after renewing it.`
+            : `SIP over TLS is on, but: ${cert.error}.`,
+          link: '/admin/settings/security',
         });
     }
     if (!s.smtp)

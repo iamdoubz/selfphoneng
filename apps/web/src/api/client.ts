@@ -69,6 +69,7 @@ import type {
   UserUpdate,
   VoicemailDto,
   WebRtcCreds,
+  TlsCert,
   Warning,
 } from '@selfphoneng/shared';
 
@@ -223,6 +224,7 @@ export const systemApi = {
     api<{ ok: true }>('POST', `/api/system/asterisk/restart?now=${now}`),
   detectPublicIp: () =>
     api<{ ip: string }>('POST', '/api/settings/network/detect-public-ip').then((r) => r.ip),
+  tls: () => api<TlsCert>('GET', '/api/system/tls'),
   setupStatus: () => api<{ completed: boolean }>('GET', '/api/setup/status'),
   completeSetup: () => api<{ ok: true }>('POST', '/api/setup/complete'),
 };

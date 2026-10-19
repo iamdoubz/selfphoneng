@@ -44,6 +44,7 @@ services:
       - ./data/moh:/var/lib/asterisk/moh
       - ./data/astdb:/var/lib/asterisk/db
       - ./data/asterisk-logs:/var/log/asterisk
+      - ./data/tls:/var/lib/selfphoneng/tls:ro # SIP TLS cert (M11-T2): fullchain.pem + privkey.pem
 
   api:
     build:
@@ -68,7 +69,7 @@ services:
       - ./data/sounds-custom:/var/lib/asterisk/sounds/custom
       - ./data/moh:/var/lib/asterisk/moh
       - ./data/backups:/var/lib/selfphoneng/backups
-      - ./data/tls:/var/lib/selfphoneng/tls
+      - ./data/tls:/var/lib/selfphoneng/tls:ro
 
   caddy:
     image: caddy:2

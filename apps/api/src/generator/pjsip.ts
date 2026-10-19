@@ -59,6 +59,9 @@ export function renderTransports(snap: Snapshot): string {
         'cert_file = /var/lib/selfphoneng/tls/fullchain.pem',
         'priv_key_file = /var/lib/selfphoneng/tls/privkey.pem',
         'method = tlsv1_2',
+        // Trunks: check the provider's certificate, or TLS only hides the call from bystanders.
+        'verify_server = yes',
+        'ca_list_file = /etc/ssl/certs/ca-certificates.crt',
         ...nat,
       ]),
     // The bind address is ignored: browsers arrive through Asterisk's HTTP server (01 §3.5).
@@ -214,7 +217,15 @@ function trunkSections(t: SnapTrunk, snap: Snapshot): string {
       ]),
     );
   out.push(
-    section(`trunk-${id}`, ['type = aor', `contact = sip:${target}`, 'qualify_frequency = 60']),
+    section(`trunk-${id}`, [
+      'type = aor',
+      `contact = sip:${target}`,
+      // ponytail: Asterisk 24 checks a qualify's TLS certificate against the IP, not the name, so
+      // OPTIONS to voip.ms fail verify_server and the contact goes Unavailable (calls and
+      // REGISTER verify fine). No qualify over TLS: registration shows the trunk's health.
+      // Turn it back on when a qualify to chicago1.voip.ms:5061 passes.
+      `qualify_frequency = ${t.transport === 'tls' ? 0 : 60}`,
+    ]),
     section(`trunk-${id}`, [
       'type = endpoint',
       `transport = ${transport}`,

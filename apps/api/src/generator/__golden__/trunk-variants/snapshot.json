@@ -1,6 +1,7 @@
 {
   "settings": {
-    "sip.tcpEnabled": true
+    "sip.tcpEnabled": true,
+    "sip.tlsEnabled": true
   },
   "trunks": [
     {
@@ -25,6 +26,16 @@
       "fromDomain": "example.net",
       "codecs": ["g722", "ulaw"],
       "maxChannels": 4
+    },
+    {
+      "id": "a1b2c3d4-0000-4000-8000-000000000004",
+      "name": "voip.ms encrypted",
+      "serverHost": "chicago1.voip.ms",
+      "serverPort": 5061,
+      "transport": "tls",
+      "srtp": true,
+      "username": "123456_tls",
+      "password": "TlsSecret42"
     },
     {
       "id": "a1b2c3d4-0000-4000-8000-000000000003",

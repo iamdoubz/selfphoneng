@@ -20,6 +20,25 @@
 - Expose only 443/tcp, 5060/udp+tcp (5061/tcp if TLS), 10000–20000/udp.
 - Admin guide includes an nftables example that limits 5060/5061 to voip.ms
   server IPs (from the voip.ms wiki list, **verify**) plus `sip.extraAllowedNets`, for setups with no remote phones.
+- As built (M11-T2), SIP over TLS:
+  - Certificate: `data/tls/fullchain.pem` + `privkey.pem`, mounted read-only into asterisk and the
+    api (`TLS_DIR`). `scripts/tls-cert.sh` copies them from the bundled Caddy's storage
+    (`data/caddy/caddy/certificates/*/<PUBLIC_HOSTNAME>/`) or from two given paths (certbot), owner
+    app UID, key 0600, and runs `module reload res_pjsip.so`. Asterisk 24 re-reads the cert and key on
+    that reload (same file names, and only when a file's mtime changed; verified, calls stay up), so
+    no restart. It does nothing when the
+    files are unchanged: run it daily from cron.
+  - Asterisk quietly leaves `transport-tls` out when the files are missing, so `PATCH /api/settings`
+    refuses to turn `sip.tlsEnabled` on unless both load and the key matches (node:crypto
+    `X509Certificate.checkPrivateKey`), and the dashboard warns (`tls_cert`) when TLS is on and the
+    cert is missing or expires within 14 days.
+  - `transport-tls` has `verify_server = yes` + `ca_list_file = /etc/ssl/certs/ca-certificates.crt`:
+    the provider's certificate is checked (voip.ms: Let's Encrypt, every POP in its SAN list,
+    checked 2026-10-19). Asterisk 24.0.0-rc2 checks a **qualify** OPTIONS against the IP instead of
+    the host name, which fails on voip.ms ("server identity does not match") and marks the contact
+    Unavailable, so TLS trunks get `qualify_frequency = 0` and Test skips the qualify; REGISTER and
+    INVITE verify the name correctly. Re-check on Asterisk upgrades.
+  - Phones over TLS are not provisioned (templates stay UDP); that's for remote phones later.
 
 ### 2.2 Phone ACL (setting `sip.restrictPhonesToLocalNets`)
 When true, the generator adds to every **desk** extension endpoint (not `-web`, not trunks):

@@ -84,7 +84,7 @@ if (cmd === 'up') {
     await sleep(500);
   console.log('asterisk up; AMI on 127.0.0.1:15038, secret m2-live-secret');
 } else if (cmd === 'down') {
-  docker('rm', '-f', PHONES, AST, 'sp-live-provider', 'sp-live-phone101');
+  docker('rm', '-f', PHONES, AST, 'sp-live-provider', 'sp-live-tlsprov', 'sp-live-phone101');
   docker('network', 'rm', NET);
 } else if (cmd === 'check') {
   const [base, email, pw, shotsDir] = args;

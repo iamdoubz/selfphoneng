@@ -149,6 +149,8 @@ bind = 0.0.0.0:{sip.tlsPort}
 cert_file = /var/lib/selfphoneng/tls/fullchain.pem
 priv_key_file = /var/lib/selfphoneng/tls/privkey.pem
 method = tlsv1_2
+verify_server = yes                       ; as built (M11-T2): check the provider (08 §2.1)
+ca_list_file = /etc/ssl/certs/ca-certificates.crt
 {natLines}
 {/if}
 
@@ -168,7 +170,7 @@ Notes:
 - The WebSocket bind address is ignored. The browser connects through Asterisk's HTTP server (`http.conf`).
   If browser registration fails with a "no transport" error, change
   `protocol = ws` to `protocol = wss` and fix the spec.
-- The asterisk container needs `./data/tls:/var/lib/selfphoneng/tls:ro`. Add it to the compose file when TLS is first used (M11).
+- The asterisk container needs `./data/tls:/var/lib/selfphoneng/tls:ro`. Added in M11-T2 (the api mounts it read-only too, as `TLS_DIR`).
 - No `anonymous` endpoint is ever generated, so unauthenticated calls from the internet are rejected.
 
 ### 5.2 One extension (example: 101, Dan Doe, webrtc on)
@@ -319,6 +321,8 @@ For `auth_mode = 'ip'`, leave out the `-auth` and `-reg` sections and the `outbo
 (and `from_user` when there is no username).
 Skip disabled trunks entirely.
 For TCP/TLS trunks, `server_uri`, `client_uri` and the AOR `contact` get `;transport=tcp|tls`.
+As built (M11-T2): TLS trunks get `qualify_frequency = 0` (Asterisk 24 checks a qualify's certificate
+against the IP, see 08 §2.1); their health comes from the registration.
 `identify` resolves `match` when the config loads, and an unresolvable name is an ERROR that drops the
 trunk's identify (verified), so the API refuses a server name that doesn't resolve, and a transport
 that isn't turned on in Settings → SIP.

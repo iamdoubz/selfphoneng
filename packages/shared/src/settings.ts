@@ -103,3 +103,7 @@ export type SettingsDto = {
 
 /** GET /api/system/warnings: shown as the dashboard banner (05 §2). */
 export type Warning = { code: string; message: string; link: string };
+
+/** GET /api/system/tls: the SIP TLS certificate in data/tls (M11-T2). */
+export type TlsCert =
+  { ok: true; subject: string; names: string[]; notAfter: string } | { ok: false; error: string };
