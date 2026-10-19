@@ -386,7 +386,7 @@ Admin resources (all `requireAdmin`; standard CRUD = `GET /x`, `POST /x`, `GET /
 | `/api/paging-groups` | members are set via `memberIds: [uuid]` in POST/PATCH (no order). Not a destination, so delete never returns 409 |
 | `/api/sounds` | upload is `POST /api/sounds?name=&filename=` with the raw file as the body (like greetings, no multipart), `GET /:id/audio`, `PATCH /:id {name}`, `DELETE /:id` (409 with `usedBy`: IVR greeting/invalid sound, announcements, the recording notice), `POST /tts` (M12). M6 lists prompts only; MOH classes and files come with M8 |
 | `/api/moh-classes` | `POST {name}` (slug, not `default`), `DELETE /:id` (409 with `usedBy` while an extension or queue uses it), `POST /:id/files?name=&filename=` (raw file body, like sounds), `GET /:id/files/:fileId/audio`, `DELETE /:id/files/:fileId`. No rename: the name is the folder and is stored on extensions and queues. Extensions and queues may only pick `default` or an existing class (400) |
-| `/api/devices` | `GET /:id/config-preview` (rendered provisioning file, passwords masked) |
+| `/api/devices` | `GET /:id/config-preview` (rendered provisioning file, passwords masked). As built (M10-T1): body `{mac (any format), vendor, model, label, extensionId}`; the DTO carries `provisioningUrl` and the `provisioningPassword` (admins type it into the phone); MAC taken → 409; preview of a generic phone → 400 |
 | `/api/blocked-numbers` | |
 | `/api/contacts` | company phonebook; `POST /import` CSV (`name,company,email,label1,number1,...`) |
 | `/api/webhooks` | `POST /:id/test`, `GET /:id/deliveries` |

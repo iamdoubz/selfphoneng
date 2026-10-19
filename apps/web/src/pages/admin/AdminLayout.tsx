@@ -22,7 +22,7 @@ export const ADMIN_PAGES = [
   { path: 'conferences', label: 'Conferences', milestone: null },
   { path: 'paging', label: 'Paging', milestone: null },
   { path: 'sounds', label: 'Sounds & music', milestone: null },
-  { path: 'devices', label: 'Phones', milestone: 'M10' },
+  { path: 'devices', label: 'Phones', milestone: null },
   { path: 'contacts', label: 'Contacts', milestone: 'M10' },
   { path: 'calls', label: 'Call history', milestone: null },
   { path: 'recordings', label: 'Recordings', milestone: null },

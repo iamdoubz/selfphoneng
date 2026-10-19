@@ -40,7 +40,7 @@ Left sidebar navigation, in this order:
 | Conferences | `/admin/conferences` | number, name, PIN, admin PIN, max members, record. As built (M8-T3): admins see the PINs in the list (they hand them out); an admin PIN needs a different room PIN |
 | Paging | `/admin/paging` | number, name, members, duplex. As built (M8-T4): members are checkboxes (no order); the empty state explains `*80<ext>` |
 | Sounds & music | `/admin/sounds` | Prompts list with play buttons, upload (drag-drop), TTS (M12). MOH classes with their files (M8). As built (M8-T5): a **Music on hold** section: make a set (slug name), upload, play and remove its files, delete it. The user drawer's Phone tab and the queue form pick a set from a select. An **Announcements** section (play a sound, then a destination) lives here too: no page of its own (M6-T5) |
-| Phones (devices) | `/admin/devices` | Table: MAC, vendor, model, user, last provisioned. Form: MAC (any format → normalized), vendor, model, extension. Shows the provisioning URL to type into the phone, and "Preview config" |
+| Phones (devices) | `/admin/devices` | Table: MAC, vendor, model, user, last provisioned. Form: MAC (any format → normalized), vendor, model, extension. Shows the provisioning URL to type into the phone, and "Preview config". As built (M10-T1): the drawer shows URL, user name (MAC) and password; a generic phone shows the manual settings instead (07 §4); Grandstream gets a note that line keys aren't set |
 | Contacts | `/admin/contacts` | Company phonebook, CSV import |
 | Call history | `/admin/calls` | Filters + table + CSV export; a row expands to show the CDR legs and plays the recording |
 | Recordings | `/admin/recordings` | Searchable list, play, download, delete |

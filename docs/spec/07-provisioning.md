@@ -46,6 +46,21 @@ Rules:
 - On success: update `last_provisioned_at`, `last_provisioned_ip`. Set `Cache-Control: no-store`.
 - Never serve over plain HTTP. The reverse proxy only listens on 443. (Old phones that can't do modern TLS are not supported.)
 
+As built (M10-T1), `routes/provisioning.ts` + `provisioning/limiter.ts`:
+- A request **without** an `Authorization` header gets the 401 but isn't a failure: phones ask without
+  credentials first and retry after the challenge. Failures are unknown MACs (or a file for another
+  vendor) and wrong credentials; 10 within an hour block the IP for an hour (429).
+- The 20 requests / 10 min limit applies to clients **outside** `network.localNets`: an office's
+  phones rebooting together behind one address would pass it in a minute. Failures count for all.
+- The Basic auth user name is the 12-hex MAC (either case); it can't carry colons (Basic auth splits
+  at the first one). The Yealink common file `y0000000000xx.cfg` is served without auth (it's empty).
+- Unrecognized file names (phones ask for several) are a plain 404 and not a failure.
+- Desk phones are provisioned for UDP on `sip.udpPort`. Templates in M10-T1 hold the account,
+  voicemail, pickup codes and the provisioning settings; BLF keys, time zone and the phonebook come
+  with M10-T2. `scripts/e2e/m10-t1.mjs` registers a baresip phone with only the account from the
+  served file.
+- Vendors offered: Yealink, Grandstream, generic (Polycom stays a stretch goal).
+
 ## 3. Templates
 
 The key names below come from vendor documentation. Each one is marked

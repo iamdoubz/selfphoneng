@@ -175,3 +175,9 @@ the right one the list comes from `getServersInfo`. **Import numbers from voip.m
 two numbers with its description as the label, the list marks it added, Phone numbers shows it,
 and the api log never contains the API password. The trunk is created turned off, so nothing
 registers to the real voip.ms.
+
+`m10-t1.mjs` (after `m1-t4.mjs`) adds a Yealink on **Phones** (a short MAC is refused), reads the
+URL, user name and password from the drawer, and checks the preview masks the passwords. Then,
+as the phone: `/prov/<mac>.cfg` answers 401 without credentials and the file with them, and a
+baresip phone given only the account from that file registers. The list then shows when it
+fetched its settings.

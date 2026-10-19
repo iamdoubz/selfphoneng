@@ -19,6 +19,7 @@ import { RingGroupsPage } from './pages/admin/RingGroupsPage.tsx';
 import { QueuesPage } from './pages/admin/QueuesPage.tsx';
 import { ConferencesPage } from './pages/admin/ConferencesPage.tsx';
 import { PagingPage } from './pages/admin/PagingPage.tsx';
+import { PhonesPage } from './pages/admin/PhonesPage.tsx';
 import { IvrsPage } from './pages/admin/IvrsPage.tsx';
 import { OfficeHoursPage } from './pages/admin/OfficeHoursPage.tsx';
 import { BlockedPage } from './pages/admin/BlockedPage.tsx';
@@ -61,6 +62,8 @@ const router = createBrowserRouter([
             <ConferencesPage />
           ) : p.path === 'paging' ? (
             <PagingPage />
+          ) : p.path === 'devices' ? (
+            <PhonesPage />
           ) : p.path === 'ivrs' ? (
             <IvrsPage />
           ) : p.path === 'hours' ? (

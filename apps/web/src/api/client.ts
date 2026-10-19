@@ -34,6 +34,9 @@ import type {
   ConferenceCreate,
   ConferenceDto,
   ConferenceUpdate,
+  DeviceCreate,
+  DeviceDto,
+  DeviceUpdate,
   PagingGroupCreate,
   PagingGroupDto,
   PagingGroupUpdate,
@@ -285,6 +288,15 @@ export const conferencesApi = {
   update: (id: string, c: ConferenceUpdate) =>
     api<ConferenceDto>('PATCH', `/api/conferences/${id}`, c),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/conferences/${id}`),
+};
+
+export const devicesApi = {
+  list: () => api<ListResponse<DeviceDto>>('GET', '/api/devices').then((r) => r.items),
+  create: (d: DeviceCreate) => api<DeviceDto>('POST', '/api/devices', d),
+  update: (id: string, d: DeviceUpdate) => api<DeviceDto>('PATCH', `/api/devices/${id}`, d),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/devices/${id}`),
+  configPreview: (id: string) =>
+    api<{ file: string; content: string }>('GET', `/api/devices/${id}/config-preview`),
 };
 
 export const pagingApi = {

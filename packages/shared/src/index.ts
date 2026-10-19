@@ -17,6 +17,7 @@ export * from './ringgroups.ts';
 export * from './queues.ts';
 export * from './conferences.ts';
 export * from './paging.ts';
+export * from './devices.ts';
 export * from './ivrs.ts';
 export * from './timeconditions.ts';
 export * from './announcements.ts';
