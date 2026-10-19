@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // My settings (05 §4): call forwarding, do not disturb, voicemail PIN and email options.
-// Softphone devices and notifications live in the softphone panel; phone apps (QR) come in M10.
+// Softphone devices and notifications live in the softphone panel. "Set up a phone app" (07 §5).
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { formatNumber, type MeDto, type MeUpdate } from '@selfphoneng/shared';
 import { meApi } from '../../api/client.ts';
+import { PhoneAppSetup } from '../../components/PhoneAppSetup.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
 /** "102" stays as is; outside numbers get their usual format. */
@@ -60,6 +61,12 @@ function SettingsForms({ me }: { me: MeDto }) {
         <Forwarding me={me} />
       </section>
       {me.voicemailEnabled && <Voicemail me={me} />}
+      <section aria-labelledby="app-h" className="flex flex-col gap-3">
+        <h2 id="app-h" className="text-lg font-semibold">
+          Set up a phone app
+        </h2>
+        <PhoneAppSetup load={meApi.softphoneQr} />
+      </section>
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Password</h2>
         <Link className="text-sm text-sky-700 underline dark:text-sky-400" to="/change-password">

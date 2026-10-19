@@ -354,6 +354,7 @@ Auth & self:
 | POST | `/api/auth/change-password` | auth | `{currentPassword, newPassword}` |
 | GET | `/api/me` | user | extension settings, runtime state |
 | PATCH | `/api/me` | user | `{dnd?, cfu?, cfb?, cfna?, voicemailEmail?, voicemailAttachAudio?, voicemailDeleteAfterEmail?, voicemailPin?}` → DB, then AstDB |
+| GET | `/api/me/softphone-qr` | user | `{url, qr, expiresAt}`: Linphone setup link and its QR (PNG data URL), 24 h (07 §5) |
 | GET | `/api/me/webrtc` | user | `{ wsUrl: "wss://<host>/ws", sipUri: "sip:101-web@<host>", authUser: "101-web", password, displayName, iceServers: [...] }` |
 | GET | `/api/me/calls` | user | own call history (via `call_extensions`) |
 | GET | `/api/me/voicemail` | user | list |

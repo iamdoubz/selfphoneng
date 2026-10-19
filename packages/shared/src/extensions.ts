@@ -66,3 +66,6 @@ export type WebRtcCreds = {
 
 export const NUMBER_KINDS = ['user', 'ringGroup', 'queue', 'ivr', 'conference', 'paging'] as const;
 export type NumberKind = (typeof NUMBER_KINDS)[number];
+
+/** Linphone setup (07 §5): the link the app fetches, as a QR (PNG data URL). Valid 24 h. */
+export type SoftphoneQr = { url: string; qr: string; expiresAt: string };

@@ -187,3 +187,8 @@ Yealink. From the phone's side: the config names the keys, clears the rest, has 
 its phonebook URL (with the phone's credentials in it) returns the extensions. Asterisk has hints
 for 361 and 701. With the company time zone set to Asia/Tokyo, the Phones page warns that phones
 show UTC (the zone is put back after).
+
+`m10-t3.mjs` (after `m1-t4.mjs`) as user `lin@example.com` (370): **My settings → Set up a phone
+app** shows the Linphone QR and its link. Fetching the link with no other credentials (as Linphone
+does) returns the account XML; a changed token gets 404; and a baresip phone given only the user
+name and password from the XML registers. Scanning the QR with the Linphone app is left to a person.

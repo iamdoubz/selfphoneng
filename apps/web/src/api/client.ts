@@ -51,6 +51,7 @@ import type {
   SettingsDto,
   SipCredentials,
   SoundDto,
+  SoftphoneQr,
   MohClassDto,
   VoipmsDidDto,
   TimeConditionCreate,
@@ -140,6 +141,7 @@ export const usersApi = {
 export const extensionsApi = {
   list: () => api<ListResponse<ExtensionDto>>('GET', '/api/extensions').then((r) => r.items),
   get: (id: string) => api<ExtensionDto>('GET', `/api/extensions/${id}`),
+  softphoneQr: (id: string) => api<SoftphoneQr>('GET', `/api/extensions/${id}/softphone-qr`),
   create: (e: ExtensionCreate) => api<ExtensionDto>('POST', '/api/extensions', e),
   update: (id: string, e: ExtensionUpdate) =>
     api<ExtensionDto>('PATCH', `/api/extensions/${id}`, e),
@@ -214,6 +216,7 @@ export const meApi = {
   calls: (cursor?: string) =>
     api<ListResponse<MyCallDto>>('GET', `/api/me/calls${cursor ? `?cursor=${cursor}` : ''}`),
   get: () => api<MeDto>('GET', '/api/me'),
+  softphoneQr: () => api<SoftphoneQr>('GET', '/api/me/softphone-qr'),
   update: (m: MeUpdate) => api<MeDto>('PATCH', '/api/me', m),
   webrtc: () => api<WebRtcCreds>('GET', '/api/me/webrtc'),
   /** Log in to (unpause) or out of (pause) a queue I'm an agent of. */

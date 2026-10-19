@@ -20,6 +20,7 @@ import { didsApi, extensionsApi, usersApi } from '../../api/client.ts';
 import { CLASS_LABEL } from './OutboundPage.tsx';
 import { Dialog } from '../../components/Dialog.tsx';
 import { MohOptions } from '../../components/MohOptions.tsx';
+import { PhoneAppSetup } from '../../components/PhoneAppSetup.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
 type Tab = 'general' | 'phone' | 'calling' | 'emergency' | 'credentials';
@@ -439,6 +440,10 @@ function CredentialsTab({ ext }: { ext: ExtensionDto }) {
           </div>
         )}
         {done && <p className="mt-2 text-green-700 dark:text-green-400">New password saved.</p>}
+      </div>
+      <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+        <h3 className="mb-2 font-medium">Phone app</h3>
+        <PhoneAppSetup load={() => extensionsApi.softphoneQr(ext.id)} />
       </div>
     </div>
   );

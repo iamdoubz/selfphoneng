@@ -12,8 +12,10 @@ import {
   type ListResponse,
   type MeDto,
   type VoicemailDto,
+  type SoftphoneQr,
   type WebRtcCreds,
 } from '@selfphoneng/shared';
+import { softphoneQr } from '../provisioning/linphone.ts';
 import { decrypt, encrypt, isTrivialPin } from '../crypto/secrets.ts';
 import { setDnd, setForward } from '../services/astdb.ts';
 import { audit } from '../services/audit.ts';
@@ -173,6 +175,21 @@ export async function meRoutes(app: FastifyInstance) {
       diff: { after: { ...runtime, ...vm } },
     });
     return myState(req.user!.id);
+  });
+
+  /** "Set up a phone app" (07 §5): a Linphone setup QR for my own extension. */
+  app.get('/api/me/softphone-qr', async (req): Promise<SoftphoneQr> => {
+    const [ext] = await db.select().from(extensions).where(eq(extensions.userId, req.user!.id));
+    if (!ext) throw notFound("You don't have an extension yet. Ask your admin.");
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'reveal_sip_credentials',
+      entityType: 'extension',
+      entityId: ext.id,
+      summary: `Made a phone app setup QR for extension ${ext.number}`,
+    });
+    return softphoneQr(app.config.APP_SECRET, app.config.PUBLIC_HOSTNAME, ext.id);
   });
 
   app.get('/api/me/webrtc', async (req): Promise<WebRtcCreds> => {

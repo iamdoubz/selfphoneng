@@ -10,6 +10,7 @@ import {
   type ExtensionDto,
   type ListResponse,
   type SipCredentials,
+  type SoftphoneQr,
 } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
 import { extensions, userRuntimeState } from '../db/schema.ts';
@@ -25,6 +26,7 @@ import {
 import { audit } from '../services/audit.ts';
 import { assertNumberAvailable, nextFreeNumber } from '../services/numbering.ts';
 import { assertMohClass } from './moh.ts';
+import { softphoneQr } from '../provisioning/linphone.ts';
 import { findReferences } from '../services/destinations.ts';
 import { getSetting } from '../services/settings.ts';
 
@@ -242,5 +244,20 @@ export async function extensionRoutes(app: FastifyInstance) {
       password: decrypt(e.sipPasswordEnc),
       webUsername: e.webrtcEnabled ? `${e.number}-web` : null,
     };
+  });
+
+  /** Linphone setup QR (07 §5). It carries the SIP password, so it's audited like a reveal. */
+  app.get('/api/extensions/:id/softphone-qr', async (req): Promise<SoftphoneQr> => {
+    const { id } = IdParams.parse(req.params);
+    const e = await getExt(db, id);
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'reveal_sip_credentials',
+      entityType: 'extension',
+      entityId: id,
+      summary: `Made a phone app setup QR for extension ${e.number}`,
+    });
+    return softphoneQr(app.config.APP_SECRET, app.config.PUBLIC_HOSTNAME, id);
   });
 }

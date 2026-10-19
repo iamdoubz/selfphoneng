@@ -4,7 +4,7 @@
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { contacts, devices } from '../src/db/schema.ts';
+import { auditLog, contacts, devices } from '../src/db/schema.ts';
 import { resetProvLimiter } from '../src/provisioning/limiter.ts';
 import { setSetting } from '../src/services/settings.ts';
 import { hasTestDb } from './db.ts';
@@ -228,6 +228,28 @@ describe.skipIf(!hasTestDb)('/api/devices and /prov', () => {
     expect(tokyo.timezoneWarning).toBe(true);
     expect(tokyo.content).toContain('local_time.time_zone_name = UTC');
     await setSetting(t.db, 'general.timezone', 'America/Chicago');
+  });
+
+  it('M10-T3: Linphone QR (admin and me), the token is the credential, audited', async () => {
+    const r = await req('GET', `/api/extensions/${extId}/softphone-qr`);
+    expect(r.statusCode, r.body).toBe(200);
+    const { url, qr } = r.json();
+    expect(qr).toMatch(/^data:image\/png;base64,/);
+    expect(url).toMatch(/^https:\/\/pbx\.test\/prov\/linphone\/[A-Za-z0-9_-]+\.xml$/);
+    const path = new URL(url).pathname.slice('/prov/'.length);
+    const x = await prov(path, '203.0.113.20'); // a mobile phone, no Basic auth
+    expect(x.statusCode).toBe(200);
+    expect(x.body).toContain('<entry name="username">101</entry>');
+    expect(x.body).toContain(`<entry name="passwd">${sipPassword}</entry>`);
+    // the token is case-sensitive: a lower-cased one is just a bad token
+    expect((await prov(path.toLowerCase(), '203.0.113.21')).statusCode).toBe(404);
+    expect((await prov('linphone/AAAAAAAAAAAAAAAAAAAAAAAA.xml', '203.0.113.21')).statusCode).toBe(
+      404,
+    );
+    const logged = JSON.stringify(await t.db.select().from(auditLog));
+    expect(logged).toContain('Made a phone app setup QR for extension 101');
+    // a user with no extension gets a 404 from /api/me
+    expect((await req('GET', '/api/me/softphone-qr')).statusCode).toBe(404);
   });
 
   it('delete: the phone gets nothing any more', async () => {

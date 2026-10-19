@@ -205,6 +205,18 @@ Linphone provisioning:
 ```
 **(verify against Linphone's remote provisioning docs)**
 
+As built (M10-T3), `provisioning/linphone.ts`:
+- The `auth_info_0` keys (`username`, `passwd`, `domain`) match liblinphone's `AuthInfo` config
+  reader; the `proxy_0` keys are its classic names and stay **(verify)** until a phone scans it.
+- Both QR endpoints return JSON `{url, qr, expiresAt}` (`qr` = PNG data URL from `qrcode`), not a
+  bare PNG: the page shows the link too, for desktop Linphone. Each is in the audit log like
+  revealing the SIP password (the config carries it).
+- The token is case-sensitive, so `/prov/linphone/…` is matched before the other files are
+  lower-cased; a bad or expired token is a 404 and counts as a failure (07 §2 limits).
+  `provisioning.lanOnly` applies to it too: a mobile off the LAN can't fetch it then.
+- The display name's `"` becomes `'` in `reg_identity` (it sits inside a SIP quoted string).
+- "Set up a phone app" is a section of `/me/settings` and of the admin Credentials tab.
+
 Mobile limitation (state it plainly in the UI and admin guide): without push
 notifications, iOS and battery-optimized Android apps miss calls while in the
 background. A push gateway is a v2 item. For v1, recommend the desk phone + browser softphone,

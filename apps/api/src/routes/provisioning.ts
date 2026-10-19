@@ -6,7 +6,9 @@ import { timingSafeEqual } from 'node:crypto';
 import { BlockList, isIPv4 } from 'node:net';
 import { eq, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { devices } from '../db/schema.ts';
+import { decrypt } from '../crypto/secrets.ts';
+import { devices, extensions } from '../db/schema.ts';
+import { linphoneXml, verifyLinphoneToken } from '../provisioning/linphone.ts';
 import { loadContext, loadPhonebook, type ProvisionContext } from '../provisioning/context.ts';
 import { allowProvRequest, recordProvFailure } from '../provisioning/limiter.ts';
 import { grandstream, grandstreamPhonebook } from '../provisioning/templates/grandstream.ts';
@@ -78,7 +80,33 @@ export async function provisioningRoutes(app: FastifyInstance) {
       return deny(reply, 403, 'Forbidden');
     if (!allowProvRequest(req.ip, local)) return deny(reply, 429, 'Too many requests');
 
-    const file = (req.params as { '*': string })['*'].toLowerCase();
+    const raw = (req.params as { '*': string })['*'];
+    // Linphone (07 §5): the token is the credential (case matters), no Basic auth.
+    const lin = /^linphone\/([A-Za-z0-9_-]{20,200})\.xml$/.exec(raw);
+    if (lin) {
+      const extId = verifyLinphoneToken(app.config.APP_SECRET, lin[1]!);
+      const [e] = extId ? await db.select().from(extensions).where(eq(extensions.id, extId)) : [];
+      if (!e) {
+        recordProvFailure(req.ip);
+        req.log.warn({ ip: req.ip }, 'provisioning: bad or expired Linphone token');
+        return deny(reply, 404, 'Not found');
+      }
+      req.log.info({ ip: req.ip, ext: e.number }, 'provisioning: Linphone config served');
+      return reply
+        .header('Cache-Control', 'no-store')
+        .type('application/xml')
+        .send(
+          linphoneXml({
+            host: app.config.PUBLIC_HOSTNAME,
+            sipPort: await getSetting(db, 'sip.udpPort'),
+            transport: 'udp',
+            number: e.number,
+            name: e.name,
+            sipPassword: decrypt(e.sipPasswordEnc),
+          }),
+        );
+    }
+    const file = raw.toLowerCase();
     if (YEALINK_COMMON.test(file))
       return reply.header('Cache-Control', 'no-store').type('text/plain').send(yealinkCommon());
     const kind = FILES.map((f) => ({ f, m: f.re.exec(file) })).find((x) => x.m);
