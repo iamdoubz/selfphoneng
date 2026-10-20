@@ -22,12 +22,16 @@ for (const [net, bits] of [
   ['169.254.0.0', 16],
   ['172.16.0.0', 12],
   ['192.168.0.0', 16],
+  ['192.0.0.0', 24], // IETF protocol assignments (M11-T8)
+  ['198.18.0.0', 15], // benchmarking, sometimes used inside networks
   ['224.0.0.0', 3], // multicast and reserved
 ] as const)
   blocked.addSubnet(net, bits, 'ipv4');
 for (const [net, bits] of [
   ['::', 127], // :: and ::1 (IPv4-mapped addresses match the IPv4 rules)
   ['fc00::', 7],
+  ['64:ff9b::', 96], // NAT64: the low 32 bits are an IPv4 address, possibly a private one
+  ['2002::', 16], // 6to4: the same
   ['fe80::', 10],
   ['ff00::', 8],
 ] as const)

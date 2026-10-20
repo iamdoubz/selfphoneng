@@ -39,6 +39,29 @@ export function renderLocalNumbers(snap: Snapshot): string {
   return lines.join('\n') + '\n';
 }
 
+/**
+ * sp-ivr-direct (03 §6.9): what a caller in a digital receptionist may dial. Not paging groups
+ * (an outside caller on the office speakers) and not parked calls (someone else's call), M11-T8.
+ */
+export function renderIvrDirect(snap: Snapshot): string {
+  if (!snap.ivrs.some((r) => r.allowDirectDial)) return '';
+  const nums = [
+    ...snap.extensions,
+    ...snap.ringGroups,
+    ...snap.queues,
+    ...snap.conferences,
+    ...snap.ivrs,
+  ].sort(byNumber);
+  return (
+    [
+      '[sp-ivr-direct]',
+      ...nums
+        .map((x) => s.digits(x.number))
+        .map((n) => `exten => ${n},1,Goto(sp-local-numbers,${n},1)`),
+    ].join('\n') + '\n'
+  );
+}
+
 export function renderGlobals(snap: Snapshot): string {
   const st = snap.settings;
   const didNumber = (id: string | null) => {

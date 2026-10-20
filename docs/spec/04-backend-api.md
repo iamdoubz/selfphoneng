@@ -190,6 +190,9 @@ channel's application; the phone that picks it up runs `ParkedCall()` while talk
 ### 5.2 Live WebSocket (`GET /api/live`)
 
 - Auth: session cookie (the browser sends it automatically). Close code 4401 when unauthenticated.
+  As built (M11-T8): an `Origin` whose host isn't the request's `Host` closes with 4403 (no Origin:
+  not a browser, allowed); every 30 s each socket's session is checked again (without sliding its
+  expiry), and a logout, deactivation, role change or forced password change closes it with 4401.
 - Server → client messages are JSON `{ "type": string, "data": any }`.
 - On connect: one `snapshot` message containing the live state the user may see, then deltas.
 - Visibility:

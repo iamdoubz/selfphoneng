@@ -23,7 +23,7 @@ export function renderIvrs(snap: Snapshot): string {
       return [
         `; ─── Digital receptionist ${s.digits(r.number)} "${s.name(r.name)}"`,
         `[sp-ivr-${s.ident(r.id)}]`,
-        ...(r.allowDirectDial ? ['include => sp-local-numbers'] : []),
+        ...(r.allowDirectDial ? ['include => sp-ivr-direct'] : []),
         'exten => s,1,Answer()',
         ' same => n,Set(SP_IVR_TRIES=0)',
         ' same => n(menu),Set(TIMEOUT(digit)=3)',

@@ -10,9 +10,13 @@ import type { LiveState } from './state.ts';
 
 const BATCH_MS = 250;
 const PING_MS = 30_000;
+/** How often each socket's session is checked again. Tests shorten it. */
+export const timing = { recheckMs: 30_000 };
 
 type Client = {
   ws: WebSocket;
+  /** The session cookie: a logout, deactivation or role change closes the socket (M11-T8). */
+  token: string;
   admin: boolean;
   userId: string;
   /** The user's extension numbers: they see the queues they're an agent of. */
@@ -94,13 +98,28 @@ export async function liveRoutes(app: FastifyInstance) {
     }
   }, PING_MS);
 
+  // A logout, deactivation or role change reaches open sockets within recheckMs (M11-T8).
+  const recheck = setInterval(() => {
+    for (const c of clients)
+      void getSessionUser(app.db, c.token, false)
+        .then((f) => {
+          if (!f || f.user.mustChangePassword || (f.user.role === 'admin') !== c.admin)
+            c.ws.close(4401, 'unauthorized');
+        })
+        .catch(() => {}); // database down: keep the socket, check again next time
+  }, timing.recheckMs);
+
   app.addHook('onClose', async () => {
     clearInterval(flush);
     clearInterval(ping);
+    clearInterval(recheck);
     for (const c of clients) c.ws.close(1001, 'server shutting down');
   });
 
   app.get('/api/live', { websocket: true }, async (ws, req) => {
+    // Cross-site WebSocket hijacking: browsers always send Origin; other clients have none.
+    const origin = req.headers.origin;
+    if (origin && URL.parse(origin)?.host !== req.headers.host) return ws.close(4403, 'forbidden');
     const token = req.cookies[COOKIE];
     const found = token ? await getSessionUser(app.db, token) : null;
     // Browsers can't read an HTTP 401 on an upgrade, so open and close with 4401 (04 §5.2).
@@ -111,6 +130,7 @@ export async function liveRoutes(app: FastifyInstance) {
       .where(eq(extensions.userId, found.user.id));
     const c: Client = {
       ws,
+      token: token!,
       admin: found.user.role === 'admin',
       userId: found.user.id,
       exts: mine.map((e) => e.n),

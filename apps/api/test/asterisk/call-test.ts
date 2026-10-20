@@ -39,12 +39,15 @@ function snapshot(): Snapshot {
       .filter((k) => k !== 'sms.webhookToken')
       .map((k) => [k, SettingsSchemas[k].parse(undefined)]),
   ) as Snapshot['settings'];
+  // Phone ACL on, the Docker networks allowed: the desk phones register, a "-web" login doesn't.
+  settings['sip.restrictPhonesToLocalNets'] = true;
+  settings['network.localNets'] = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'];
   const ext = (number: '101' | '102', name: string) => ({
     id: `00000000-0000-4000-8000-000000000${number}`,
     number,
     name,
     sipPassword: PASS[number],
-    webrtcEnabled: false,
+    webrtcEnabled: number === '102',
     maxContacts: 5,
     ringSeconds: 25,
     voicemailEnabled: false,
@@ -104,7 +107,12 @@ function phoneConfig(dir: string, ext: '101' | '102', port: number, toneHz: numb
   );
   writeFileSync(
     join(d, 'accounts'),
-    `<sip:${ext}@${AST};transport=udp>;auth_pass=${PASS[ext]};answermode=auto;audio_codecs=PCMU;regint=60\n`,
+    `<sip:${ext}@${AST};transport=udp>;auth_pass=${PASS[ext]};answermode=auto;audio_codecs=PCMU;regint=60\n` +
+      // M11-T8: the desk phone's password also opens 102-web; over UDP from a phone's network
+      // that must fail (browsers only come through the reverse proxy on 127.0.0.1).
+      (ext === '102'
+        ? `<sip:102-web@${AST};transport=udp>;auth_pass=${PASS[ext]};answermode=manual;regint=60\n`
+        : ''),
   );
 }
 
@@ -207,6 +215,27 @@ async function main() {
     if (!/101\/sip:.*Avail/.test(contacts) || !/102\/sip:.*Avail/.test(contacts))
       throw new Error(`phones did not register:\n${contacts}`);
     log('101 and 102 registered');
+    await sleep(3000);
+    if (/102-web\/sip:/.test(await ami.command('pjsip show contacts')))
+      problems.push('102-web registered over UDP from the phones network with the ACL on');
+    else log('102-web over UDP: refused (phone ACL covers browser endpoints)');
+    // ...while a browser through the reverse proxy (WebSocket from 127.0.0.1) still registers.
+    const wsReg = docker(
+      'run',
+      '--rm',
+      '--network',
+      `container:${AST}`,
+      '-v',
+      `${join(import.meta.dirname, 'ws-register.mjs')}:/ws-register.mjs:ro`,
+      'node:24-trixie-slim',
+      'node',
+      '/ws-register.mjs',
+      'ws://127.0.0.1:8088/ws',
+      '102-web',
+      PASS['102'],
+    ).out.trim();
+    if (!wsReg.startsWith('SIP/2.0 200')) problems.push(`102-web over WebSocket: ${wsReg}`);
+    else log('102-web over WebSocket from 127.0.0.1: registered');
     // Real list responses with registered phones, for the live-state fixture.
     recorder?.write(
       'Action: PJSIPShowContacts\r\nActionID: rec-2\r\n\r\n' +

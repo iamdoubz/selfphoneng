@@ -8,7 +8,9 @@ import type { LiveMessage } from '@selfphoneng/shared';
 import { AmiParser, field, type AmiMessage } from '../src/ami/events.ts';
 import { encrypt, setSecretKey } from '../src/crypto/secrets.ts';
 import type { Db } from '../src/db/client.ts';
-import { extensions, userRuntimeState } from '../src/db/schema.ts';
+import { eq } from 'drizzle-orm';
+import { extensions, sessions, userRuntimeState, users } from '../src/db/schema.ts';
+import { timing } from '../src/live/hub.ts';
 import { LiveState, extOfEndpoint, stateFromStatus } from '../src/live/state.ts';
 import { createTestDb, hasTestDb } from './db.ts';
 import { ADMIN, createTestApp } from './app.ts';
@@ -250,5 +252,53 @@ describe.skipIf(!hasTestDb)('/api/live WebSocket', () => {
     expect(me.msgs[2]).toEqual({ type: 'queue.removed', data: { number: '551' } });
     expect(admin.msgs[2]).toMatchObject({ type: 'queue.updated', data: { number: '551' } });
     for (const c of [admin, me]) c.ws.terminate();
+  });
+});
+
+// M11-T8: a socket from another site is refused; a logout, deactivation or demotion closes it.
+describe.skipIf(!hasTestDb)('/api/live WebSocket re-checks', () => {
+  let t: Awaited<ReturnType<typeof createTestApp>>;
+  beforeAll(async () => {
+    timing.recheckMs = 200;
+    t = await createTestApp();
+    await t.clearMustChange(ADMIN.email);
+  });
+  afterAll(() => {
+    timing.recheckMs = 30_000;
+    return t?.close();
+  });
+
+  const open = async (headers: Record<string, string>) => {
+    const ws = await t.app.injectWS('/api/live', { headers });
+    let closed: number | undefined;
+    ws.on('close', (code: number) => (closed = code));
+    return () => closed;
+  };
+  const until = async (fn: () => boolean) => {
+    for (let i = 0; i < 100 && !fn(); i++) await new Promise((r) => setTimeout(r, 20));
+    expect(fn()).toBe(true);
+  };
+
+  it('refuses an Origin that is not this host', async () => {
+    const cookie = await t.login(ADMIN.email, ADMIN.password);
+    const closed = await open({ cookie, origin: 'https://evil.example', host: 'pbx.test' });
+    await until(() => closed() === 4403);
+    const ok = await open({ cookie, origin: 'https://pbx.test', host: 'pbx.test' });
+    await new Promise((r) => setTimeout(r, 500));
+    expect(ok()).toBeUndefined();
+  });
+
+  it('closes the socket once the session is gone or the role changed', async () => {
+    const admin = await t.addUser('demoted@example.com', 'user-password-123', 'admin');
+    const closedByRole = await open({
+      cookie: await t.login('demoted@example.com', 'user-password-123'),
+    });
+    const loggedOut = await open({ cookie: await t.login(ADMIN.email, ADMIN.password) });
+    await new Promise((r) => setTimeout(r, 500));
+    expect(closedByRole()).toBeUndefined();
+    await t.db.update(users).set({ role: 'user' }).where(eq(users.id, admin.id));
+    const [me] = await t.db.select().from(users).where(eq(users.email, ADMIN.email));
+    await t.db.delete(sessions).where(eq(sessions.userId, me!.id));
+    await until(() => closedByRole() === 4401 && loggedOut() === 4401);
   });
 });

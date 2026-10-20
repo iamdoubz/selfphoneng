@@ -1,14 +1,40 @@
-# Also what selfphone.tar.gz (the source archive in the api image, 08 §4) leaves out:
-# nothing private (.env, data/) and nothing built (node_modules, dist).
+# Also what selfphone.tar.gz (the source archive in the api image, 08 §4) holds, and anyone can
+# download that (GET /api/about/source): an allowlist (M11-T8), so a backup, key or override file
+# dropped into the repo folder never ends up in it. Add new top-level source here.
+*
+!.dockerignore
+!.env.example
+!.gitattributes
+!.github
+!.gitignore
+!.prettierignore
+!.prettierrc.json
+!AGENTS.md
+!CLAUDE.md
+!LICENSE
+!README.md
+!apps
+!asterisk
+!deploy
+!docker-compose.yml
+!docs
+!eslint.config.js
+!package.json
+!packages
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!scripts
+!tsconfig.base.json
+!vitest.config.ts
+# ...and inside those, nothing built or private.
 **/node_modules
 **/dist
 **/coverage
 **/*.tsbuildinfo
-.pnpm-store
-data
-.env
-.env.*
+**/.env
+**/.env.*
 !.env.example
-*.pid
-*.log
-.git
+**/*.pem
+**/*.key
+**/*.log
+**/*.pid

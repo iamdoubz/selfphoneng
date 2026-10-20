@@ -77,15 +77,20 @@ export function renderTransports(snap: Snapshot): string {
  * (global: it would filter trunks too). Browsers (-web) arrive through the reverse proxy: not
  * filtered.
  */
-function phoneAcl(snap: Snapshot): string[] {
-  if (!snap.settings['sip.restrictPhonesToLocalNets']) return [];
+function phoneAcl(snap: Snapshot): { desk: string[]; web: string[] } {
+  if (!snap.settings['sip.restrictPhonesToLocalNets']) return { desk: [], web: [] };
   const nets = [
     ...new Set([...snap.settings['network.localNets'], ...snap.settings['sip.extraAllowedNets']]),
   ];
-  return ['deny = 0.0.0.0/0.0.0.0', ...nets.map((n) => `permit = ${s.cidr(n)}`)];
+  return {
+    desk: ['deny = 0.0.0.0/0.0.0.0', ...nets.map((n) => `permit = ${s.cidr(n)}`)],
+    // M11-T8: -web has the desk phone's password and pjsip takes it on any transport, so
+    // without this it was a way around the ACL. Asterisk's HTTP server only listens on 127.0.0.1.
+    web: ['deny = 0.0.0.0/0.0.0.0', 'permit = 127.0.0.1/255.255.255.255'],
+  };
 }
 
-function extensionSections(e: SnapExtension, acl: string[]): string {
+function extensionSections(e: SnapExtension, acl: { desk: string[]; web: string[] }): string {
   const num = s.digits(e.number);
   const name = s.name(e.name) || num;
   const groups = e.pickupGroup ? s.ident(e.pickupGroup) : null;
@@ -128,7 +133,7 @@ function extensionSections(e: SnapExtension, acl: string[]): string {
         'force_rport = yes',
         'rewrite_contact = yes',
         'send_pai = yes',
-        ...acl,
+        ...acl.desk,
         ...common,
       ]),
     section(`${num}-auth`, [
@@ -158,6 +163,7 @@ function extensionSections(e: SnapExtension, acl: string[]): string {
         // Otherwise the From domain is the machine's hostname, and SIP.js drops INVITEs whose host
         // label starts with a digit (e.g. a Docker or VPS hostname). The browser ignores the domain.
         'from_domain = selfphoneng.invalid',
+        ...acl.web,
         ...common,
       ]),
       section(`${num}-web-auth`, [
@@ -230,6 +236,9 @@ function trunkSections(t: SnapTrunk, snap: Snapshot): string {
       'type = endpoint',
       `transport = ${transport}`,
       `context = sp-from-trunk-${id}`,
+      // No inbound auth on a trunk: without this, a From of trunk-<id> from anywhere would match
+      // it by username and skip the password (M11-T8). Its calls come from its server's address.
+      'identify_by = ip',
       'disallow = all',
       `allow = ${t.codecs.map(s.codec).join(',')}`,
       reg && `outbound_auth = trunk-${id}-auth`,

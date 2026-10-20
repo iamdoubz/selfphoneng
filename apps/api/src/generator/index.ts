@@ -13,7 +13,7 @@ import { resendPauses } from '../services/queues.ts';
 import { loadSnapshot, type Snapshot } from './load.ts';
 import { renderPjsip, renderRtp, renderTransports } from './pjsip.ts';
 import { STATIC_DIALPLAN } from './dialplan/static.ts';
-import { renderGlobals, renderLocalNumbers } from './dialplan/local.ts';
+import { renderGlobals, renderIvrDirect, renderLocalNumbers } from './dialplan/local.ts';
 import { renderDids, renderTrunkEntries } from './dialplan/inbound.ts';
 import { renderOutbound } from './dialplan/outbound.ts';
 import { renderEmergency } from './dialplan/emergency.ts';
@@ -66,6 +66,7 @@ const BODIES: Partial<Record<GeneratedFileName, (snap: Snapshot) => string>> = {
       renderConferences(snap),
       renderPaging(snap),
       renderIvrs(snap),
+      renderIvrDirect(snap),
       renderTimeConditions(snap),
       renderAnnouncements(snap),
       renderTrunkEntries(snap),

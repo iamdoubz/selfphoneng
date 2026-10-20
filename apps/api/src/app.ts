@@ -54,6 +54,8 @@ declare module 'fastify' {
 // Paths the SPA must never swallow (04 §1 step 5).
 const NON_SPA = /^\/(api|prov|hooks)(\/|$)/;
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+/** A Linphone setup link's token is the credential (07 §5): keep it out of the request log. */
+export const logUrl = (url: string) => url.replace(/^(\/prov\/linphone\/)[^/?]+/i, '$1…');
 
 export function buildApp(config: Config, db: Db, publicDir = resolve('public')) {
   const app = Fastify({
@@ -69,6 +71,16 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
         'req.headers.authorization',
         'req.headers.cookie',
       ],
+      serializers: {
+        // Fastify's own req serializer, with the URL masked (M11-T8).
+        req: (req) => ({
+          method: req.method,
+          url: logUrl(req.url),
+          host: req.host,
+          remoteAddress: req.ip,
+          remotePort: req.socket?.remotePort,
+        }),
+      },
     },
   });
 
@@ -85,7 +97,8 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   // and a cross-site page can't set Authorization either.
   app.addHook('onRequest', async (req, reply) => {
     if (
-      req.url.startsWith('/api/') &&
+      // The matched route, not req.url: the router decodes "/%61pi/…" to /api/… (M11-T8).
+      (req.routeOptions.url ?? req.url).startsWith('/api/') &&
       !SAFE_METHODS.has(req.method) &&
       !req.headers.authorization?.startsWith('Bearer ') &&
       req.headers['x-requested-with'] !== 'selfphoneng'

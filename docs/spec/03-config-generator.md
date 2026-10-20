@@ -297,6 +297,7 @@ qualify_frequency = 60
 type = endpoint
 transport = transport-udp
 context = sp-from-trunk-{id}
+identify_by = ip                    ; M11-T8: no inbound auth, so never match by From username
 disallow = all
 allow = ulaw                        ; from trunks.codecs
 outbound_auth = trunk-{id}-auth
@@ -623,7 +624,7 @@ with real phones.
 
 ```ini
 [sp-ivr-{id}]
-include => sp-local-numbers                                      ; only if allow_direct_dial
+include => sp-ivr-direct                                         ; only if allow_direct_dial
 exten => s,1,Answer()
  same => n,Set(SP_IVR_TRIES=0)
  same => n(menu),Set(TIMEOUT(digit)=3)
@@ -640,6 +641,11 @@ exten => t,1,Set(SP_IVR_TRIES=$[${SP_IVR_TRIES} + 1])
  same => n,Goto(s,menu)
  same => n(giveup),{destApp(timeout_destination)}
 ```
+Changed in M11-T8: direct dial used to include `sp-local-numbers`, which let an outside caller dial a
+paging group (the office speakers, and with duplex, listen in) or a parking slot (someone else's
+call). `sp-ivr-direct` (rendered when any IVR has direct dial) holds one
+`exten => {n},1,Goto(sp-local-numbers,{n},1)` per user, ring group, queue, conference room and IVR;
+`ivr-direct.test.ts`.
 Known behavior to mention in the UI: with direct dial on, option `1` waits up to
 3 s (digit timeout) when internal numbers also start with 1.
 Options are sorted by key; `#` and `*` work as extension names (checked by the `ivr` golden case
@@ -764,11 +770,13 @@ include => sp-or-{id}        ; route name
 include => sp-or-{id2}
 
 [sp-or-{id}]
-exten => _NXXNXXXXXX,1,Goto(sp-route-{id},1${EXTEN:0},1)     ; strip=0 prepend=1
-exten => _1NXXNXXXXXX,1,Goto(sp-route-{id},${EXTEN:0},1)
+exten => _NXXNXXXXXX,1,Goto(sp-route-{id},1${FILTER(0-9*#+,${EXTEN:0})},1)     ; strip=0 prepend=1
+exten => _1NXXNXXXXXX,1,Goto(sp-route-{id},${FILTER(0-9*#+,${EXTEN:0})},1)
 
 [sp-or-{id2}]
-exten => _011.,1,Goto(sp-route-{id2},${EXTEN},1)
+exten => _011.,1,Goto(sp-route-{id2},${FILTER(0-9*#+,${EXTEN:0})},1)
+; FILTER (M11-T8): SIP allows "," and "&" in a dialed number. "011…,4" made this
+; Goto(sp-route-{id2},011…,4,1), which starts past the class check (trunk-test.ts proves it).
 
 [sp-route-{id}]
 exten => _X.,1,Set(__SP_DIRECTION=outbound)
@@ -834,7 +842,8 @@ exten => *73,1,Answer()                                     ; cancel forward alw
  same => n,UserEvent(SpToggle,Key: CFU,Ext: ${SP_EXT},Value: )
  same => n,Playback(call-fwd-unconditional&de-activated)
  same => n,Hangup()
-exten => _**X.,1,PickupChan(PJSIP/${EXTEN:2}-&PJSIP/${EXTEN:2}-web-)   ; directed pickup **101
+exten => _**X.,1,Set(T=${FILTER(0-9,${EXTEN:2})})        ; digits only: "&" or "," would add arguments
+ same => n,PickupChan(PJSIP/${T}-&PJSIP/${T}-web-)           ; directed pickup **101
  same => n,Hangup()
 ; *8 group pickup is handled by features.conf pickupexten + named pickup groups
 exten => *43,1,Answer()                                     ; echo test
@@ -846,7 +855,7 @@ exten => *65,1,Answer()                                     ; say my extension
  same => n,SayDigits(${SP_EXT})
  same => n,Hangup()
 exten => _*45X.,1,Answer()                                  ; *45<queue> toggle queue login
- same => n,Set(Q=${EXTEN:3})
+ same => n,Set(Q=${FILTER(0-9,${EXTEN:3})})
  same => n,Set(K=SP/QPAUSE/${Q}/${SP_EXT})
  same => n,GotoIf($["${DB(${K})}" = "1"]?login)
  same => n,PauseQueueMember(${Q},Local/${SP_EXT}@sp-queue-member/n)

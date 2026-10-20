@@ -4,13 +4,13 @@
 
 | Threat | Example | Controls |
 |---|---|---|
-| SIP scanners / password guessing | "friendly-scanner", sipvicious hitting 5060 | Generated 24-char SIP passwords; no anonymous endpoint; fail2ban/CrowdSec on `security.log`; optional phone ACL (§2.2); firewall allow-list |
-| **Toll fraud** (the expensive one) | Stolen SIP creds used to call premium international numbers | International route disabled by default; per-user outbound class; `max_channels`; voip.ms-side international block + balance limits (06 §1); forward targets checked against class |
+| SIP scanners / password guessing | "friendly-scanner", sipvicious hitting 5060 | Generated 24-char SIP passwords; no anonymous endpoint; trunks matched by source address only (`identify_by = ip`, M11-T8); fail2ban/CrowdSec on `security.log`; optional phone ACL (§2.2), browser endpoints included; firewall allow-list |
+| **Toll fraud** (the expensive one) | Stolen SIP creds used to call premium international numbers | International route disabled by default; per-user outbound class; `max_channels`; voip.ms-side international block + balance limits (06 §1); forward targets checked against class; dialed numbers `FILTER`ed before the route's Goto (M11-T8: a "," skipped the class check) |
 | Web credential stuffing | Login brute force | argon2id, rate limits, audit log, TOTP for admins (M11) |
 | Voicemail PIN guessing | Calling *98 and trying PINs | 6-digit default PIN, `maxlogins=3`, reject trivial PINs (`000000`, `123456`, the extension number repeated). As built (M11-T1): also for PINs changed from the phone's voicemail menu: `externpasscheck = /usr/local/bin/sp-vm-pincheck` (asterisk image, same rules, a unit test keeps it in step with `isTrivialPin`), `minpassword = 4`; the api stores accepted ones from AMI `VoicemailPasswordChange` (`services/vmpin.ts`), otherwise the next config write would put the old PIN back |
 | Provisioning leaks | Fetching `/prov/<mac>.cfg` to steal SIP passwords | Per-device Basic auth, 404 on unknown MAC, rate limit + temporary IP block, optional LAN-only |
-| Dialplan injection | Name `x); System(...)` | Sanitizers (03 §2), no `System()` anywhere |
-| SSRF via webhooks | Webhook to `http://127.0.0.1:5038` | Private IP block by default (04 §9) |
+| Dialplan injection | Name `x); System(...)`; dialed `011…,4` or `…&PJSIP/…` | Sanitizers (03 §2), no `System()` anywhere; at call time, `FILTER` on every `${EXTEN}` from a phone that reaches an app's arguments (M11-T8) |
+| SSRF via webhooks | Webhook to `http://127.0.0.1:5038` | Private IP block by default (04 §9), NAT64/6to4 included |
 | Stolen backup | Backup file copied | Backups exclude generated plaintext configs; DB secrets are encrypted with `APP_SECRET` (kept in `.env`, not in the backup); mode 0600 |
 | AMI exposure | AMI reachable from network | Bound to 127.0.0.1, `permit` 127.0.0.1 only, random secret |
 
@@ -49,12 +49,20 @@ permit = 192.168.0.0/16                ; each network.localNets + sip.extraAllow
 Golden case `phone-acl`; `scripts/e2e/m11-t1.mjs` shows Asterisk refusing a REGISTER ("Not match
 Endpoint ACL") and accepting it once the network is listed.
 
+Changed in M11-T8: with the setting on, `-web` endpoints get `deny = 0.0.0.0/0.0.0.0` +
+`permit = 127.0.0.1/255.255.255.255`. They share the desk phone's password and pjsip accepts an
+endpoint on any transport, so `101-web` over UDP from the internet was a way around the ACL.
+Browsers reach Asterisk only through the reverse proxy (its HTTP server listens on 127.0.0.1).
+`call-test.ts` checks both: `102-web` over UDP from the phones' network is refused, over
+WebSocket from 127.0.0.1 it registers. A dev setup whose proxy isn't on Asterisk's host
+(Docker without host networking) needs the setting off for the browser phone.
+
 Changed from the first draft (M11-T1): `contact_acl = sp-phone-acl` names a section of **acl.conf**,
 not pjsip.conf, and a `type = acl` section in pjsip.conf is res_pjsip_acl's *global* ACL, which would
 filter trunks too. Contact-header rules alone are also weak: a phone behind NAT at home advertises a
 private address. Source-address `deny`/`permit` on the endpoint is what keeps remote phones out.
 Browser phones arrive through the reverse proxy (their source is the proxy), so `-web` endpoints
-aren't filtered. The setting is on Settings → Security, with the provisioning switches (07 §2).
+get the proxy's address only (below). The setting is on Settings → Security, with the provisioning switches (07 §2).
 
 ### 2.3 fail2ban / CrowdSec
 - `logger.conf` writes `security.log` (01 §3.3).
@@ -131,3 +139,41 @@ how to use `/admin/system` CLI views and `pjsip set logger on` (via `docker comp
 - **E911 / Kari's Law / RAY BAUM'S Act:** see 06 §6.
 - **Data retention:** retention settings for recordings and voicemail (04 §8). Deleting a user offers
   "delete their voicemail and recordings too".
+
+## 6. Security review (M11-T8, 2026-10-20)
+
+Two passes: this file's §1 table row by row against the code, and a separate review agent that
+hadn't written the code (read-only, told to prove each finding end to end). Each finding below was
+reproduced before the fix where a test could show it, and that test now passes.
+
+| # | Severity | Finding | Fix | Proof |
+|---|---|---|---|---|
+| 1 | Critical | SIP allows "," in a dialed number. `Goto(sp-route-…,${EXTEN},1)` with `011…,4` became `Goto(sp-route-…,011…,4,1)`, starting past the class check: any extension, even class internal, could call abroad on the default `011.` route | `${FILTER(0-9*#+,…)}` in every `sp-or-*` Goto (03 §6.12) | `trunk-test.ts` dials `01144207946095,4` with no class: failed, now hears ss-noservice |
+| 2 | High | `-web` endpoints (desk phone's password, any transport) were not covered by the phone ACL | ACL on `-web`: 127.0.0.1 only (§2.2) | `call-test.ts` |
+| 3 | Medium | "&" in a dialed number added a second Dial target, outside the trunk channel limit | the same FILTER (#1) | golden files |
+| 4 | Medium | IVR direct dial included `sp-local-numbers`: outside callers could page the office (and listen, duplex) or take a parked call | `sp-ivr-direct` (03 §6.9) | `ivr-direct.test.ts` |
+| 5 | Medium | The public source archive was the build context minus a denylist: a backup or key dropped in the repo folder would be served to anyone | `.dockerignore` is an allowlist | built the image with a planted `selfphoneng-*.tar.gz`: not in the archive |
+| 6 | Low | Trunk endpoints (no inbound auth) matched by From username: `From: trunk-<id>` from anywhere rang phones | `identify_by = ip` on trunks (03 §5.3) | `trunk-test.ts` (a third Asterisk plays the attacker): failed, now refused |
+| 7 | Low | CSRF check on raw `req.url`: `/%61pi/…` is routed to /api/… without the header | check the matched route | `auth.test.ts` |
+| 8 | Low | Linphone setup tokens (credentials) in the request log | req serializer masks them | `log-url.test.ts` |
+| 9 | Low | `/api/live` kept a socket's rights after logout, deactivation or demotion; no Origin check | foreign Origin → 4403; session re-checked every 30 s → 4401 | `live.test.ts` |
+| 10 | Low | `*45<queue>` and `**<ext>` put raw dialed text into app arguments | FILTER to digits (03 §6.13) | golden files |
+| 11 | Low | pg_dump got the DB password on its command line (visible to `ps` on the host) | `PGPASSWORD` in its environment | pg_dump run with the new URL form |
+| 12 | Low | Webhook private-address block missed 192.0.0.0/24, 198.18.0.0/15, NAT64, 6to4 | added | `integrations.test.ts` |
+
+Checked and sound (both passes): no `sql.raw` or string-built SQL; every admin route has
+`requireAdmin`, and recordings, voicemail, `/api/me/*` check ownership; generated config can't be
+injected (newline, `;`, `[section]`, `${…}`); file serving is rooted, uploads go through ffmpeg
+without a shell; CSV export escapes formulas; no `dangerouslySetInnerHTML`; sessions and API tokens
+stored as sha256; AES-256-GCM with a random IV per value; AMI, Asterisk HTTP and the api listen on
+127.0.0.1 only; webhooks check addresses at connect time (no DNS rebinding), follow no redirects.
+
+Left as they are, for the owner:
+- **Concurrent-call cap.** Trunk `max_channels` is optional and empty by default, and nothing
+  limits one extension's simultaneous calls. With stolen credentials, the voip.ms balance and
+  international settings (06 §1) are what limit the damage. A per-extension limit
+  (`GROUP_COUNT` in `sp-route-*`) or a default trunk limit would be a new setting.
+- Turning two-step sign-in on doesn't ask for the password again (turning it off does).
+- `*98` allows 3 PIN tries per call, with no limit on calls; only internal phones reach it.
+- A known MAC answers `/prov` with 401, an unknown one with 404 (07 §2 accepts this).
+- The login limiter's memory grows with the number of distinct emails tried until restart.

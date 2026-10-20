@@ -74,13 +74,13 @@ export async function createBackup(
   const work = await mkdtemp(join(tmpdir(), 'sp-backup-'));
   const tmp = join(src.outDir, `.${name}.tmp`);
   try {
-    await run('pg_dump', [
-      '--no-owner',
-      '--dbname',
-      src.databaseUrl,
-      '--file',
-      join(work, 'db.sql'),
-    ]);
+    // The password goes in the environment: `ps` on the host shows a container's arguments (M11-T8).
+    const db = new URL(src.databaseUrl);
+    const password = decodeURIComponent(db.password);
+    db.password = '';
+    await run('pg_dump', ['--no-owner', '--dbname', db.href, '--file', join(work, 'db.sql')], {
+      env: { ...process.env, PGPASSWORD: password },
+    });
     const included: string[] = [];
     const args = ['-czf', tmp, '-C', work, 'db.sql', 'manifest.json'];
     for (const [as, dir] of Object.entries(src.dirs)) {

@@ -27,6 +27,10 @@ it('isPrivateAddress', () => {
     'fe80::1',
     'fd00::1',
     '::ffff:7f00:1',
+    '198.18.0.1',
+    '192.0.0.8',
+    '64:ff9b::a00:1',
+    '2002:7f00:1::1',
   ])
     expect(isPrivateAddress(ip), ip).toBe(true);
   for (const ip of ['8.8.8.8', '203.0.113.9', '2001:4860:4860::8888', '::ffff:8.8.8.8'])

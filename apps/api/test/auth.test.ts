@@ -73,6 +73,18 @@ describe.skipIf(!hasTestDb)('auth', () => {
     expect(r.json().error.code).toBe('csrf');
   });
 
+  it('M11-T8: a percent-encoded path gets the same CSRF check', async () => {
+    for (const url of ['/%61pi/auth/login', '/api%2Fauth/login', '//api/auth/login']) {
+      const r = await t.app.inject({
+        method: 'POST',
+        url,
+        payload: { email: ADMIN.email, password: adminPassword },
+      });
+      expect([403, 404], url).toContain(r.statusCode);
+      if (r.statusCode === 403) expect(r.json().error.code).toBe('csrf');
+    }
+  });
+
   it('must_change_password blocks everything outside /api/auth/* until changed', async () => {
     const cookie = cookieOf(await login(ADMIN.email, adminPassword));
     const blocked = await get('/api/admin-probe', cookie);

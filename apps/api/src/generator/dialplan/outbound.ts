@@ -27,7 +27,11 @@ export function renderOutbound(snap: Snapshot): string {
       seen.add(match);
       const strip = s.digits(String(p.strip));
       const prepend = p.prepend ? s.dialable(p.prepend) : '';
-      pat.push(`exten => _${match},1,Goto(sp-route-${id},${prepend}\${EXTEN:${strip}},1)`);
+      // FILTER: SIP allows "," in a dialed number, and Goto(sp-route-…,011…,4,1) would start
+      // past the class check (M11-T8). "&" would add a second Dial target.
+      pat.push(
+        `exten => _${match},1,Goto(sp-route-${id},${prepend}\${FILTER(0-9*#+,\${EXTEN:${strip}})},1)`,
+      );
     }
 
     const route = [

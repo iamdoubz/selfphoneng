@@ -44,8 +44,11 @@ export async function createSession(
   return token;
 }
 
-/** Resolves a cookie token to its active user, sliding the expiry when under 7 days are left. */
-export async function getSessionUser(db: Db, token: string) {
+/**
+ * Resolves a cookie token to its active user, sliding the expiry when under 7 days are left
+ * (not for the live socket's re-checks: an open dashboard alone doesn't keep a session going).
+ */
+export async function getSessionUser(db: Db, token: string, slide = true) {
   const id = sha256(token);
   const [row] = await db
     .select({ expiresAt: sessions.expiresAt, user: users })
@@ -54,7 +57,7 @@ export async function getSessionUser(db: Db, token: string) {
     .where(and(eq(sessions.id, id), gt(sessions.expiresAt, new Date()), eq(users.isActive, true)));
   if (!row) return null;
   let extended = false;
-  if (row.expiresAt.getTime() - Date.now() < EXTEND_BELOW) {
+  if (slide && row.expiresAt.getTime() - Date.now() < EXTEND_BELOW) {
     await db
       .update(sessions)
       .set({ expiresAt: new Date(Date.now() + LIFETIME) })

@@ -118,7 +118,8 @@ exten => *73,1,Answer()                                     ; cancel forward alw
  same => n,UserEvent(SpToggle,Key: CFU,Ext: \${SP_EXT},Value: )
  same => n,Playback(call-fwd-unconditional&de-activated)
  same => n,Hangup()
-exten => _**X.,1,PickupChan(PJSIP/\${EXTEN:2}-&PJSIP/\${EXTEN:2}-web-)   ; directed pickup **101
+exten => _**X.,1,Set(T=\${FILTER(0-9,\${EXTEN:2})})        ; digits only: "&" or "," would add arguments
+ same => n,PickupChan(PJSIP/\${T}-&PJSIP/\${T}-web-)           ; directed pickup **101
  same => n,Hangup()
 ; *8 group pickup: features.conf pickupexten catches it straight from a phone's INVITE; this
 ; line covers calls that reach *8 through the dialplan. Uses named_pickup_group.
@@ -133,7 +134,7 @@ exten => *65,1,Answer()                                     ; say my extension
  same => n,SayDigits(\${SP_EXT})
  same => n,Hangup()
 exten => _*45X.,1,Answer()                                  ; *45<queue> toggle queue login
- same => n,Set(Q=\${EXTEN:3})
+ same => n,Set(Q=\${FILTER(0-9,\${EXTEN:3})})
  same => n,Set(K=SP/QPAUSE/\${Q}/\${SP_EXT})
  same => n,GotoIf($["\${DB(\${K})}" = "1"]?login)
  same => n,PauseQueueMember(\${Q},Local/\${SP_EXT}@sp-queue-member/n)

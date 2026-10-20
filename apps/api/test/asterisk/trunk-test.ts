@@ -31,6 +31,7 @@ const GOOD = '7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37';
 const BAD = '0b9f6c21-8e4d-4a7b-b3c5-d1e2f3a4b5c6';
 const SUB = { user: '123456_pbx', pass: 'ProviderSecret42' };
 const PHONES = 'sp-trunk-phones';
+const ATTACKER = 'sp-trunk-attacker';
 const EXT_ID = '00000000-0000-4000-8000-000000000101';
 const PHONE_PASS = 'TrunkTest101xxxxxxxxxxxx';
 const DID = '13125551234';
@@ -124,6 +125,16 @@ function snapshot(): Snapshot {
           { match: '1NXXNXXXXXX', strip: 0, prepend: '' },
         ],
         requiredClass: 'national',
+        trunkIds: [GOOD],
+        callerId: null,
+      },
+      {
+        id: 'aaaaaaaa-0000-4000-8000-000000000002',
+        name: 'International',
+        position: 1,
+        enabled: true,
+        patterns: [{ match: '011.', strip: 0, prepend: '' }],
+        requiredClass: 'international',
         trunkIds: [GOOD],
         callerId: null,
       },
@@ -246,7 +257,7 @@ async function main() {
     );
 
   try {
-    docker('rm', '-f', PBX, PROVIDER, PHONES);
+    docker('rm', '-f', PBX, PROVIDER, PHONES, ATTACKER);
     docker('network', 'create', NET);
     const prov = asterisk(PROVIDER, provConf, []);
     if (!prov.ok) throw new Error(`provider: ${prov.out}`);
@@ -387,6 +398,24 @@ async function main() {
     log('class check: ss-noservice');
     await ami.command('channel request hangup all');
 
+    // M11-T8: SIP allows "," in a dialed number. Unfiltered, Goto(sp-route-…,${EXTEN},1) became
+    // Goto(sp-route-…,011…,4,1) and started past the class check: international for anyone.
+    await sleep(1000);
+    await ami.command('channel originate Local/01144207946095,4@sp-from-ext application Wait 10');
+    await waitFor(
+      'ss-noservice for 01144207946095,4',
+      async () => /Playback!ss-noservice/.test(await ami.command('core show channels concise')),
+      10,
+    ).catch((e: Error) => problems.push(e.message));
+    if (
+      /LAST_IN=to=011/.test(
+        docker('exec', PROVIDER, 'asterisk', '-rx', 'dialplan show globals').out,
+      )
+    )
+      problems.push('a comma in the dialed number skipped the class check: 011… reached the trunk');
+    else log('class check: a comma in the number does not skip it');
+    await ami.command('channel request hangup all');
+
     // M3-T4: 911 from a caller with no class at all still goes out, with the E911 caller ID, and
     // the dialplan tells the api. (The fake provider answers it; nothing real is dialed.)
     const userEvents: Record<string, string | string[]>[] = [];
@@ -437,6 +466,35 @@ async function main() {
     log('911: out with the E911 caller ID, SpEmergency raised, alert plays on 101');
     await ami.command('channel request hangup all');
 
+    // M11-T8: a trunk has no inbound password, so only its server's address may match it. Before
+    // identify_by = ip, an INVITE from anywhere with From: trunk-<id> matched it by username.
+    const atkConf = join(dir, 'attacker');
+    mkdirSync(atkConf);
+    for (const f of GENERATED_FILES)
+      writeFileSync(
+        join(atkConf, f),
+        f === 'pjsip_selfphoneng.conf'
+          ? `[transport-udp]\ntype = transport\nprotocol = udp\nbind = 0.0.0.0:5060\n\n` +
+              `[pbx]\ntype = endpoint\ncontext = default\ndisallow = all\nallow = ulaw\naors = pbx\n` +
+              `from_user = trunk-${GOOD}\n\n[pbx]\ntype = aor\ncontact = sip:${PBX}:5060\n`
+          : '',
+      );
+    if (!asterisk(ATTACKER, atkConf, []).ok) throw new Error('attacker container');
+    await booted(ATTACKER);
+    dials.length = 0;
+    docker(
+      'exec',
+      ATTACKER,
+      'asterisk',
+      '-rx',
+      `channel originate PJSIP/${DID}@pbx application Wait 5`,
+    );
+    await sleep(6000);
+    if (dials.some((m) => String(m.DestChannel).startsWith('PJSIP/101-')))
+      problems.push(`an INVITE claiming From: trunk-${GOOD} from another address rang 101`);
+    else log('a From of trunk-<id> from another address is not taken for the trunk');
+    await ami.command('channel request hangup all');
+
     // eslint-disable-next-line no-control-regex -- strips Asterisk's ANSI colors
     const plainLog = docker('logs', PBX).out.replace(/\x1b\[[0-9;]*m/g, '');
     // An RTCP report sent while a test container's network is going away fails with EPERM;
@@ -454,7 +512,7 @@ async function main() {
     }
     recorder?.destroy();
     ami.stop();
-    docker('rm', '-f', PBX, PROVIDER, PHONES);
+    docker('rm', '-f', PBX, PROVIDER, PHONES, ATTACKER);
     docker('network', 'rm', NET);
     rmSync(dir, { recursive: true, force: true });
   }
