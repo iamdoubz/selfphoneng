@@ -181,6 +181,11 @@ without a shell; CSV export escapes formulas; no `dangerouslySetInnerHTML`; sess
 stored as sha256; AES-256-GCM with a random IV per value; AMI, Asterisk HTTP and the api listen on
 127.0.0.1 only; webhooks check addresses at connect time (no DNS rebinding), follow no redirects.
 
+To do (owner, 2026-10-20, for the next image): `noload` in `asterisk/conf/modules.conf` for
+`app_system.so`, `func_shell.so`, `app_disa.so` and `res_agi.so`. Nothing uses them, but they are
+what a dialplan injection would reach for (`SHELL()` runs host commands). Check with
+`pnpm test:asterisk` before releasing.
+
 Left as they are, for the owner:
 - Turning two-step sign-in on doesn't ask for the password again (turning it off does).
 - `*98` allows 3 PIN tries per call, with no limit on calls; only internal phones reach it.
