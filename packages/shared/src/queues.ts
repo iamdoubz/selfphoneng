@@ -81,3 +81,11 @@ export type QueueStats = {
    */
   withinSlaPercent: number | null;
 };
+
+/** GET /api/reports/queues: one row per queue. */
+export type QueueReportRow = QueueStats & {
+  id: string;
+  number: string;
+  name: string;
+  slaSeconds: number;
+};

@@ -26,6 +26,7 @@ import { OfficeHoursPage } from './pages/admin/OfficeHoursPage.tsx';
 import { BlockedPage } from './pages/admin/BlockedPage.tsx';
 import { CallsPage } from './pages/admin/CallsPage.tsx';
 import { RecordingsPage } from './pages/admin/RecordingsPage.tsx';
+import { ReportsPage } from './pages/admin/ReportsPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
 import { SetupPage } from './pages/SetupPage.tsx';
 import './index.css';
@@ -75,6 +76,8 @@ const router = createBrowserRouter([
             <CallsPage />
           ) : p.path === 'recordings' ? (
             <RecordingsPage />
+          ) : p.path === 'reports' ? (
+            <ReportsPage />
           ) : (
             <ComingSoon label={p.label} milestone={p.milestone ?? ''} />
           ),

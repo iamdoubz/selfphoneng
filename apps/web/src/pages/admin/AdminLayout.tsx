@@ -26,7 +26,7 @@ export const ADMIN_PAGES = [
   { path: 'contacts', label: 'Contacts', milestone: 'M10' },
   { path: 'calls', label: 'Call history', milestone: null },
   { path: 'recordings', label: 'Recordings', milestone: null },
-  { path: 'reports', label: 'Reports', milestone: 'M11' },
+  { path: 'reports', label: 'Reports', milestone: null },
   { path: 'sms', label: 'SMS', milestone: 'M9' },
   { path: 'blocked', label: 'Blocked numbers', milestone: null },
   { path: 'settings', label: 'Settings', milestone: null },

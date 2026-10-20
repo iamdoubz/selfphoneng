@@ -244,3 +244,10 @@ Webhooks to a receiver on this host is refused as a private address until that's
 the test arrives signed. A real call to 201 (Local channel, voicemail answers) delivers
 `call.started`, `call.ended` and `voicemail.new`, all with valid signatures; the receiver fails
 the first one with a 500 and it comes again a minute later. About 2 minutes.
+
+`m11-t6.mjs` (m2-live with a voicemail dir, after `m1-t4.mjs`) is the M11-T6 acceptance. Three real
+calls: one answered by phone 260, one to 261's voicemail and one through queue 560 that 260
+answers. `/api/reports/summary` agrees with call history (today's bars, missed, this hour in the
+heatmap) and `/api/reports/queues` shows 560 with 1 offered, 1 answered, 100% in time. The Reports
+page shows the same at 1280 px and 390 px, without scrolling sideways on the phone. About 3
+minutes.

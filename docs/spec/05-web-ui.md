@@ -44,7 +44,7 @@ Left sidebar navigation, in this order:
 | Contacts | `/admin/contacts` | Company phonebook, CSV import |
 | Call history | `/admin/calls` | Filters + table + CSV export; a row expands to show the CDR legs and plays the recording |
 | Recordings | `/admin/recordings` | Searchable list, play, download, delete |
-| Reports | `/admin/reports` | Summary charts (calls per day stacked by direction, missed per day, busiest hours heatmap), queue report table |
+| Reports | `/admin/reports` | Summary charts (calls per day stacked by direction, missed per day, busiest hours heatmap), queue report table. As built (M11-T6): From/To dates (the last 30 days by default, a year at most); totals (calls, missed, average talk time); the charts are plain bars, no chart library, each bar labeled for screen readers; the heatmap is a weekday × hour table in the company time zone; the queue table has the same numbers as the queue page |
 | SMS | `/admin/sms` | Same UI as the user one, with all DIDs |
 | Blocked numbers | `/admin/blocked` | |
 | Settings | `/admin/settings` | Tabs: General, Network (public IP detect, LAN IP, local nets, STUN/TURN), SIP (ports, TCP/TLS), Numbering ranges, Email (SMTP + test), Voicemail, Recording (retention, announcement sound + **legal notice text, 08 §5**), Emergency (default E911 caller ID, notify emails/extensions + a **test notification** button that does NOT dial 911), Backups (schedule, keep, include recordings, list + download + "Back up now"), Webhooks, API tokens |

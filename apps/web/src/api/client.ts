@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Typed fetch wrappers (05 §1). Every request sends X-Requested-With (CSRF, 04 §2.2).
 import type {
+  QueueReportRow,
+  ReportRange,
+  ReportSummary,
   ApiTokenDto,
   WebhookDeliveryDto,
   WebhookDto,
@@ -396,7 +399,7 @@ export const blockedApi = {
 };
 
 /** Filters as a query string (empty values left out). */
-export const callQuery = (f: CallFilter) =>
+export const callQuery = (f: CallFilter | ReportRange) =>
   new URLSearchParams(
     Object.entries(f).filter(([, v]) => v !== undefined && v !== '') as [string, string][],
   ).toString();
@@ -405,6 +408,14 @@ export const callsApi = {
   list: (f: CallFilter) => api<ListResponse<CallDto>>('GET', `/api/calls?${callQuery(f)}`),
   get: (id: string) => api<CallDetailDto>('GET', `/api/calls/${id}`),
   csvUrl: (f: CallFilter) => `/api/calls/export.csv?${callQuery({ ...f, cursor: undefined })}`,
+};
+
+export const reportsApi = {
+  summary: (r: ReportRange) => api<ReportSummary>('GET', `/api/reports/summary?${callQuery(r)}`),
+  queues: (r: ReportRange) =>
+    api<ListResponse<QueueReportRow>>('GET', `/api/reports/queues?${callQuery(r)}`).then(
+      (x) => x.items,
+    ),
 };
 
 export const recordingsApi = {

@@ -78,3 +78,19 @@ export type RecordingDto = {
     toNumber: string | null;
   } | null;
 };
+
+/** GET /api/reports/summary and /api/reports/queues (04 §7.3). Both default to the last 30 days. */
+export const ReportRangeSchema = z
+  .object({ from: z.iso.date().optional(), to: z.iso.date().optional() })
+  .refine((r) => !r.from || !r.to || r.from <= r.to, { message: 'From is after To' });
+export type ReportRange = z.input<typeof ReportRangeSchema>;
+
+export type ReportSummary = {
+  from: string;
+  to: string;
+  /** Every day in the range, empty ones too. Missed = missed, voicemail or abandoned. */
+  days: { date: string; inbound: number; outbound: number; internal: number; missed: number }[];
+  totals: { calls: number; missed: number; avgTalkSeconds: number | null };
+  /** Calls by weekday (0 = Sunday) and hour, in the company time zone: hours[day][hour]. */
+  hours: number[][];
+};

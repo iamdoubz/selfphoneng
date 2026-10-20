@@ -410,6 +410,9 @@ Reports, history, system:
 | GET | `/api/recordings`, `/api/recordings/:id/audio`, DELETE `/api/recordings/:id` | |
 | GET | `/api/reports/summary?from&to` | totals per day, per direction, missed count, average talk time |
 | GET | `/api/reports/queues?from&to` | per queue: offered, answered, abandoned, avg wait, % within SLA |
+
+As built (M11-T6): `routes/reports.ts`. `from`/`to` are company-time-zone days, inclusive; without them the last 30 days, at most a year (400). The summary is `{from, to, days: [{date, inbound, outbound, internal, missed}], totals: {calls, missed, avgTalkSeconds}, hours}`: every day in the range (empty ones too), missed = missed + voicemail + abandoned, average talk over answered calls, and `hours[weekday][hour]` with 0 = Sunday. The queue rows are `queueStats` (the queue page's numbers) for each queue, with `id, number, name, slaSeconds`.
+
 | GET | `/api/audit-log` | |
 | GET/PATCH | `/api/settings` | whole settings object; PATCH merges known keys only. `smtp` comes back as `{host, port, secure, username, from, hasPassword}` and is written with an optional `password` (empty keeps the stored one). `system.*`, `sms.webhookToken` and `setup.completed` are read-only. References (DIDs, extensions, destinations) are checked, and a transport a trunk uses can't be turned off |
 | POST | `/api/settings/smtp/test` | `{to}` sends a test email |
