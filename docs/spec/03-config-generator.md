@@ -390,15 +390,37 @@ exten => s,1,Set(N=${FILTER(0123456789+,${ARG1})})
 ; ─── Ring every registered device of a user. ARG1 = ext, ARG2 = seconds.
 ; Sets DIALSTATUS. Rings desk/softphone contacts (PJSIP/101) and browser (PJSIP/101-web).
 [sp-sub-dial-user]
-exten => s,1,Set(DS=${PJSIP_DIAL_CONTACTS(${ARG1})})
- same => n,Set(WS=${PJSIP_DIAL_CONTACTS(${ARG1}-web)})
- same => n,ExecIf($["${DS}" != "" & "${WS}" != ""]?Set(DS=${DS}&${WS}))
- same => n,ExecIf($["${DS}" = ""]?Set(DS=${WS}))
+exten => s,1,Set(DS=)
+ same => n,Gosub(sp-sub-contacts,s,1(${ARG1}))
+ same => n,Gosub(sp-sub-contacts,s,1(${ARG1}-web))
  same => n,GotoIf($["${DS}" = ""]?unavail)
  same => n,Dial(${DS},${ARG2},tx)
  same => n,Return()
  same => n(unavail),Set(DIALSTATUS=CHANUNAVAIL)
  same => n,Return()
+
+; ─── Add AOR ARG1's reachable contacts to DS as PJSIP/<ARG1>/<uri>. Not PJSIP_DIAL_CONTACTS: iOS
+; Linphone's push params (pn-prid=…:voip&…:remote) hold '&', which splits Dial's device list.
+; pn-* only matter to a push server, so they're dropped; FILTER keeps whatever else a phone puts
+; in its Contact from reaching Dial's options (',') or another device ('&').
+[sp-sub-contacts]
+exten => s,1,Set(LOCAL(CL)=${PJSIP_AOR(${ARG1},contact)})
+ same => n(next),Set(LOCAL(C)=${POP(CL)})
+ same => n,GotoIf($["${C}" = ""]?done)
+ same => n,Set(LOCAL(ST)=${PJSIP_CONTACT(${C},status)})
+ same => n,GotoIf($["${ST}" = "Unavailable" | "${ST}" = "Unreachable"]?next)
+ same => n,Set(LOCAL(U)=${PJSIP_CONTACT(${C},uri)})
+ same => n,Set(LOCAL(D)=${CUT(U,\;,1)})
+ same => n,Set(LOCAL(I)=1)
+ same => n(param),Set(I=$[${I} + 1])
+ same => n,GotoIf($[${I} > ${FIELDQTY(U,\;)}]?add)
+ same => n,Set(LOCAL(P)=${CUT(U,\;,${I})})
+ same => n,GotoIf($["${P:0:3}" = "pn-"]?param)
+ same => n,Set(D=${D}\;${P})
+ same => n,Goto(param)
+ same => n(add),Set(DS=${DS}${IF($["${DS}" = ""]?:&)}PJSIP/${ARG1}/${FILTER(0-9a-zA-Z.:@\;=_+%[]\x2d,${D})})
+ same => n,Goto(next)
+ same => n(done),Return()
 
 ; ─── Call a user with all their personal rules.
 ; ARG1 = ext, ARG2 = ring seconds, ARG3 = voicemail enabled (1/0), ARG4 = record mode

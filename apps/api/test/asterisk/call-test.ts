@@ -22,6 +22,7 @@ const RECORD = process.argv.includes('--record')
 const NET = 'sp-test';
 const AST = 'sp-test-ast';
 const PHONES = 'sp-test-phones';
+const PN_PHONE = 'sp-test-pn-phone';
 const AMI_PORT = 15038;
 const AMI_SECRET = 'call-test-secret';
 const PASS = { '101': 'CallTest101xxxxxxxxxxxxx', '102': 'CallTest102xxxxxxxxxxxxx' };
@@ -142,7 +143,7 @@ async function main() {
     backoffMs: [500],
   });
   try {
-    docker('rm', '-f', AST, PHONES);
+    docker('rm', '-f', AST, PHONES, PN_PHONE);
     docker('network', 'create', NET);
     const run = docker(
       'run',
@@ -236,6 +237,30 @@ async function main() {
     ).out.trim();
     if (!wsReg.startsWith('SIP/2.0 200')) problems.push(`102-web over WebSocket: ${wsReg}`);
     else log('102-web over WebSocket from 127.0.0.1: registered');
+    // 101 also on an iOS Linphone: '&' in its push params used to break Dial for every device.
+    const pn = docker(
+      'run',
+      '-d',
+      '--rm',
+      '--name',
+      PN_PHONE,
+      '--network',
+      NET,
+      '-v',
+      `${join(import.meta.dirname, 'pn-phone.mjs')}:/pn-phone.mjs:ro`,
+      'node:24-trixie-slim',
+      'node',
+      '/pn-phone.mjs',
+      AST,
+      '101',
+      PASS['101'],
+    );
+    if (!pn.ok) throw new Error(`pn phone: ${pn.out}`);
+    for (let i = 0; i < 20 && !/REGISTER SIP\/2.0 200/.test(docker('logs', PN_PHONE).out); i++)
+      await sleep(500);
+    if (!/REGISTER SIP\/2.0 200/.test(docker('logs', PN_PHONE).out))
+      throw new Error(`pn phone did not register: ${docker('logs', PN_PHONE).out}`);
+    log('101 also registered with iOS Linphone push params');
     // Real list responses with registered phones, for the live-state fixture.
     recorder?.write(
       'Action: PJSIPShowContacts\r\nActionID: rec-2\r\n\r\n' +
@@ -263,6 +288,11 @@ async function main() {
         break;
     }
     if (!/Up!Dial/.test(channels)) throw new Error(`call did not connect:\n${channels}`);
+    // Rung too, without its pn-* params; the rest of its Contact kept.
+    const pnInvite = /^INVITE .*$/m.exec(docker('logs', PN_PHONE).out)?.[0] ?? 'no INVITE';
+    if (!/;x-test=keep-me$/.test(pnInvite) || /pn-/.test(pnInvite))
+      problems.push(`push-params phone: ${pnInvite}`);
+    else log(`push-params phone rung: ${pnInvite}`);
     log(`call up, holding ${CALL_SECONDS} s`);
     await sleep(CALL_SECONDS * 1000);
 
@@ -307,7 +337,7 @@ async function main() {
 ${docker('exec', PHONES, 'tail', '-n', '25', `/phones/phone-${e}/log`).out}`);
     recorder?.destroy();
     ami.stop();
-    docker('rm', '-f', PHONES, AST);
+    docker('rm', '-f', PHONES, PN_PHONE, AST);
     docker('network', 'rm', NET);
     rmSync(dir, { recursive: true, force: true });
   }
