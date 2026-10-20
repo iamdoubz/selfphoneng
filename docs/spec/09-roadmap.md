@@ -260,4 +260,6 @@ As built: all four tasks done and tested with simulated phones (`scripts/e2e/m10
 
 ## Definition of done for v1.0
 All of M0–M11 done (including the open real voip.ms checks under M3), plus: 7 days running on the owner's server handling real calls with
-no crash/restart of the api or Asterisk, and nightly backups restoring cleanly.
+no crash/restart of the api or Asterisk, and nightly backups restoring cleanly. Also `scripts/update.sh` (08 §3.1) written,
+reviewed and thoroughly tested on a real server (updating a running install, with calls, backups and the bundled Caddy), with
+the admin guide's "Updating" section to match.

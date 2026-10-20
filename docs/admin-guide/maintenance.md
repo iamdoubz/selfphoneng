@@ -2,24 +2,8 @@
 
 ## Updating SelfPhoneNG
 
-When nobody is on a call, run:
-
-```sh
-./scripts/update.sh
-```
-
-It:
-
-1. pulls the latest code (`git pull --ff-only`);
-2. pulls newer PostgreSQL and Caddy images;
-3. rebuilds the api and Asterisk images;
-4. restarts what changed.
-
-Database changes apply by themselves when the api starts. **Calls in progress drop** if Asterisk is
-rebuilt. Make a backup first (**Settings → Backups → Back up now**).
-
-If `git pull` refuses because you changed files in the folder, put your changes somewhere else.
-Settings belong in the web app and `.env`, not in the code.
+SelfPhoneNG has no releases yet. How to update will be documented, with a tested update
+script, when version 1.0 ships.
 
 ### Asterisk security releases
 
@@ -35,7 +19,7 @@ docker compose up -d asterisk
 docker compose exec asterisk asterisk -rx "core show version"
 ```
 
-The next `update.sh` goes back to the version the code names.
+A later rebuild without `--build-arg` goes back to the version the code names.
 
 ## Backups
 
