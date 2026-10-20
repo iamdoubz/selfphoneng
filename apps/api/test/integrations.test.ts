@@ -38,6 +38,13 @@ it('isPrivateAddress', () => {
 });
 
 describe.skipIf(!hasTestDb)('API tokens and webhooks', () => {
+  /** Waits for n webhook_deliveries rows (a fixed sleep was too short under load). */
+  const deliveries = async (n: number) => {
+    for (let i = 0; i < 100; i++) {
+      if ((await t.db.select().from(webhookDeliveries)).length >= n) return;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+  };
   let t: Awaited<ReturnType<typeof createTestApp>>;
   let admin: string;
   let req: (
@@ -186,7 +193,7 @@ describe.skipIf(!hasTestDb)('API tokens and webhooks', () => {
       data: { ...call, state: 'talking', answeredAt: call.startedAt },
     });
     t.live.emit('message', { type: 'call.removed', data: { linkedid: 'L1' } });
-    await new Promise((r) => setTimeout(r, 200)); // the inserts are fire-and-forget
+    await deliveries(2); // the inserts are fire-and-forget
     await deliverDue(t.db);
     // call.answered isn't subscribed.
     expect(got.map((g) => JSON.parse(g.body).event)).toEqual(['call.started', 'call.ended']);
@@ -198,7 +205,7 @@ describe.skipIf(!hasTestDb)('API tokens and webhooks', () => {
     answer = 500;
     got.length = 0;
     t.live.emit('message', { type: 'call.updated', data: { ...call, linkedid: 'L2' } });
-    await new Promise((r) => setTimeout(r, 200));
+    await deliveries(3);
     let now = Date.now();
     const gaps: number[] = [];
     for (let i = 0; i < 6; i++) {

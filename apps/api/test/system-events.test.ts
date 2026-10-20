@@ -10,10 +10,18 @@ import { setSetting } from '../src/services/settings.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
 
-const settle = () => new Promise((r) => setTimeout(r, 200)); // inserts are fire-and-forget
+/** The inserts are fire-and-forget: wait for them (a fixed sleep was too short under load). */
+const rowsWhen = async (n: number) => {
+  for (let i = 0; i < 100; i++) {
+    const rows = await t.db.select().from(systemEvents);
+    if (rows.length >= n) return rows;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return t.db.select().from(systemEvents);
+};
+let t: Awaited<ReturnType<typeof createTestApp>>;
 
 describe.skipIf(!hasTestDb)('system status, event log, about', () => {
-  let t: Awaited<ReturnType<typeof createTestApp>>;
   let get: (url: string, cookie?: string) => Promise<LightMyRequestResponse>;
   let admin: string;
 
@@ -82,11 +90,8 @@ describe.skipIf(!hasTestDb)('system status, event log, about', () => {
       type: 'system.configApplied',
       data: { ok: false, error: 'disk full', restartRequired: true }, // already said: once
     });
-    await settle();
     // Sorted: trunk events wait for the trunk's name, so they can land after later ones.
-    const rows = (await t.db.select().from(systemEvents)).sort((x, y) =>
-      x.code.localeCompare(y.code),
-    );
+    const rows = (await rowsWhen(8)).sort((x, y) => x.code.localeCompare(y.code));
     expect(rows.map((r) => [r.severity, r.code, r.source, r.message])).toEqual([
       [
         'error',
