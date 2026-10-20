@@ -97,7 +97,7 @@ async function page(db: Db, where: SQL[], limit: number) {
 }
 
 /** RFC 4180, and cells that a spreadsheet would run as a formula get a leading quote. */
-const csvCell = (v: string | number | null) => {
+export const csvCell = (v: string | number | null) => {
   let s = v === null ? '' : String(v);
   if (/^[=@\t\r]/.test(s) || (/^[-+]/.test(s) && !/^\+?\d+$/.test(s))) s = `'${s}`;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

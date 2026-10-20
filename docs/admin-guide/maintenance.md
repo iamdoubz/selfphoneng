@@ -97,7 +97,9 @@ curl http://127.0.0.1:8080/healthz      # 200 {"ok":true}, or 503 when the datab
 From outside, monitor `https://pbx.example.com/healthz`.
 
 **The dashboard** shows trunks, active calls, queues and warnings (emergency setup, certificate,
-backups, restart needed) live.
+backups, restart needed) live. **System** has the event log: trunks going down and back up,
+Asterisk stopping and coming back, restarts needed, 911 calls, public IP changes, backups and a full
+disk, kept 90 days (**Download** saves it as CSV).
 
 ### Keeping logs small
 

@@ -29,6 +29,13 @@
       "when": 1792439261267,
       "tag": "0003_users_totp",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792512298128,
+      "tag": "0004_system_events",
+      "breakpoints": true
     }
   ]
 }

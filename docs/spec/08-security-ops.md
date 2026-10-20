@@ -111,6 +111,13 @@ how to use `/admin/system` CLI views and `pjsip set logger on` (via `docker comp
 ## 4. Licensing compliance
 - Our code: AGPL-3.0-or-later. Add `LICENSE`, SPDX headers, and an About page (`/admin/system` → About) listing
   the license and a link to the source repository (AGPL requires offering source to network users).
+  As built (owner, 2026-10-20): `/about` needs no sign-in (linked from the login page, My phone and System). The
+  api image carries the exact source it was built from: `apps/api/Dockerfile` tars the build context (minus
+  `.dockerignore`: no `.env`, `data/`, `node_modules`, build output or `.git`) into `/app/selfphone.tar.gz`
+  before installing anything, with `VERSION` from the root package.json. "Code v<version>" downloads it
+  (`GET /api/about/source`, `selfphone.tar.gz`, top folder `selfphoneng-<version>/`). Outside Docker there is
+  no archive and the page says so. The repository link is general context. The ringtone is synthesized
+  (WebAudio), so there's no sound file to credit.
 - Asterisk: GPL-2.0, runs as a separate program. We don't link to it, so there's no license conflict.
 - Asterisk core/extra sounds and opsound MOH: CC-BY-SA. Credit them on the About page.
 - Ringtone: CC0, documented in `apps/web/public/sounds/SOUNDS-LICENSE.md`.

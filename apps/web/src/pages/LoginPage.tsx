@@ -3,7 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { APP_NAME, LoginSchema } from '@selfphoneng/shared';
 import { ApiError, authApi } from '../api/client.ts';
 import { homeFor } from '../auth/RequireAuth.tsx';
@@ -11,12 +11,15 @@ import { Alert, Button, Field, inputClass } from '../components/ui.tsx';
 
 export function AuthCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <main className="flex min-h-dvh items-center justify-center p-4">
+    <main className="flex min-h-dvh flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
         <img src="/logo-512.png" alt={APP_NAME} className="mx-auto mb-4 size-32 rounded-xl" />
         <h1 className="mb-5 text-xl font-semibold">{title}</h1>
         {children}
       </div>
+      <Link to="/about" className="mt-3 text-xs text-zinc-500 hover:underline">
+        About SelfPhoneNG · source code
+      </Link>
     </main>
   );
 }

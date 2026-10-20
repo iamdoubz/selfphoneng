@@ -49,6 +49,9 @@ export function MePage({ user }: { user: AuthUser }) {
               Admin
             </Link>
           )}
+          <Link className={`${link} text-sm`} to="/about">
+            About
+          </Link>
           <ThemeToggle />
           <Button
             variant="ghost"

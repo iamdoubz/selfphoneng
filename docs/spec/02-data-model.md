@@ -8,7 +8,7 @@ Conventions:
 - Primary keys: `uuid` with `default gen_random_uuid()` unless stated (built into PostgreSQL 18, so no pgcrypto extension is needed).
 - Every table has `created_at timestamptz not null default now()` and
   `updated_at timestamptz not null default now()` (left out below to save space,
-  **but add them**). Exceptions: `cdr`, `audit_log`, `webhook_deliveries`, `generator_runs` (append-only, `created_at` only).
+  **but add them**). Exceptions: `cdr`, `audit_log`, `system_events`, `webhook_deliveries`, `generator_runs` (append-only, `created_at` only).
 - Columns ending in `_enc` hold secrets encrypted with AES-256-GCM using
   `APP_SECRET` (format: `base64(iv[12] | tag[16] | ciphertext)`). Only
   `crypto/secrets.ts` encrypts and decrypts. API responses never include `_enc`
@@ -503,6 +503,17 @@ create table audit_log (
   summary      text not null,
   diff         jsonb                  -- secrets replaced with "********"
 );
+
+-- Added 2026-10-20 (owner follow-ups to M11-T7): the System page's event log (05 §2), kept 90 days.
+create table system_events (
+  id          bigserial primary key,
+  created_at  timestamptz not null default now(),
+  severity    text not null check (severity in ('info', 'warning', 'error')),
+  code        text not null,          -- 'trunk.down', 'telephony.restartNeeded', 'backup.failed', ...
+  source      text not null,          -- 'Trunk', 'Telephony', 'Backup', ...
+  message     text not null
+);
+create index on system_events (created_at);
 
 create table generator_runs (
   id            bigserial primary key,

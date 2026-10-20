@@ -658,6 +658,24 @@ export const emergencyEvents = pgTable('emergency_events', {
   ...timestamps,
 });
 
+/** System page's event log: what the system noticed (trunks, telephony, backups…), not admin edits. */
+export const systemEvents = pgTable(
+  'system_events',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey(),
+    createdAt: createdAt(),
+    severity: text().notNull(),
+    /** Stable id of the kind of event, e.g. trunk.down. */
+    code: text().notNull(),
+    source: text().notNull(),
+    message: text().notNull(),
+  },
+  (t) => [
+    index().on(t.createdAt),
+    check('system_events_severity_check', sql`${t.severity} in ('info', 'warning', 'error')`),
+  ],
+);
+
 export const auditLog = pgTable('audit_log', {
   id: bigserial({ mode: 'number' }).primaryKey(),
   createdAt: createdAt(),

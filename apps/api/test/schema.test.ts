@@ -106,11 +106,11 @@ describe.skipIf(!hasTestDb)('schema matches spec 02', () => {
   beforeAll(async () => ({ db, drop } = await createTestDb()));
   afterAll(() => drop?.());
 
-  it('creates all 40 tables', async () => {
+  it('creates all 41 tables', async () => {
     const r = await db.execute(
       sql`select count(*)::int as n from information_schema.tables where table_schema = 'public'`,
     );
-    expect(r.rows[0]).toEqual({ n: 40 });
+    expect(r.rows[0]).toEqual({ n: 41 });
   });
 
   it.each(Object.keys(EXPECTED))('%s columns', async (table) => {

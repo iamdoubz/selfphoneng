@@ -5,12 +5,18 @@ import type { LightMyRequestResponse } from 'fastify';
 import { eq } from 'drizzle-orm';
 import type { TrunkLive } from '@selfphoneng/shared';
 import { createJobs, retentionCleanup, type JobDeps } from '../src/jobs.ts';
-import { extensions, sessions, voicemailMessages } from '../src/db/schema.ts';
+import { extensions, sessions, systemEvents, voicemailMessages } from '../src/db/schema.ts';
 import { getSetting, setSetting } from '../src/services/settings.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
 
 describe.skipIf(!hasTestDb)('background jobs', () => {
+  const events = (code: string) =>
+    t.db
+      .select({ severity: systemEvents.severity, message: systemEvents.message })
+      .from(systemEvents)
+      .where(eq(systemEvents.code, code))
+      .orderBy(systemEvents.id);
   let t: Awaited<ReturnType<typeof createTestApp>>;
   let req: (m: string, url: string, payload?: unknown) => Promise<LightMyRequestResponse>;
   let trunkId: string;
@@ -159,6 +165,9 @@ describe.skipIf(!hasTestDb)('background jobs', () => {
     expect(await getSetting(t.db, 'network.publicIp')).toBe('203.0.113.9');
     expect(await getSetting(t.db, 'system.restartRequired')).toBe(true);
     expect(t.mails.map((m) => m.subject)).toEqual(['Public IP changed to 203.0.113.9']);
+    expect(await events('network.publicIpChanged')).toEqual([
+      { severity: 'warning', message: 'Public IP changed from 203.0.113.5 to 203.0.113.9' },
+    ]);
 
     await j.publicIpWatch(); // unchanged: nothing
     vi.stubGlobal('fetch', async () => new Response('<html>rate limited</html>'));
@@ -187,6 +196,10 @@ describe.skipIf(!hasTestDb)('background jobs', () => {
     clock += 86_400_000; // next day: again
     await j.diskWatch();
     expect(t.mails).toHaveLength(2);
+    expect(await events('disk.low')).toEqual([
+      { severity: 'warning', message: 'Disk almost full: 6% free' },
+      { severity: 'warning', message: 'Disk almost full: 6% free' },
+    ]);
   });
 
   it('a mail that fails to send is logged, not thrown', async () => {

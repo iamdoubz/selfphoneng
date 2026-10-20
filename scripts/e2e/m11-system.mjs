@@ -6,11 +6,17 @@
 // - System page: a public IP change in Settings → Network raises the dashboard warning, its link
 //   opens System ("Restart: Needed" and the command); running what it says (here `docker restart`
 //   on the m2-live container, which is what `docker compose restart asterisk` does) brings it back
-//   to "Running" and "Not needed", and the warning goes away.
-// Runs on m2-live with a recordings dir (api with RECORDINGS_DIR), after m1-t4.mjs.
-// Usage: node scripts/e2e/m11-system.mjs <baseUrl> <adminEmail> <adminPassword> <shotsDir>
+//   to "Running" and "Not needed", and the warning goes away. System information shows the IP and
+//   ports, and the event log (and its CSV) has the restart: restart needed, Asterisk down, up.
+// - About (no sign-in, linked from the login page): "Code v<version>" downloads selfphone.tar.gz,
+//   byte for byte the archive the api image was built with.
+// Runs on m2-live with a recordings dir (api with RECORDINGS_DIR), after m1-t4.mjs. The api's working
+// directory <apiDir> holds VERSION and selfphone.tar.gz copied out of a built api image.
+// Usage: node scripts/e2e/m11-system.mjs <baseUrl> <adminEmail> <adminPassword> <shotsDir> <apiDir>
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { originate } from './ami.mjs';
 import { launch } from './cdp.mjs';
 import { startPhones } from './phones.mjs';
@@ -25,7 +31,7 @@ const cli = (cmd) =>
 const ANSI = /\x1b\[[0-9;]*m/g;
 const astLog = () =>
   (spawnSync('docker', ['logs', AST], { encoding: 'utf8' }).stdout ?? '').replace(ANSI, '');
-const [base, email, pw, shotsDir] = process.argv.slice(2);
+const [base, email, pw, shotsDir, apiDir] = process.argv.slice(2);
 const until = async (what, ms, fn) => {
   const end = Date.now() + ms;
   for (;;) {
@@ -105,6 +111,33 @@ try {
   await until('phone 241 registered', 180_000, () =>
     /241\/sip:.*Avail/.test(cli('pjsip show contacts')),
   );
+  // About, before signing in: the login page links it, "Code v…" is this build's source.
+  await p.goto(`${base}/login`);
+  await p.waitFor(`!!document.querySelector('input[type=email]')`);
+  await p.evaluate(
+    `[...document.querySelectorAll('a')].find(a => a.textContent.includes('source code')).click(), true`,
+  );
+  await p.waitFor(`location.pathname === '/about'`, 'about page');
+  await p.waitFor(`document.body.innerText.includes('Code v')`, 'source button');
+  const dl = await p.evaluate(`(async () => {
+    const a = [...document.querySelectorAll('a')].find(a => a.textContent.startsWith('Code v'));
+    const r = await fetch(a.href);
+    const b = new Uint8Array(await r.arrayBuffer());
+    return { text: a.textContent, download: a.getAttribute('download'), status: r.status,
+      disposition: r.headers.get('content-disposition'), bytes: b.length, gzip: b[0] === 0x1f && b[1] === 0x8b };
+  })()`);
+  const archive = readFileSync(join(apiDir, 'selfphone.tar.gz'));
+  assert.deepEqual(dl, {
+    text: `Code v${readFileSync(join(apiDir, 'VERSION'), 'utf8').trim()}`,
+    download: 'selfphone.tar.gz',
+    status: 200,
+    disposition: 'attachment; filename="selfphone.tar.gz"',
+    bytes: archive.length,
+    gzip: true,
+  });
+  await p.shot('m11-system-00-about');
+  console.log(`about (signed out): "${dl.text}" downloads selfphone.tar.gz, ${dl.bytes} bytes`);
+
   await p.goto(`${base}/login`);
   await p.waitFor(`!!document.querySelector('input[type=email]')`);
   await p.fill('Email', email);
@@ -203,7 +236,55 @@ try {
   const warnings = (await api('GET', '/api/system/warnings')).items.map((w) => w.code);
   assert.ok(!warnings.includes('restart_required'), `warnings: ${warnings}`);
   console.log('after the restart: "Running", "Not needed", the new IP in use, no warning');
-  console.log('M11 system page and record switch: PASS');
+
+  // System information and the event log: the restart above is in it.
+  const info = await p.evaluate(`document.querySelector('[aria-label=Status]').innerText`);
+  for (const want of ['Public IP', '203.0.113.77', 'SIP 5060', 'Media 10000–20000', 'HTTPS 443'])
+    assert.ok(info.includes(want), `system information lacks ${want}:\n${info}`);
+  await until('events in the log', 30_000, async () => {
+    await p.goto(`${base}/admin/system`);
+    await p.waitFor(`!!document.querySelector('[aria-label="Event log"]')`, 'event log');
+    await sleep(1000);
+    const codes = await p.evaluate(
+      `[...document.querySelectorAll('[aria-label=Events] tbody tr')].map(r => r.cells[1].innerText)`,
+    );
+    return ['telephony.restartNeeded', 'telephony.down', 'telephony.up'].every((c) =>
+      codes.includes(c),
+    );
+  });
+  const csv = await p.evaluate(
+    `fetch('/api/system/events.csv').then(async r => [r.status, r.headers.get('content-disposition'), await r.text()])`,
+  );
+  assert.equal(csv[0], 200);
+  assert.match(csv[1], /selfphoneng-events\.csv/);
+  assert.match(csv[2], /^time,severity,event,source,details\r\n/);
+  assert.match(csv[2], /telephony\.down,Telephony/);
+  await p.shot('m11-system-04-events');
+  const narrow = await launch({ width: 390, height: 900, shotsDir });
+  try {
+    await narrow.goto(`${base}/login`);
+    await narrow.waitFor(`!!document.querySelector('input[type=email]')`);
+    await narrow.fill('Email', email);
+    await narrow.fill('Password', pw);
+    await narrow.click('Sign in');
+    await narrow.waitFor(`location.pathname.startsWith('/admin')`, 'signed in (phone)');
+    await narrow.goto(`${base}/admin/system`);
+    await narrow.waitFor(`!!document.querySelector('[aria-label=Events]')`, 'events (phone)');
+    assert.equal(
+      await narrow.evaluate(
+        'document.documentElement.scrollWidth > document.documentElement.clientWidth',
+      ),
+      false,
+      'System page scrolls sideways at 390px',
+    );
+    await narrow.shot('m11-system-05-phone');
+  } finally {
+    await narrow.close();
+  }
+  console.log(
+    'system information shows IP and ports; the event log has the restart (and its CSV); no sideways scroll at 390px',
+  );
+  console.log('M11 system page, about and record switch: PASS');
 } finally {
   await p.close();
   phones.stop();

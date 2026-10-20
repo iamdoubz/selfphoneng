@@ -3,11 +3,16 @@
 import { readFile } from 'node:fs/promises';
 import { networkInterfaces } from 'node:os';
 import { join, resolve } from 'node:path';
+import { desc, lt } from 'drizzle-orm';
 import { z } from 'zod';
+import type { ListResponse, SystemEventDto, SystemStatus } from '@selfphoneng/shared';
 import type { FastifyInstance } from 'fastify';
 import { requireAdmin } from '../auth/guards.ts';
 import { audit } from '../services/audit.ts';
-import { getSetting } from '../services/settings.ts';
+import { getAllSettings } from '../services/settings.ts';
+import { systemEvents } from '../db/schema.ts';
+import { appVersion } from './about.ts';
+import { csvCell } from './calls.ts';
 import { BACKUP_NAME, listBackups, runBackup } from '../services/backup.ts';
 import { HttpError, notFound } from '../errors.ts';
 import { AmiDisconnectedError } from '../ami/client.ts';
@@ -45,16 +50,68 @@ export async function systemRoutes(app: FastifyInstance) {
     return r;
   });
 
-  // ponytail: the M3 subset of 04 §7.3's status (the wizard needs the LAN IP); M11 adds the rest.
-  app.get('/api/system/status', async () => ({
-    ami: { connected: app.ami.isConnected() },
-    restartRequired: await getSetting(app.db, 'system.restartRequired'),
-    // With host networking (production) these are the server's own addresses.
-    lanIps: Object.values(networkInterfaces())
-      .flat()
-      .filter((i) => i && i.family === 'IPv4' && !i.internal)
-      .map((i) => i!.address),
-  }));
+  app.get('/api/system/status', async (): Promise<SystemStatus> => {
+    const s = await getAllSettings(app.db);
+    return {
+      version: await appVersion(),
+      hostname: app.config.PUBLIC_HOSTNAME,
+      companyName: s['general.companyName'],
+      publicIp: s['network.publicIp'],
+      publicIpDynamic: s['network.publicIpWatch'],
+      // With host networking (production) these are the server's own addresses.
+      lanIps: Object.values(networkInterfaces())
+        .flat()
+        .filter((i) => i && i.family === 'IPv4' && !i.internal)
+        .map((i) => i!.address),
+      ports: {
+        sip: s['sip.udpPort'],
+        sipTcp: s['sip.tcpEnabled'],
+        sips: s['sip.tlsEnabled'] ? s['sip.tlsPort'] : null,
+        rtp: '10000–20000', // asterisk/conf/rtp.conf
+        https: 443,
+      },
+      ami: { connected: app.ami.isConnected() },
+      restartRequired: s['system.restartRequired'],
+    };
+  });
+
+  /** The event log, newest first; `before` is the last id of the previous page. */
+  const EventsQuery = z.object({
+    before: z.coerce.number().int().positive().optional(),
+    limit: z.coerce.number().int().min(1).max(200).default(50),
+  });
+  const toEvent = (e: typeof systemEvents.$inferSelect): SystemEventDto => ({
+    id: e.id,
+    createdAt: e.createdAt.toISOString(),
+    severity: e.severity as SystemEventDto['severity'],
+    code: e.code,
+    source: e.source,
+    message: e.message,
+  });
+  app.get('/api/system/events', async (req): Promise<ListResponse<SystemEventDto>> => {
+    const q = EventsQuery.parse(req.query);
+    const rows = await app.db
+      .select()
+      .from(systemEvents)
+      .where(q.before ? lt(systemEvents.id, q.before) : undefined)
+      .orderBy(desc(systemEvents.id))
+      .limit(q.limit + 1);
+    const items = rows.slice(0, q.limit).map(toEvent);
+    return { items, nextCursor: rows.length > q.limit ? String(items.at(-1)!.id) : null };
+  });
+  app.get('/api/system/events.csv', async (_req, reply) => {
+    // ponytail: everything kept (90 days) in one file; page it if logs ever get big.
+    const rows = await app.db.select().from(systemEvents).orderBy(desc(systemEvents.id));
+    const out = ['time,severity,event,source,details'];
+    for (const e of rows)
+      out.push(
+        [e.createdAt.toISOString(), e.severity, e.code, e.source, e.message].map(csvCell).join(','),
+      );
+    return reply
+      .header('content-type', 'text/csv; charset=utf-8')
+      .header('content-disposition', 'attachment; filename="selfphoneng-events.csv"')
+      .send(out.join('\r\n') + '\r\n');
+  });
 
   /** 01 §4.3: transports only change on a restart. `now=true` drops calls; otherwise waits. */
   app.post('/api/system/asterisk/restart', async (req) => {

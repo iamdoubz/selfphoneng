@@ -265,4 +265,8 @@ from outside" records a real inbound call to 241 (MixMonitor, a recording in cal
 to "Never", the next call isn't recorded. A public IP change on Settings → Network raises the
 dashboard's restart warning, whose link opens System ("Restart: Needed", the command); restarting
 the Asterisk container brings it to "Running" / "Not needed", the new IP is in the transport and the
-warning is gone. About 3 minutes.
+warning is gone. System information shows the IP and ports, the event log and its CSV have the restart
+(restart needed, Asterisk down, up), and the page doesn't scroll sideways at 390 px. Before signing
+in, the login page's link opens About, whose "Code v<version>" downloads `selfphone.tar.gz` byte for
+byte as built: the runner builds the api image and copies its `VERSION` and archive into the api's
+working folder (5th argument). About 6 minutes.

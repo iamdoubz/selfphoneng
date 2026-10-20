@@ -10,6 +10,7 @@ import type { Db } from './db/client.ts';
 import {
   extensions,
   sessions,
+  systemEvents,
   trunks,
   users,
   voicemailMessages,
@@ -21,6 +22,7 @@ import type { LiveState } from './live/state.ts';
 import { cleanupRecordings } from './routes/recordings.ts';
 import { audit } from './services/audit.ts';
 import { backupDue, runBackup } from './services/backup.ts';
+import { logEvent } from './services/events.ts';
 import { deliverDue } from './services/webhooks.ts';
 import type { SendMail } from './services/mail.ts';
 import { getSetting, setSetting } from './services/settings.ts';
@@ -101,6 +103,9 @@ export async function retentionCleanup(d: JobDeps) {
   await d.db
     .delete(webhookDeliveries)
     .where(lt(webhookDeliveries.createdAt, sql`now() - interval '30 days'`));
+  await d.db
+    .delete(systemEvents)
+    .where(lt(systemEvents.createdAt, sql`now() - interval '90 days'`));
   if (recordings || voicemail) d.log.info({ recordings, voicemail }, 'old messages deleted');
 }
 
@@ -132,7 +137,19 @@ export function createJobs(d: JobDeps) {
     try {
       const b = await runBackup(d.config, d.db);
       d.log.info({ backup: b.name, size: b.size }, 'backup made');
+      await logEvent(d.db, {
+        severity: 'info',
+        code: 'backup.done',
+        source: 'Backup',
+        message: `Daily backup ${b.name} made (${Math.round(b.size / 1e6)} MB)`,
+      });
     } catch (err) {
+      await logEvent(d.db, {
+        severity: 'error',
+        code: 'backup.failed',
+        source: 'Backup',
+        message: `Daily backup failed: ${(err as Error).message}`,
+      });
       await mailAdmins(d, 'Backup failed', `Today's backup failed: ${(err as Error).message}`);
       throw err;
     }
@@ -148,6 +165,12 @@ export function createJobs(d: JobDeps) {
       action: 'settings',
       summary: `Public IP changed from ${old ?? 'none'} to ${ip}`,
       diff: { before: old, after: ip },
+    });
+    await logEvent(d.db, {
+      severity: 'warning',
+      code: 'network.publicIpChanged',
+      source: 'Network',
+      message: `Public IP changed from ${old ?? 'none'} to ${ip}`,
     });
     await d.generator.apply({ trigger: 'publicIp', force: true }); // sets restartRequired
     await mailAdmins(
@@ -198,6 +221,12 @@ export function createJobs(d: JobDeps) {
     const today = todayIn(await tz(), now());
     if (free >= 0.1 || diskMailedDay === today) return;
     diskMailedDay = today;
+    await logEvent(d.db, {
+      severity: 'warning',
+      code: 'disk.low',
+      source: 'Disk',
+      message: `Disk almost full: ${Math.round(free * 100)}% free`,
+    });
     await mailAdmins(
       d,
       `Disk almost full (${Math.round(free * 100)}% free)`,

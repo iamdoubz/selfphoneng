@@ -7,6 +7,7 @@ import { RouterProvider } from 'react-router/dom';
 import { RequireAuth, homeFor } from './auth/RequireAuth.tsx';
 import { ChangePasswordPage } from './pages/ChangePasswordPage.tsx';
 import { LoginPage } from './pages/LoginPage.tsx';
+import { AboutPage } from './pages/AboutPage.tsx';
 import { ADMIN_PAGES, AdminLayout, ComingSoon } from './pages/admin/AdminLayout.tsx';
 import { UsersPage } from './pages/admin/UsersPage.tsx';
 import { DashboardPage } from './pages/admin/DashboardPage.tsx';
@@ -34,6 +35,7 @@ import './index.css';
 
 const router = createBrowserRouter([
   { path: '/login', Component: LoginPage },
+  { path: '/about', Component: AboutPage },
   { path: '/change-password', Component: ChangePasswordPage },
   { path: '/setup', element: <RequireAuth role="admin">{() => <SetupPage />}</RequireAuth> },
   {

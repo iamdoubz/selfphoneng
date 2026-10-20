@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Typed fetch wrappers (05 §1). Every request sends X-Requested-With (CSRF, 04 §2.2).
 import type {
+  AboutDto,
+  SystemEventDto,
+  SystemStatus,
   QueueReportRow,
   ReportRange,
   ReportSummary,
@@ -222,11 +225,14 @@ export const settingsApi = {
   warnings: () => api<{ items: Warning[] }>('GET', '/api/system/warnings').then((r) => r.items),
 };
 
+export const aboutApi = { get: () => api<AboutDto>('GET', '/api/about') };
+
 export const systemApi = {
-  status: () =>
-    api<{ ami: { connected: boolean }; restartRequired: boolean; lanIps: string[] }>(
+  status: () => api<SystemStatus>('GET', '/api/system/status'),
+  events: (before?: number) =>
+    api<ListResponse<SystemEventDto>>(
       'GET',
-      '/api/system/status',
+      `/api/system/events${before ? `?before=${before}` : ''}`,
     ),
   restartAsterisk: (now: boolean) =>
     api<{ ok: true }>('POST', `/api/system/asterisk/restart?now=${now}`),

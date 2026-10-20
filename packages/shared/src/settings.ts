@@ -110,3 +110,35 @@ export type BackupDto = { name: string; size: number; createdAt: string };
 /** GET /api/system/tls: the SIP TLS certificate in data/tls (M11-T2). */
 export type TlsCert =
   { ok: true; subject: string; names: string[]; notAfter: string } | { ok: false; error: string };
+
+/** GET /api/system/status: the System page's "System information" (05 §2). */
+export type SystemStatus = {
+  version: string;
+  hostname: string;
+  companyName: string;
+  publicIp: string | null;
+  /** Re-checked every 5 minutes (network.publicIpWatch). */
+  publicIpDynamic: boolean;
+  lanIps: string[];
+  ports: { sip: number; sipTcp: boolean; sips: number | null; rtp: string; https: number };
+  ami: { connected: boolean };
+  restartRequired: boolean;
+};
+
+/** GET /api/system/events: the System page's event log, newest first. */
+export type SystemEventDto = {
+  id: number;
+  createdAt: string;
+  severity: 'info' | 'warning' | 'error';
+  code: string;
+  source: string;
+  message: string;
+};
+
+/** GET /api/about (no sign-in): what runs here and where its source is (AGPL, 08 §4). */
+export type AboutDto = {
+  version: string;
+  repoUrl: string;
+  /** The source this build was made from (selfphone.tar.gz); null outside a Docker build. */
+  source: { bytes: number; builtAt: string } | null;
+};

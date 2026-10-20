@@ -3,6 +3,13 @@ FROM node:24-trixie-slim AS build
 RUN npm install -g corepack@latest && corepack enable
 WORKDIR /src
 COPY . .
+# The source of exactly this build, before anything is installed or built (AGPL-3.0 §13, 08 §4):
+# the build context minus .dockerignore, served at /api/about/source.
+RUN v=$(node -p "require('./package.json').version") \
+ && echo "$v" > /VERSION \
+ && tar --sort=name --owner=0 --group=0 --numeric-owner --transform "s,^\.,selfphoneng-$v," \
+      -czf /selfphone.tar.gz . \
+ && tar -tzf /selfphone.tar.gz > /dev/null
 RUN pnpm install --frozen-lockfile \
  && pnpm --filter @selfphoneng/shared build \
  && pnpm --filter @selfphoneng/web build \
@@ -27,6 +34,7 @@ COPY --from=build /src/apps/web/dist ./public
 COPY --from=build /src/apps/api/src/db/migrations ./dist/db/migrations
 # tsc only emits .js: files the code reads next to itself come over by hand.
 COPY --from=build /src/apps/api/src/auth/common-passwords.txt ./dist/auth/common-passwords.txt
+COPY --from=build /VERSION /selfphone.tar.gz ./
 ENV NODE_ENV=production
 ENTRYPOINT ["/usr/bin/tini","--"]
 CMD ["node","dist/index.js"]

@@ -1,6 +1,14 @@
+# Also what selfphone.tar.gz (the source archive in the api image, 08 §4) leaves out:
+# nothing private (.env, data/) and nothing built (node_modules, dist).
 **/node_modules
 **/dist
+**/coverage
+**/*.tsbuildinfo
+.pnpm-store
 data
 .env
+.env.*
+!.env.example
+*.pid
+*.log
 .git
-asterisk
