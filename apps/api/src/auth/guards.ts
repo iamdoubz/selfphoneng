@@ -4,6 +4,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { users } from '../db/schema.ts';
 import { forbidden, unauthorized } from '../errors.ts';
 import { COOKIE, getSessionUser, setSessionCookie } from './sessions.ts';
+import { getTokenUser } from './tokens.ts';
 
 export type CurrentUser = typeof users.$inferSelect;
 
@@ -11,11 +12,27 @@ declare module 'fastify' {
   interface FastifyRequest {
     user: CurrentUser | null;
     sessionId: string | null;
+    /** Set when the request came with an API token instead of a session. */
+    apiTokenId?: string;
   }
 }
 
-/** Sets req.user from the session cookie. Enforces must_change_password outside /api/auth/*. */
+/**
+ * Sets req.user from an API token (Authorization: Bearer, 04 §2.3) or else the session cookie.
+ * Enforces must_change_password outside /api/auth/*.
+ */
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply): Promise<void> {
+  const auth = req.headers.authorization;
+  if (auth?.startsWith('Bearer ')) {
+    const t = await getTokenUser(req.server.db, auth.slice(7).trim());
+    if (!t) throw unauthorized();
+    req.user = t.user;
+    req.sessionId = null;
+    req.apiTokenId = t.tokenId;
+    if (t.user.mustChangePassword)
+      throw forbidden('Change your password first', 'password_change_required');
+    return;
+  }
   const token = req.cookies[COOKIE];
   const found = token ? await getSessionUser(req.server.db, token) : null;
   if (!found) throw unauthorized();

@@ -236,3 +236,11 @@ days old in the database, is removed through Asterisk (files gone) when the api 
 watch finds the real public IP (needs internet), saves it, asks for a restart and emails the
 admins. A trunk to 192.0.2.1 (nothing answers) gets exactly one "is down" email after 5 minutes,
 and a disk under 10% free gets a "Disk almost full" email. About 8 minutes.
+
+`m11-t5.mjs` (m2-live with a voicemail dir, after `m1-t4.mjs`) is the M11-T5 acceptance. An API
+token made in Settings → API tokens adds extension 201 from a script (no cookie, no CSRF header),
+can't manage tokens, and is refused once revoked in the browser. A webhook added in Settings →
+Webhooks to a receiver on this host is refused as a private address until that's allowed, then
+the test arrives signed. A real call to 201 (Local channel, voicemail answers) delivers
+`call.started`, `call.ended` and `voicemail.new`, all with valid signatures; the receiver fails
+the first one with a 500 and it comes again a minute later. About 2 minutes.

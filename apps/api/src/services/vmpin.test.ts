@@ -36,5 +36,5 @@ describe.skipIf(!hasSh)('sp-vm-pincheck', () => {
     ];
     for (const box of ['101', '2000', '55'])
       for (const pin of pins) expect(script(box, pin), `${box} ${pin}`).toBe(api(box, pin));
-  }, 60_000); // 54 shells: slow on Windows under a full parallel run
+  }, 180_000); // ponytail: 54 runs; Git Bash forks make that ~85 s on Windows (instant on Linux)
 });

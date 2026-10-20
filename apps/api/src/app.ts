@@ -36,6 +36,7 @@ import { blockedRoutes } from './routes/blocked.ts';
 import { callRoutes } from './routes/calls.ts';
 import { recordingRoutes } from './routes/recordings.ts';
 import { liveCallRoutes } from './routes/livecalls.ts';
+import { integrationRoutes } from './routes/integrations.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -78,12 +79,13 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.setErrorHandler(errorHandler);
 
   // CSRF (04 §2.2): browsers can't add this header cross-site without CORS, and CORS is off.
-  // ponytail: required on every unsafe /api request, not only cookie-authenticated ones; the
-  // Bearer-token exemption arrives with API tokens in M11.
+  // API-token requests (Authorization: Bearer) don't need it: requireAuth then ignores the cookie,
+  // and a cross-site page can't set Authorization either.
   app.addHook('onRequest', async (req, reply) => {
     if (
       req.url.startsWith('/api/') &&
       !SAFE_METHODS.has(req.method) &&
+      !req.headers.authorization?.startsWith('Bearer ') &&
       req.headers['x-requested-with'] !== 'selfphoneng'
     )
       return sendError(reply, forbidden('Missing X-Requested-With header', 'csrf'));
@@ -144,6 +146,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.register(callRoutes);
   app.register(recordingRoutes);
   app.register(liveCallRoutes);
+  app.register(integrationRoutes);
 
   // Always registered: reply.sendFile also streams voicemail audio (with Range) from the spool.
   app.register(fastifyStatic, {

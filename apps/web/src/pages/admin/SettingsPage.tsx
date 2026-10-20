@@ -1,10 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Settings (05 §2). M3: Email and Emergency; M7: Recording; M11: Network (public IP watch), Security (phone ACL, provisioning, SIP TLS), Backups.
+// Settings (05 §2). M3: Email and Emergency; M7: Recording; M11: Network (public IP watch), Security (phone ACL, provisioning, SIP TLS), Backups,
+// Webhooks, API tokens.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { NavLink, useParams } from 'react-router';
-import { formatNumber, type SettingsDto } from '@selfphoneng/shared';
-import { didsApi, extensionsApi, settingsApi, systemApi } from '../../api/client.ts';
+import {
+  WEBHOOK_EVENTS,
+  formatNumber,
+  type SettingsDto,
+  type WebhookDto,
+  type WebhookEvent,
+} from '@selfphoneng/shared';
+import {
+  apiTokensApi,
+  didsApi,
+  extensionsApi,
+  settingsApi,
+  systemApi,
+  webhooksApi,
+} from '../../api/client.ts';
+import { ConfirmDialog } from '../../components/Dialog.tsx';
 import { SoundPicker } from '../../components/SoundPicker.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
@@ -15,6 +30,8 @@ const TABS = [
   { id: 'network', label: 'Network' },
   { id: 'security', label: 'Security' },
   { id: 'backups', label: 'Backups' },
+  { id: 'webhooks', label: 'Webhooks' },
+  { id: 'tokens', label: 'API tokens' },
 ] as const;
 
 export function SettingsPage() {
@@ -46,6 +63,8 @@ export function SettingsPage() {
       {settings.data && tab === 'network' && <NetworkTab s={settings.data} />}
       {settings.data && tab === 'security' && <SecurityTab s={settings.data} />}
       {settings.data && tab === 'backups' && <BackupsTab s={settings.data} />}
+      {settings.data && tab === 'webhooks' && <WebhooksTab s={settings.data} />}
+      {tab === 'tokens' && <TokensTab />}
     </section>
   );
 }
@@ -631,6 +650,255 @@ function BackupsTab({ s }: { s: SettingsDto }) {
           ))}
         </ul>
       </section>
+    </div>
+  );
+}
+
+/** Webhooks (04 §9): where events are POSTed, signed with each webhook's secret. */
+function WebhooksTab({ s }: { s: SettingsDto }) {
+  const qc = useQueryClient();
+  const save = useSave();
+  const list = useQuery({ queryKey: ['webhooks'], queryFn: webhooksApi.list });
+  const refresh = () => void qc.invalidateQueries({ queryKey: ['webhooks'] });
+  const [url, setUrl] = useState('');
+  const [events, setEvents] = useState<WebhookEvent[]>(['call.ended']);
+  const add = useMutation({
+    mutationFn: () => webhooksApi.create({ url: url.trim(), events }),
+    onSuccess: () => {
+      setUrl('');
+      refresh();
+    },
+  });
+  return (
+    <div className="flex flex-col gap-6">
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          add.mutate();
+        }}
+      >
+        <Field label="Send events to" hint="An https:// address that accepts a POST">
+          {(p) => (
+            <input
+              {...p}
+              className={inputClass}
+              type="url"
+              placeholder="https://example.com/selfphoneng"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+            />
+          )}
+        </Field>
+        <fieldset className="flex flex-col gap-1">
+          <legend className="mb-1 text-sm font-medium">Events</legend>
+          {WEBHOOK_EVENTS.map((ev) => (
+            <label key={ev} className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={events.includes(ev)}
+                onChange={(e) =>
+                  setEvents(e.target.checked ? [...events, ev] : events.filter((x) => x !== ev))
+                }
+              />
+              <code>{ev}</code>
+            </label>
+          ))}
+        </fieldset>
+        <div>
+          <Button type="submit" variant="primary" disabled={add.isPending}>
+            Add webhook
+          </Button>
+        </div>
+        {add.error && <Alert>{add.error.message}</Alert>}
+      </form>
+      <ul aria-label="Webhooks" className="flex flex-col gap-3">
+        {list.data?.map((w) => (
+          <WebhookItem key={w.id} w={w} onChange={refresh} />
+        ))}
+      </ul>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={s['webhooks.allowPrivate']}
+          onChange={(e) => save.mutate({ 'webhooks.allowPrivate': e.target.checked })}
+        />
+        Allow addresses on private networks (10.x, 192.168.x, localhost …)
+      </label>
+      <p className="-mt-4 text-xs text-zinc-500">
+        Off by default, so a webhook can't reach services inside your network. Turn it on for a
+        receiver in your own network (home lab).
+      </p>
+      {save.error && <Alert>{save.error.message}</Alert>}
+      <p className="text-xs text-zinc-500">
+        Each POST has the headers X-SelfPhoneNG-Event, X-SelfPhoneNG-Timestamp and
+        X-SelfPhoneNG-Signature: sha256= the hex HMAC-SHA256 of timestamp + &quot;.&quot; + body
+        with the webhook&apos;s secret. A failed POST is tried again after 1 and 5 minutes, half an
+        hour, 2 and 12 hours.
+      </p>
+    </div>
+  );
+}
+
+function WebhookItem({ w, onChange }: { w: WebhookDto; onChange: () => void }) {
+  const [showLog, setShowLog] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const log = useQuery({
+    queryKey: ['webhook-deliveries', w.id],
+    queryFn: () => webhooksApi.deliveries(w.id),
+    enabled: showLog,
+  });
+  const test = useMutation({ mutationFn: () => webhooksApi.test(w.id) });
+  const toggle = useMutation({
+    mutationFn: () => webhooksApi.update(w.id, { enabled: !w.enabled }),
+    onSuccess: onChange,
+  });
+  const remove = useMutation({ mutationFn: () => webhooksApi.remove(w.id), onSuccess: onChange });
+  return (
+    <li className="flex flex-col gap-2 rounded-md border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-medium break-all">{w.url}</span>
+        <span className="text-zinc-500">{w.enabled ? 'On' : 'Off'}</span>
+      </div>
+      <p className="text-zinc-500">{w.events.join(', ')}</p>
+      <p>
+        Secret: <code className="break-all">{w.secret}</code>
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={() => test.mutate()} disabled={test.isPending}>
+          Send test
+        </Button>
+        <Button onClick={() => toggle.mutate()}>{w.enabled ? 'Turn off' : 'Turn on'}</Button>
+        <Button onClick={() => setShowLog(!showLog)}>
+          {showLog ? 'Hide deliveries' : 'Deliveries'}
+        </Button>
+        <Button variant="danger" onClick={() => setConfirm(true)}>
+          Remove
+        </Button>
+      </div>
+      {test.data && (
+        <p role="status">
+          {test.data.ok
+            ? `Test sent: the server answered ${test.data.status}.`
+            : `Test failed: ${test.data.error ?? `the server answered ${test.data.status}`}`}
+        </p>
+      )}
+      {showLog && (
+        <ul aria-label="Deliveries" className="text-xs text-zinc-600 dark:text-zinc-400">
+          {log.data?.length === 0 && <li>Nothing sent yet.</li>}
+          {log.data?.map((d) => (
+            <li key={d.id}>
+              {new Date(d.createdAt).toLocaleString()} <code>{d.event}</code> {d.status}
+              {d.responseCode !== null && ` (${d.responseCode})`}
+              {d.attempt > 1 && `, ${d.attempt} tries`}
+            </li>
+          ))}
+        </ul>
+      )}
+      <ConfirmDialog
+        open={confirm}
+        title="Remove webhook"
+        message={<p>Stop sending events to {w.url}?</p>}
+        confirmLabel="Remove"
+        onConfirm={() => remove.mutate()}
+        onCancel={() => setConfirm(false)}
+        busy={remove.isPending}
+        error={remove.error?.message}
+      />
+    </li>
+  );
+}
+
+/** API tokens (04 §2.3): Bearer tokens for scripts, acting as the admin who made them. */
+function TokensTab() {
+  const qc = useQueryClient();
+  const list = useQuery({ queryKey: ['api-tokens'], queryFn: apiTokensApi.list });
+  const [name, setName] = useState('');
+  const [revoking, setRevoking] = useState<{ id: string; name: string } | null>(null);
+  const create = useMutation({
+    mutationFn: () => apiTokensApi.create(name.trim()),
+    onSuccess: () => {
+      setName('');
+      void qc.invalidateQueries({ queryKey: ['api-tokens'] });
+    },
+  });
+  const revoke = useMutation({
+    mutationFn: (id: string) => apiTokensApi.revoke(id),
+    onSuccess: () => {
+      setRevoking(null);
+      void qc.invalidateQueries({ queryKey: ['api-tokens'] });
+    },
+  });
+  return (
+    <div className="flex flex-col gap-6">
+      <form
+        className="flex flex-col gap-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          create.mutate();
+        }}
+      >
+        <Field label="Token name" hint="What uses it, like “CRM” or “backup script”">
+          {(p) => (
+            <input
+              {...p}
+              className={`${inputClass} max-w-sm`}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          )}
+        </Field>
+        <div>
+          <Button type="submit" variant="primary" disabled={create.isPending}>
+            Create token
+          </Button>
+        </div>
+        {create.error && <Alert>{create.error.message}</Alert>}
+        {create.data && (
+          <div
+            role="status"
+            className="flex flex-col gap-1 rounded-md bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100"
+          >
+            <p className="font-medium">Copy the token now: it isn&apos;t shown again.</p>
+            <code aria-label="New token" className="break-all">
+              {create.data.token}
+            </code>
+          </div>
+        )}
+      </form>
+      <p className="-mt-2 text-xs text-zinc-500">
+        Send it as the header Authorization: Bearer &lt;token&gt;. A token can do everything its
+        admin can, except manage tokens. It stops working when revoked or when the admin is
+        disabled.
+      </p>
+      {list.data?.length === 0 && <p className="text-sm text-zinc-500">No tokens.</p>}
+      <ul aria-label="API tokens" className="divide-y divide-zinc-200 dark:divide-zinc-800">
+        {list.data?.map((t) => (
+          <li key={t.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+            <span>
+              <span className="font-medium">{t.name}</span>{' '}
+              <code className="text-zinc-500">{t.tokenPrefix}…</code>
+              <span className="block text-xs text-zinc-500">
+                By {t.createdBy}, last used{' '}
+                {t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleString() : 'never'}
+              </span>
+            </span>
+            <Button variant="danger" onClick={() => setRevoking(t)}>
+              Revoke
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <ConfirmDialog
+        open={revoking !== null}
+        title="Revoke token"
+        message={<p>Anything using {revoking?.name} stops working right away.</p>}
+        confirmLabel="Revoke"
+        onConfirm={() => revoking && revoke.mutate(revoking.id)}
+        onCancel={() => setRevoking(null)}
+        busy={revoke.isPending}
+        error={revoke.error?.message}
+      />
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { watchCdr } from './services/cdr.ts';
 import { watchQueueCalls } from './services/queuestats.ts';
 import { watchPinChanges } from './services/vmpin.ts';
 import { startJobs } from './jobs.ts';
+import { watchWebhooks } from './services/webhooks.ts';
 
 let config;
 try {
@@ -77,6 +78,7 @@ const voicemail = watchVoicemail(
 );
 app.decorate('voicemail', voicemail);
 app.decorate('live', live);
+watchWebhooks(db, live, app.log);
 
 await runMigrations(db);
 app.log.info('database migrated');

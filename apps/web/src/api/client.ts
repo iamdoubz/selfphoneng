@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Typed fetch wrappers (05 §1). Every request sends X-Requested-With (CSRF, 04 §2.2).
 import type {
+  ApiTokenDto,
+  WebhookDeliveryDto,
+  WebhookDto,
+  WebhookInput,
   AnnouncementCreate,
   AnnouncementDto,
   AnnouncementUpdate,
@@ -362,6 +366,27 @@ export const announcementsApi = {
   update: (id: string, a: AnnouncementUpdate) =>
     api<AnnouncementDto>('PATCH', `/api/announcements/${id}`, a),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/announcements/${id}`),
+};
+
+export const webhooksApi = {
+  list: () => api<ListResponse<WebhookDto>>('GET', '/api/webhooks').then((r) => r.items),
+  create: (w: WebhookInput) => api<WebhookDto>('POST', '/api/webhooks', w),
+  update: (id: string, w: Partial<WebhookInput>) =>
+    api<WebhookDto>('PATCH', `/api/webhooks/${id}`, w),
+  remove: (id: string) => api<{ ok: true }>('DELETE', `/api/webhooks/${id}`),
+  test: (id: string) =>
+    api<{ ok: boolean; status: number | null; error?: string }>('POST', `/api/webhooks/${id}/test`),
+  deliveries: (id: string) =>
+    api<ListResponse<WebhookDeliveryDto>>('GET', `/api/webhooks/${id}/deliveries`).then(
+      (r) => r.items,
+    ),
+};
+
+export const apiTokensApi = {
+  list: () => api<ListResponse<ApiTokenDto>>('GET', '/api/api-tokens').then((r) => r.items),
+  create: (name: string) =>
+    api<{ id: string; name: string; token: string }>('POST', '/api/api-tokens', { name }),
+  revoke: (id: string) => api<{ ok: true }>('DELETE', `/api/api-tokens/${id}`),
 };
 
 export const blockedApi = {

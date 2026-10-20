@@ -21,6 +21,7 @@ import type { LiveState } from './live/state.ts';
 import { cleanupRecordings } from './routes/recordings.ts';
 import { audit } from './services/audit.ts';
 import { backupDue, runBackup } from './services/backup.ts';
+import { deliverDue } from './services/webhooks.ts';
 import type { SendMail } from './services/mail.ts';
 import { getSetting, setSetting } from './services/settings.ts';
 
@@ -232,5 +233,9 @@ export function startJobs(d: JobDeps): () => void {
   };
   tick();
   const timer = setInterval(tick, 60_000);
-  return () => clearInterval(timer);
+  const hooks = setInterval(() => run('webhookDelivery', () => deliverDue(d.db)), 10_000);
+  return () => {
+    clearInterval(timer);
+    clearInterval(hooks);
+  };
 }

@@ -19,6 +19,7 @@ import type { Db } from '../db/client.ts';
 import { extensions, users, voicemailMessages } from '../db/schema.ts';
 import { MailNotConfigured, type SendMail } from './mail.ts';
 import { getSetting } from './settings.ts';
+import { enqueueWebhook } from './webhooks.ts';
 
 export type VoicemailDeps = {
   db: Db;
@@ -99,6 +100,11 @@ type Box = {
 };
 
 async function announce(d: VoicemailDeps, box: Box, row: Row) {
+  // Every mailbox, with or without a user (the live message is only for the user's own).
+  void enqueueWebhook(d.db, 'voicemail.new', {
+    ...toVoicemailDto(row),
+    extension: box.number,
+  }).catch((err: unknown) => d.log.error({ err }, 'webhook enqueue failed'));
   if (box.userId)
     d.live.emit('message', {
       type: 'voicemail.new',

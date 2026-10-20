@@ -41,6 +41,13 @@
 - Header `Authorization: Bearer sp_<40 random base62 chars>`. Stored as sha256.
   Tokens act as the admin who created them. Shown once on creation.
 
+As built (M11-T5): `auth/tokens.ts`; `requireAuth` takes a Bearer header before the cookie (a
+Bearer request never falls back to the cookie, and an unknown or revoked token is 401). The token
+acts as its creator with the creator's current role, so it stops working when they're disabled.
+Bearer requests don't need `X-Requested-With` (no cookie is used, and a cross-site page can't set
+Authorization). A token can't list, make or revoke tokens (403): a leaked one can't make itself a
+spare. `lastUsedAt` is written on every request. Settings → API tokens.
+
 ### 2.4 Guards
 Fastify `preHandler` hooks in `auth/guards.ts`:
 - `requireAuth`: sets `req.user`.
@@ -500,6 +507,24 @@ Events: `call.started`, `call.answered`, `call.ended`, `voicemail.new`, `sms.rec
   `X-SelfPhoneNG-Signature: sha256=<hex HMAC-SHA256(secret, timestamp + "." + rawBody)>`.
 - Delivery: POST with 10 s timeout. A 2xx response means done. Otherwise retry after 1 m, 5 m, 30 m, 2 h, 12 h, then mark `failed`.
 - Block private/loopback target IPs unless setting `webhooks.allowPrivate = true` (SSRF protection; homelab users can turn it on).
+
+As built (M11-T5): `services/webhooks.ts`, `routes/integrations.ts`, Settings → Webhooks.
+- Events come from the live state's messages (`watchWebhooks`): `call.started` (first time a
+  call is seen, also for calls in progress when the api starts), `call.answered`, `call.ended`
+  (the last ActiveCall + `endedAt`, not the CDR), `emergency.call`,
+  `trunk.registration_changed` and `extension.registration_changed` (only on a change, with
+  `previous` / `online`). `voicemail.new` (VoicemailDto + `extension`) is queued by the voicemail
+  scan itself, for every mailbox: the live message only goes to the mailbox's user. `sms.*` can
+  be picked but never fire until SMS is built (M9-T2).
+- Each event becomes one `webhook_deliveries` row per enabled webhook that wants it; the
+  `webhookDelivery` job sends up to 20 due rows every 10 s, in parallel. 6 tries in all, then
+  `failed`. A webhook turned off keeps its pending rows until it's on again (or 30 days pass).
+- The secret is 32 random bytes as hex, stored encrypted, shown to admins on the webhook.
+- The private-address check is in the DNS lookup of the connection itself (node:http with a
+  `lookup`), so DNS rebinding can't get past it; IP literals are checked before. Blocked: 0/8,
+  10/8, 100.64/10, 127/8, 169.254/16, 172.16/12, 192.168/16, 224/3, ::, ::1, fc00::/7, fe80::/10,
+  ff00::/8 and IPv4-mapped forms of those. Redirects aren't followed.
+- `POST /:id/test` sends `webhook.test` right away (not queued) and returns `{ok, status, error}`.
 
 ## 10. Email (`services/mail.ts`)
 
