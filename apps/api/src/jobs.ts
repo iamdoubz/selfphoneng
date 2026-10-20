@@ -154,7 +154,7 @@ export function createJobs(d: JobDeps) {
       d,
       `Public IP changed to ${ip}`,
       `The phone system's public IP changed from ${old ?? 'none'} to ${ip}.\n` +
-        'Restart telephony from the dashboard so calls use the new address (it drops calls in progress).\n' +
+        'Restart telephony so calls use the new address: Admin → System says how (it drops calls in progress).\n' +
         'Phones and the provider may need the new IP if they were set up with the old one.',
     );
   };

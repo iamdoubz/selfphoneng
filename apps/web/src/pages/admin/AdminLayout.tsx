@@ -30,7 +30,7 @@ export const ADMIN_PAGES = [
   { path: 'sms', label: 'SMS', milestone: 'M9' },
   { path: 'blocked', label: 'Blocked numbers', milestone: null },
   { path: 'settings', label: 'Settings', milestone: null },
-  { path: 'system', label: 'System', milestone: 'M11' },
+  { path: 'system', label: 'System', milestone: null },
 ] as const;
 
 export function AdminLayout({ user }: { user: AuthUser }) {

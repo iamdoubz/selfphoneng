@@ -30,7 +30,7 @@ the wrong place.
      ("Public IP changed to …").
    - **Then restart telephony** so Asterisk uses the new address: on the server, run
      `docker compose restart asterisk` (calls in progress drop). The dashboard shows "SIP port or
-     transport changes need a telephony restart" until you do.
+     transport changes need a telephony restart" until you do, and **System** shows the command.
 
 ![Settings → Network](img/settings-network.png)
 

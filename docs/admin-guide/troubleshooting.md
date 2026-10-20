@@ -128,7 +128,8 @@ nobody is on a call:
 docker compose restart asterisk
 ```
 
-The banner goes away a few seconds after Asterisk is back.
+The admin page **System** shows the same command. It says "Restart: Not needed" and the banner
+goes away a few seconds after Asterisk is back.
 
 ## Locked out
 

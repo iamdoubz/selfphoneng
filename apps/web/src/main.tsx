@@ -27,6 +27,7 @@ import { BlockedPage } from './pages/admin/BlockedPage.tsx';
 import { CallsPage } from './pages/admin/CallsPage.tsx';
 import { RecordingsPage } from './pages/admin/RecordingsPage.tsx';
 import { ReportsPage } from './pages/admin/ReportsPage.tsx';
+import { SystemPage } from './pages/admin/SystemPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
 import { SetupPage } from './pages/SetupPage.tsx';
 import './index.css';
@@ -78,6 +79,8 @@ const router = createBrowserRouter([
             <RecordingsPage />
           ) : p.path === 'reports' ? (
             <ReportsPage />
+          ) : p.path === 'system' ? (
+            <SystemPage />
           ) : (
             <ComingSoon label={p.label} milestone={p.milestone ?? ''} />
           ),

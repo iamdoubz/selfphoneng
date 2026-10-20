@@ -258,3 +258,11 @@ phone signs in to extension 270 with the wrong password; fail2ban's stock `aster
 IP, and CrowdSec's `crowdsecurity/asterisk` collection parses them (`cscli explain`). It then takes
 the guide's screenshots into the given folder (run it with `docs/admin-guide/img`) and checks every
 relative link, image and `#anchor` in the guide. About 4 minutes.
+
+`m11-system.mjs` (m2-live with sounds and recordings dirs, api with `RECORDINGS_DIR`, after `m1-t4.mjs`)
+checks the owner's follow-ups to M11-T7. The user drawer's Calling → "Record calls" set to "Calls
+from outside" records a real inbound call to 241 (MixMonitor, a recording in call history); set back
+to "Never", the next call isn't recorded. A public IP change on Settings → Network raises the
+dashboard's restart warning, whose link opens System ("Restart: Needed", the command); restarting
+the Asterisk container brings it to "Running" / "Not needed", the new IP is in the transport and the
+warning is gone. About 3 minutes.

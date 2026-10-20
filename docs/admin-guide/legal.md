@@ -73,14 +73,18 @@ Recording calls without the right consent can be a crime. In the US:
 
 - **Nothing is recorded unless you turn it on.** You can record:
   - every call to a number (**Phone numbers → Record every call**);
-  - a queue's calls (the queue's **Record calls** switch).
+  - a queue's calls (the queue's **Record calls** switch);
+  - one person's calls with outside numbers (Users & Extensions → the user → **Calling** →
+    **Record calls**: calls from outside, calls to outside, or both).
   The setup wizard never turns recording on.
 - **Settings → Recording → "Notice played before a recorded call"** plays a sound you upload
   (e.g. "This call may be recorded for quality and training") to everyone who calls a number set
   to record, before anything else. Upload it on **Sounds & music**.
-- **Queue recordings play no notice of their own.** If you record a queue, send its callers
-  through a number that plays the notice, or through an announcement that says it
-  (**Sounds & music → Announcements**: play a sound, then go to the queue).
+- **Queue and per-person recordings play no notice of their own.** Only numbers set to record
+  play it. If you record a queue or a person, make sure the callers still hear it: send them through
+  a number that plays the notice, or through an announcement that says it (**Sounds & music →
+  Announcements**: play a sound, then go on). For calls a person makes to the outside, tell them to
+  say the call is recorded.
 - **Retention.** Recordings and voicemail are deleted after the number of days you set there.
   0 keeps them.
 

@@ -458,6 +458,7 @@ function CallingTab({ ext, onSaved }: { ext: ExtensionDto; onSaved: () => void }
     defaultValues: {
       outboundClass: ext.outboundClass,
       outboundCallerIdDidId: ext.outboundCallerIdDidId ?? '',
+      recordMode: ext.recordMode,
     },
   });
   const onSubmit = form.handleSubmit(async (v) => {
@@ -466,6 +467,7 @@ function CallingTab({ ext, onSaved }: { ext: ExtensionDto; onSaved: () => void }
       await extensionsApi.update(ext.id, {
         outboundClass: v.outboundClass,
         outboundCallerIdDidId: v.outboundCallerIdDidId || null,
+        recordMode: v.recordMode,
       });
       await qc.invalidateQueries({ queryKey: ['extension', ext.id] });
       onSaved();
@@ -503,6 +505,19 @@ function CallingTab({ ext, onSaved }: { ext: ExtensionDto; onSaved: () => void }
                 {d.label ? ` (${d.label})` : ''}
               </option>
             ))}
+          </select>
+        )}
+      </Field>
+      <Field
+        label="Record calls"
+        hint="Calls between this person and outside numbers; calls inside the company are never recorded. Check the consent rules where you and your callers are (Settings → Recording)."
+      >
+        {(a) => (
+          <select {...a} {...form.register('recordMode')} className={inputClass}>
+            <option value="never">Never</option>
+            <option value="inbound">Calls from outside</option>
+            <option value="outbound">Calls to outside</option>
+            <option value="all">All outside calls</option>
           </select>
         )}
       </Field>

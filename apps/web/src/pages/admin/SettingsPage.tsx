@@ -426,10 +426,7 @@ function NetworkTab({ s }: { s: SettingsDto }) {
         save.mutate({ 'network.publicIp': ip.trim() || null, 'network.publicIpWatch': watch });
       }}
     >
-      <Field
-        label="Public IP"
-        hint="Changing it needs a telephony restart (the dashboard offers one)"
-      >
+      <Field label="Public IP" hint="Changing it needs a telephony restart (see System)">
         {(p) => (
           <div className="flex gap-2">
             <input
