@@ -108,7 +108,7 @@ get the proxy's address only (below). The setting is on Settings → Security, w
   each pushing to its own registry: `ghcr.io/<owner>/selfphoneng-{api,asterisk}` (the job's
   `GITHUB_TOKEN`) and `<gitea host>/<owner>/selfphoneng-{api,asterisk}` (repository secrets
   `REGISTRY_USER` + `REGISTRY_TOKEN`, a personal access token with `write:package`: Gitea's job
-  token can't push packages). Tags: the version, and for a non-pre-release also
+  token can't push packages). Tags: the version, plus (pre-release: `dev`; otherwise)
   `<major>.<minor>` and `latest`. The job fails unless the tag is `v` + the root package.json
   version, and checks the images (every api module loads, `/app/VERSION`, `asterisk -V`) before
   pushing. To release: set the version in all four package.json files, add a `CHANGELOG.md`

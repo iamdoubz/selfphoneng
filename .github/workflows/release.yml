@@ -4,7 +4,7 @@
 #   GitHub: ghcr.io/<owner>/selfphoneng-{api,asterisk}       (the job's GITHUB_TOKEN)
 #   Gitea:  <gitea host>/<owner>/selfphoneng-{api,asterisk}  (secrets REGISTRY_USER + REGISTRY_TOKEN:
 #           a personal access token with write:package; Gitea's job token can't push packages)
-# Tags: the version (0.0.1); for a release that isn't a pre-release also <major>.<minor> and latest.
+# Tags: the version (0.0.1), plus <major>.<minor> and latest; a pre-release gets the version and dev.
 name: release
 on:
   release:
@@ -38,10 +38,10 @@ jobs:
           fi
           owner="$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
           tags="$version"
-          # A pre-release (0.1.0-rc.1, or ticked "pre-release") gets only its own tag.
+          # A pre-release (0.1.0-rc.1, or ticked "pre-release") gets its own tag and dev.
           case "$version" in
-            *-*) ;;
-            *) [ "${{ github.event.release.prerelease }}" = true ] || tags="$tags ${version%.*} latest" ;;
+            *-*) tags="$tags dev" ;;
+            *) if [ "${{ github.event.release.prerelease }}" = true ]; then tags="$tags dev"; else tags="$tags ${version%.*} latest"; fi ;;
           esac
           {
             echo "version=$version"
