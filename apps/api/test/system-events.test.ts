@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The System page (05 §2): status, the event log, and /api/about (08 §4, no sign-in).
+import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { LightMyRequestResponse } from 'fastify';
 import type { TrunkLive } from '@selfphoneng/shared';
@@ -9,6 +10,11 @@ import { logEvent, watchEvents } from '../src/services/events.ts';
 import { setSetting } from '../src/services/settings.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
+
+/** The root package.json's: what a release is tagged with (08 §3.1). */
+const VERSION = JSON.parse(
+  readFileSync(new URL('../../../package.json', import.meta.url), 'utf8'),
+).version;
 
 /** The inserts are fire-and-forget: wait for them (a fixed sleep was too short under load). */
 const rowsWhen = async (n: number) => {
@@ -39,7 +45,7 @@ describe.skipIf(!hasTestDb)('system status, event log, about', () => {
     await setSetting(t.db, 'sip.tlsEnabled', true);
     const s = (await get('/api/system/status')).json();
     expect(s).toMatchObject({
-      version: '0.0.0',
+      version: VERSION,
       hostname: expect.any(String),
       companyName: expect.any(String),
       publicIp: '203.0.113.5',
@@ -162,7 +168,7 @@ describe.skipIf(!hasTestDb)('system status, event log, about', () => {
     const r = await get('/api/about', '');
     expect(r.statusCode).toBe(200);
     expect(r.json()).toEqual({
-      version: '0.0.0',
+      version: VERSION,
       repoUrl: 'https://git.dou.bet/spng/selfphoneng',
       source: null,
     });

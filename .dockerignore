@@ -10,6 +10,7 @@
 !.prettierignore
 !.prettierrc.json
 !AGENTS.md
+!CHANGELOG.md
 !CLAUDE.md
 !LICENSE
 !README.md

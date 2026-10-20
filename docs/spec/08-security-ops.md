@@ -103,6 +103,18 @@ get the proxy's address only (below). The setting is on Settings → Security, w
   Not built yet (owner, 2026-10-20): nothing has shipped, so there is nothing to update. Before v1.0
   ships it must be written, reviewed and thoroughly tested (see the v1.0 definition of done, 09).
 - Version: `package.json` version at the root, exposed at `/api/system/status`. Semver. `CHANGELOG.md` kept by hand.
+- Releases (owner, 2026-10-20; first one v0.0.1): container images are built only when a release
+  is published, by `.github/workflows/release.yml`, which runs on Gitea and on the GitHub mirror,
+  each pushing to its own registry: `ghcr.io/<owner>/selfphoneng-{api,asterisk}` (the job's
+  `GITHUB_TOKEN`) and `<gitea host>/<owner>/selfphoneng-{api,asterisk}` (repository secrets
+  `REGISTRY_USER` + `REGISTRY_TOKEN`, a personal access token with `write:package`: Gitea's job
+  token can't push packages). Tags: the version, and for a non-pre-release also
+  `<major>.<minor>` and `latest`. The job fails unless the tag is `v` + the root package.json
+  version, and checks the images (every api module loads, `/app/VERSION`, `asterisk -V`) before
+  pushing. To release: set the version in all four package.json files, add a `CHANGELOG.md`
+  entry, commit, push, then create release `vX.Y.Z` on Gitea (it mirrors to GitHub; create the
+  release there too for ghcr.io). The asterisk image is built with `ASTERISK_UID/GID` 1000.
+  `docker-compose.yml` still builds locally; pulling the published images is a later step.
 - Asterisk security releases: bump `ASTERISK_VERSION` in the Dockerfile and rebuild. The admin guide explains how.
 
 ### 3.2 Monitoring

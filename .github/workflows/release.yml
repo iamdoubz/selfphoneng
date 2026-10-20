@@ -1,0 +1,102 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Container images, built only when a release is published (08 §3.1). Runs on GitHub Actions and
+# Gitea Actions (both read .github/workflows); each pushes to its own registry:
+#   GitHub: ghcr.io/<owner>/selfphoneng-{api,asterisk}       (the job's GITHUB_TOKEN)
+#   Gitea:  <gitea host>/<owner>/selfphoneng-{api,asterisk}  (secrets REGISTRY_USER + REGISTRY_TOKEN:
+#           a personal access token with write:package; Gitea's job token can't push packages)
+# Tags: the version (0.0.1); for a release that isn't a pre-release also <major>.<minor> and latest.
+name: release
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Version and registry
+        id: v
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="$(node -p "require('./package.json').version")"
+          # The image reports package.json's version (/api/system/status, About): they must agree.
+          if [ "$tag" != "v$version" ]; then
+            echo "::error::release tag $tag doesn't match package.json version $version (expected v$version)"
+            exit 1
+          fi
+          if [ "$GITHUB_SERVER_URL" = "https://github.com" ]; then
+            registry=ghcr.io
+          else
+            registry="${GITHUB_SERVER_URL#*://}"
+          fi
+          owner="$(echo "$GITHUB_REPOSITORY_OWNER" | tr '[:upper:]' '[:lower:]')"
+          tags="$version"
+          # A pre-release (0.1.0-rc.1, or ticked "pre-release") gets only its own tag.
+          case "$version" in
+            *-*) ;;
+            *) [ "${{ github.event.release.prerelease }}" = true ] || tags="$tags ${version%.*} latest" ;;
+          esac
+          {
+            echo "version=$version"
+            echo "registry=$registry"
+            echo "prefix=$registry/$owner/selfphoneng"
+            echo "tags=$tags"
+          } >> "$GITHUB_OUTPUT"
+      - name: Log in
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_USER: ${{ secrets.REGISTRY_USER }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ "${{ steps.v.outputs.registry }}" = ghcr.io ]; then
+            echo "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          else
+            if [ -z "$REGISTRY_TOKEN" ]; then
+              echo "::error::set the REGISTRY_USER and REGISTRY_TOKEN secrets (a token with write:package)"
+              exit 1
+            fi
+            echo "$REGISTRY_TOKEN" | docker login "${{ steps.v.outputs.registry }}" -u "${REGISTRY_USER:-$GITHUB_ACTOR}" --password-stdin
+          fi
+      - name: Build
+        shell: bash
+        run: |
+          set -euo pipefail
+          p="${{ steps.v.outputs.prefix }}"
+          labels=(
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+            --label "org.opencontainers.image.version=${{ steps.v.outputs.version }}"
+            --label "org.opencontainers.image.revision=$GITHUB_SHA"
+            --label "org.opencontainers.image.licenses=AGPL-3.0-or-later"
+          )
+          docker build "${labels[@]}" -f apps/api/Dockerfile -t "$p-api:build" .
+          docker build "${labels[@]}" -t "$p-asterisk:build" asterisk
+      - name: Check
+        shell: bash
+        run: |
+          set -euo pipefail
+          p="${{ steps.v.outputs.prefix }}"
+          # Same checks as ci.yml: every module loads, the version is the release's, Asterisk runs.
+          docker run --rm --entrypoint node "$p-api:build" --input-type=module -e "await import('/app/dist/app.js')"
+          test "$(docker run --rm --entrypoint cat "$p-api:build" /app/VERSION)" = "${{ steps.v.outputs.version }}"
+          docker run --rm --entrypoint asterisk "$p-asterisk:build" -V
+      - name: Push
+        shell: bash
+        run: |
+          set -euo pipefail
+          p="${{ steps.v.outputs.prefix }}"
+          for image in api asterisk; do
+            for t in ${{ steps.v.outputs.tags }}; do
+              docker tag "$p-$image:build" "$p-$image:$t"
+              docker push "$p-$image:$t"
+            done
+          done
+          echo "pushed: $p-{api,asterisk}:{${{ steps.v.outputs.tags }}}" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
