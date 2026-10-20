@@ -73,6 +73,9 @@ export const SettingsSchemas = {
   'sms.webhookToken': z.string().regex(/^[A-Za-z0-9]{32}$/),
   'sip.restrictPhonesToLocalNets': z.boolean().default(false),
   'sip.extraAllowedNets': z.array(z.cidrv4()).default([]),
+  // Toll fraud (08 §1): outside calls going out at once, per extension and in total. 0 = no limit.
+  'calls.maxPerExtension': z.number().int().min(0).max(100).default(3),
+  'calls.maxTotal': z.number().int().min(0).max(1000).default(10),
   'provisioning.lanOnly': z.boolean().default(false),
   'provisioning.enabled': z.boolean().default(true),
   'system.restartRequired': z.boolean().default(false),

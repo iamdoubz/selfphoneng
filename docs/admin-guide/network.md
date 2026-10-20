@@ -158,7 +158,11 @@ real money. Keep:
 
 - international calling **off** at voip.ms and in **Outbound rules** unless you need it;
 - the voip.ms **balance alerts and spending limits** on;
-- the **desk phone network limit** above on if your phones are all in the office.
+- the **desk phone network limit** above on if your phones are all in the office;
+- the **outside calls at once** limits (Settings → Security) as low as your office needs: per
+  extension (3 by default) and for the whole system (10). A stolen password then runs up at most
+  that many calls at a time. Forwarded calls count for the person who set the forward; 911 is
+  never limited. Callers over a limit hear "all circuits are busy".
 
 Never reuse a SIP password. SelfPhoneNG generates long random ones; phones get them from the
 setup files.

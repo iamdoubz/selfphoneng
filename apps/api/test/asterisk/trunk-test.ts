@@ -52,6 +52,8 @@ function snapshot(): Snapshot {
       .map((k) => [k, SettingsSchemas[k].parse(undefined)]),
   ) as Snapshot['settings'];
   settings['routing.defaultCallerIdDidId'] = DID_ID;
+  settings['calls.maxPerExtension'] = 1;
+  settings['calls.maxTotal'] = 2;
   const trunk = (id: string, name: string, password: string) => ({
     id,
     name,
@@ -397,6 +399,37 @@ async function main() {
     );
     log('class check: ss-noservice');
     await ami.command('channel request hangup all');
+
+    // Outside calls at once (08 §1), 1 per extension and 2 in total here. Local channels carry
+    // __SP_LIMITEXT like a forward of that extension's; the second try is 101's own phone.
+    dials.length = 0;
+    const out = (num: string, ext: string) =>
+      ami.action({
+        Action: 'Originate',
+        Channel: `Local/${num}@sp-from-ext/n`, // /n: no optimizing away (and its GROUP with it)
+        Application: 'Wait',
+        Data: '30',
+        Variable: `__SP_CLASS=2,__SP_LIMITEXT=${ext}`,
+        Async: 'true',
+      });
+    const dialed = (num: string) =>
+      dials.some(
+        (m) =>
+          String(m.DestChannel).startsWith('PJSIP/trunk-') && String(m.DialString).startsWith(num),
+      );
+    await out('13125550001', '101');
+    await waitFor("101's first outside call", async () => dialed('13125550001'), 15);
+    await ami.command('channel originate PJSIP/101 extension 13125550002@sp-from-ext');
+    await out('13125550003', '102');
+    await waitFor("102's call (2 in total)", async () => dialed('13125550003'), 15);
+    await out('13125550004', '103');
+    await sleep(5000);
+    if (dialed('13125550002')) problems.push('101 had 2 outside calls at once, limit 1');
+    if (dialed('13125550004')) problems.push('3 outside calls at once, total limit 2');
+    if (!dialed('13125550002') && !dialed('13125550004'))
+      log('call limits: a 2nd call for 101 and a 3rd in total were refused');
+    await ami.command('channel request hangup all');
+    await sleep(2000);
 
     // M11-T8: SIP allows "," in a dialed number. Unfiltered, Goto(sp-route-…,${EXTEN},1) became
     // Goto(sp-route-…,011…,4,1) and started past the class check: international for anyone.

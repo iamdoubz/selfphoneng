@@ -12,6 +12,27 @@ export function renderOutbound(snap: Snapshot): string {
     .filter((r) => r.enabled && r.patterns.length)
     .sort((a, b) => a.position - b.position || a.id.localeCompare(b.id));
 
+  const perExt = snap.settings['calls.maxPerExtension'];
+  const total = snap.settings['calls.maxTotal'];
+  // Outside calls at once (08 §1): per extension (the caller, or whose forward this is) and in
+  // total. A call with no extension (an admin's external destination) only counts in the total.
+  const limits = [
+    ...(perExt
+      ? [
+          ' same => n,Set(SP_LIMITEXT=${IF($["${SP_LIMITEXT}" = ""]?${SP_EXT}:${SP_LIMITEXT})})',
+          ` same => n,GotoIf($["\${SP_LIMITEXT}" = ""]?${total ? 'total' : 'counted'})`,
+          ' same => n,Set(GROUP(spext)=${SP_LIMITEXT})',
+          ` same => n,GotoIf($[\${GROUP_COUNT(\${SP_LIMITEXT}@spext)} > ${s.digits(String(perExt))}]?busy)`,
+        ]
+      : []),
+    ...(total
+      ? [
+          ` same => n${perExt ? '(total)' : ''},Set(GROUP(spout)=all)`,
+          ` same => n,GotoIf($[\${GROUP_COUNT(all@spout)} > ${s.digits(String(total))}]?busy)`,
+        ]
+      : []),
+    ...(perExt && !total ? [' same => n(counted),NoOp()'] : []),
+  ];
   const top = ['[sp-outbound-routes]'];
   if (!routes.length) top.push('exten => pending,1,Hangup()       ; no routes yet');
   const out: string[] = [];
@@ -39,6 +60,7 @@ export function renderOutbound(snap: Snapshot): string {
       'exten => _X.,1,Set(__SP_DIRECTION=outbound)',
       ' same => n,Set(CDR(SP_DIRECTION)=outbound)',
       ` same => n,GotoIf($[\${IF($["\${SP_CLASS}" = ""]?0:\${SP_CLASS})} < ${CLASS_RANK[r.requiredClass]}]?denied)`,
+      ...limits,
       ' same => n,ExecIf($["${SP_RECMODE}" = "outbound" | "${SP_RECMODE}" = "all"]?Gosub(sp-sub-record,s,1))',
       ' ; caller ID: route override > user > the DID a forwarded call came in on > default',
       ` same => n,Set(CID=${r.callerId ? s.digits(r.callerId) : ''})`,

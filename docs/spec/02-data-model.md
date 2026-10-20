@@ -576,6 +576,8 @@ with a zod schema per key and a default. Missing rows return the default.
 | `sms.webhookToken` | string | random 32 chars, made on first read | secret part of the voip.ms SMS callback URL |
 | `sip.restrictPhonesToLocalNets` | boolean | false | only accept phone registrations from `network.localNets` (+ `sip.extraAllowedNets`) |
 | `sip.extraAllowedNets` | string[] | `[]` | e.g. a VPN subnet |
+| `calls.maxPerExtension` | number | 3 | outside calls going out at once per extension (the caller, or whose forward it is); 0 = no limit (08 §1) |
+| `calls.maxTotal` | number | 10 | outside calls going out at once in total; 0 = no limit. 911 counts toward neither |
 | `provisioning.lanOnly` | boolean | false | only serve `/prov` to clients from local nets |
 | `provisioning.enabled` | boolean | true | |
 | `system.restartRequired` | boolean | false | set by generator |

@@ -434,6 +434,7 @@ exten => s,1,Set(__SP_FWDHOPS=$[${IF($["${SP_FWDHOPS}" = ""]?0:${SP_FWDHOPS})} +
  same => n,GotoIf($[${SP_FWDHOPS} > 3]?stop)
  same => n,GotoIf($[${DIALPLAN_EXISTS(sp-local-numbers,${ARG1},1)}]?internal)
  same => n,Set(SP_CLASS=${GLOBAL(SP_CLASS_${ARG2})})
+ same => n,Set(SP_LIMITEXT=${ARG2})                    ; counts toward that extension's call limit
  same => n,Set(__SP_FORWARDED=1)
  same => n,Goto(sp-outbound-routes,${ARG1},1)
  same => n(internal),Goto(sp-local-numbers,${ARG1},1)
@@ -781,6 +782,16 @@ exten => _011.,1,Goto(sp-route-{id2},${FILTER(0-9*#+,${EXTEN:0})},1)
 [sp-route-{id}]
 exten => _X.,1,Set(__SP_DIRECTION=outbound)
  same => n,GotoIf($[${IF($["${SP_CLASS}" = ""]?0:${SP_CLASS})} < {required_class_number}]?denied)
+ ; outside calls at once (calls.maxPerExtension, calls.maxTotal; a line pair is left out when its
+ ; setting is 0, and with no total the per-extension skip goes to n(counted),NoOp()). A forward
+ ; counts for the extension whose forward it is (SP_LIMITEXT from sp-sub-forward); a call with no
+ ; extension (sp-ext-forward) only in the total. call-limits.test.ts, trunk-test.ts.
+ same => n,Set(SP_LIMITEXT=${IF($["${SP_LIMITEXT}" = ""]?${SP_EXT}:${SP_LIMITEXT})})
+ same => n,GotoIf($["${SP_LIMITEXT}" = ""]?total)
+ same => n,Set(GROUP(spext)=${SP_LIMITEXT})
+ same => n,GotoIf($[${GROUP_COUNT(${SP_LIMITEXT}@spext)} > {calls.maxPerExtension}]?busy)
+ same => n(total),Set(GROUP(spout)=all)
+ same => n,GotoIf($[${GROUP_COUNT(all@spout)} > {calls.maxTotal}]?busy)
  same => n,ExecIf($["${SP_RECMODE}" = "outbound" | "${SP_RECMODE}" = "all"]?Gosub(sp-sub-record,s,1))
  ; caller ID priority: route override > user's SP_OUTCID > inbound DID (forwards) > default
  same => n,Set(CID={route override number, or empty})
@@ -1011,6 +1022,7 @@ real queue caller). Because only the first and last file change this file, the a
 | `SP_TARGET` | object contexts | live state |
 | `SP_REC` | `sp-sub-record` | CDR → recordings |
 | `SP_FWDHOPS`, `SP_FORWARDED` | forwards | loop guard |
+| `SP_LIMITEXT` | `sp-sub-forward`; else `SP_EXT` in `sp-route-*` | call limits (group `spext`) |
 
 ## 10. Example: life of an inbound call
 

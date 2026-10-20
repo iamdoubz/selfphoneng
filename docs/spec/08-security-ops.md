@@ -5,7 +5,7 @@
 | Threat | Example | Controls |
 |---|---|---|
 | SIP scanners / password guessing | "friendly-scanner", sipvicious hitting 5060 | Generated 24-char SIP passwords; no anonymous endpoint; trunks matched by source address only (`identify_by = ip`, M11-T8); fail2ban/CrowdSec on `security.log`; optional phone ACL (§2.2), browser endpoints included; firewall allow-list |
-| **Toll fraud** (the expensive one) | Stolen SIP creds used to call premium international numbers | International route disabled by default; per-user outbound class; `max_channels`; voip.ms-side international block + balance limits (06 §1); forward targets checked against class; dialed numbers `FILTER`ed before the route's Goto (M11-T8: a "," skipped the class check) |
+| **Toll fraud** (the expensive one) | Stolen SIP creds used to call premium international numbers | International route disabled by default; per-user outbound class; outside calls at once per extension (3) and in total (10), Settings → Security; trunk `max_channels`; voip.ms-side international block + balance limits (06 §1); forward targets checked against class; dialed numbers `FILTER`ed before the route's Goto (M11-T8: a "," skipped the class check) |
 | Web credential stuffing | Login brute force | argon2id, rate limits, audit log, TOTP for admins (M11) |
 | Voicemail PIN guessing | Calling *98 and trying PINs | 6-digit default PIN, `maxlogins=3`, reject trivial PINs (`000000`, `123456`, the extension number repeated). As built (M11-T1): also for PINs changed from the phone's voicemail menu: `externpasscheck = /usr/local/bin/sp-vm-pincheck` (asterisk image, same rules, a unit test keeps it in step with `isTrivialPin`), `minpassword = 4`; the api stores accepted ones from AMI `VoicemailPasswordChange` (`services/vmpin.ts`), otherwise the next config write would put the old PIN back |
 | Provisioning leaks | Fetching `/prov/<mac>.cfg` to steal SIP passwords | Per-device Basic auth, 404 on unknown MAC, rate limit + temporary IP block, optional LAN-only |
@@ -160,6 +160,7 @@ reproduced before the fix where a test could show it, and that test now passes.
 | 10 | Low | `*45<queue>` and `**<ext>` put raw dialed text into app arguments | FILTER to digits (03 §6.13) | golden files |
 | 11 | Low | pg_dump got the DB password on its command line (visible to `ps` on the host) | `PGPASSWORD` in its environment | pg_dump run with the new URL form |
 | 12 | Low | Webhook private-address block missed 192.0.0.0/24, 198.18.0.0/15, NAT64, 6to4 | added | `integrations.test.ts` |
+| 13 | Medium | No limit on simultaneous outside calls (trunk `max_channels` empty by default): a stolen password could run many international calls at once | Owner's call (2026-10-20): `calls.maxPerExtension` (3) and `calls.maxTotal` (10), `GROUP_COUNT` in each `sp-route-*` | `trunk-test.ts` (limits 1 and 2: a 2nd call from 101's phone and a 3rd in total refused; with both 0 the same test fails), `call-limits.test.ts` |
 
 Checked and sound (both passes): no `sql.raw` or string-built SQL; every admin route has
 `requireAdmin`, and recordings, voicemail, `/api/me/*` check ownership; generated config can't be
@@ -169,10 +170,6 @@ stored as sha256; AES-256-GCM with a random IV per value; AMI, Asterisk HTTP and
 127.0.0.1 only; webhooks check addresses at connect time (no DNS rebinding), follow no redirects.
 
 Left as they are, for the owner:
-- **Concurrent-call cap.** Trunk `max_channels` is optional and empty by default, and nothing
-  limits one extension's simultaneous calls. With stolen credentials, the voip.ms balance and
-  international settings (06 §1) are what limit the damage. A per-extension limit
-  (`GROUP_COUNT` in `sp-route-*`) or a default trunk limit would be a new setting.
 - Turning two-step sign-in on doesn't ask for the password again (turning it off does).
 - `*98` allows 3 PIN tries per call, with no limit on calls; only internal phones reach it.
 - A known MAC answers `/prov` with 401, an unknown one with 404 (07 §2 accepts this).

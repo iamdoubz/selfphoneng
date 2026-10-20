@@ -460,7 +460,7 @@ function NetworkTab({ s }: { s: SettingsDto }) {
   );
 }
 
-/** Phone ACL (08 §2.2), provisioning access (07 §2) and SIP over TLS (M11-T2). */
+/** Phone ACL (08 §2.2), outside calls at once (08 §1), provisioning access (07 §2), SIP over TLS (M11-T2). */
 function SecurityTab({ s }: { s: SettingsDto }) {
   const save = useSave();
   const cert = useQuery({ queryKey: ['tls'], queryFn: systemApi.tls });
@@ -470,6 +470,8 @@ function SecurityTab({ s }: { s: SettingsDto }) {
   const [extra, setExtra] = useState(s['sip.extraAllowedNets'].join(', '));
   const [lanOnly, setLanOnly] = useState(s['provisioning.lanOnly']);
   const [provOn, setProvOn] = useState(s['provisioning.enabled']);
+  const [perExt, setPerExt] = useState(String(s['calls.maxPerExtension']));
+  const [total, setTotal] = useState(String(s['calls.maxTotal']));
   const box = (checked: boolean, set: (v: boolean) => void, label: string) => (
     <label className="flex items-center gap-2 text-sm">
       <input type="checkbox" checked={checked} onChange={(e) => set(e.target.checked)} />
@@ -486,6 +488,8 @@ function SecurityTab({ s }: { s: SettingsDto }) {
           'sip.extraAllowedNets': extra.split(/[,\s]+/).filter(Boolean),
           'provisioning.lanOnly': lanOnly,
           'provisioning.enabled': provOn,
+          'calls.maxPerExtension': Number(perExt),
+          'calls.maxTotal': Number(total),
           'sip.tlsEnabled': tlsOn,
           'sip.tlsPort': Number(tlsPort),
         });
@@ -495,7 +499,8 @@ function SecurityTab({ s }: { s: SettingsDto }) {
       {box(restrict, setRestrict, 'Only accept desk phones from the networks below')}
       <p className="-mt-2 text-xs text-zinc-500">
         Local networks: {s['network.localNets'].join(', ')}. Phones anywhere else (at home, on a
-        mobile network) can't sign in while this is on. Browser phones aren't affected.
+        mobile network) can't sign in while this is on. Browser phones still work from anywhere:
+        they come through this website.
       </p>
       <Field
         label="Other networks allowed"
@@ -510,6 +515,38 @@ function SecurityTab({ s }: { s: SettingsDto }) {
           />
         )}
       </Field>
+      <h2 className="font-medium">Outside calls at once</h2>
+      <p className="-mt-2 text-xs text-zinc-500">
+        Limits the damage if someone steals a phone's password. Forwarded calls count for the person
+        who set the forward. 911 is never limited. Callers over the limit hear "all circuits are
+        busy". 0 = no limit.
+      </p>
+      <div className="flex flex-wrap gap-4">
+        <Field label="Per extension">
+          {(p) => (
+            <input
+              {...p}
+              className={`${inputClass} max-w-32`}
+              type="number"
+              min={0}
+              value={perExt}
+              onChange={(e) => setPerExt(e.target.value)}
+            />
+          )}
+        </Field>
+        <Field label="For the whole system">
+          {(p) => (
+            <input
+              {...p}
+              className={`${inputClass} max-w-32`}
+              type="number"
+              min={0}
+              value={total}
+              onChange={(e) => setTotal(e.target.value)}
+            />
+          )}
+        </Field>
+      </div>
       <h2 className="font-medium">Phone setup files</h2>
       {box(provOn, setProvOn, 'Serve setup files to phones (Phones page)')}
       {box(lanOnly, setLanOnly, 'Only to phones on the local networks')}
