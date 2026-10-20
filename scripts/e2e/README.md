@@ -251,3 +251,10 @@ answers. `/api/reports/summary` agrees with call history (today's bars, missed, 
 heatmap) and `/api/reports/queues` shows 560 with 1 offered, 1 answered, 100% in time. The Reports
 page shows the same at 1280 px and 390 px, without scrolling sideways on the phone. About 3
 minutes.
+
+`m11-t7.mjs` (m2-live, after `m1-t4.mjs`) checks the admin guide (`docs/admin-guide/`). A baresip
+phone signs in to extension 270 with the wrong password; fail2ban's stock `asterisk` filter
+(`fail2ban-regex`, Debian's fail2ban) matches the resulting `security.log` lines with the phone's
+IP, and CrowdSec's `crowdsecurity/asterisk` collection parses them (`cscli explain`). It then takes
+the guide's screenshots into the given folder (run it with `docs/admin-guide/img`) and checks every
+relative link, image and `#anchor` in the guide. About 4 minutes.

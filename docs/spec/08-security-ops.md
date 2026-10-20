@@ -92,6 +92,8 @@ aren't filtered. The setting is on Settings → Security, with the provisioning 
 ### 3.1 Install / update
 - `scripts/install.sh` (01 §1.3).
 - `scripts/update.sh`: `git pull --ff-only`, `docker compose build`, `docker compose up -d`. Migrations run automatically on api start. Print the new version.
+  As built (M11-T7): also `docker compose pull --ignore-buildable` (postgres, caddy) and `build --pull`;
+  adds `--profile caddy` when the bundled Caddy container is running. No CHANGELOG.md yet.
 - Version: `package.json` version at the root, exposed at `/api/system/status`. Semver. `CHANGELOG.md` kept by hand.
 - Asterisk security releases: bump `ASTERISK_VERSION` in the Dockerfile and rebuild. The admin guide explains how.
 

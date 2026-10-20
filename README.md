@@ -5,8 +5,9 @@ browser softphone, voicemail to email, IVRs, ring groups, queues, office hours, 
 recording, live dashboard, SMS and phone provisioning. Bring your own SIP trunk and
 numbers (reference provider: voip.ms). Built on Asterisk 24 LTS + TypeScript + PostgreSQL 18.
 
-**Status:** specification stage. Nothing is built yet.
+**Status:** pre-1.0, not yet tested by an outside installer.
 
+- Installing and running it: the [admin guide](docs/admin-guide/README.md)
 - Start here if you are writing code (human or AI): [`AGENTS.md`](AGENTS.md)
 - The full spec: [`docs/spec/`](docs/spec/00-overview.md)
 - Build order: [`docs/spec/09-roadmap.md`](docs/spec/09-roadmap.md)
