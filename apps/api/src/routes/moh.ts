@@ -7,11 +7,12 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
   MohClassCreateSchema,
+  MohClassUpdateSchema,
   SOUND_MAX_BYTES,
   SoundName,
   type ListResponse,
@@ -38,10 +39,11 @@ async function toDto(db: Db, c: ClassRow): Promise<MohClassDto> {
     .select()
     .from(soundFiles)
     .where(eq(soundFiles.mohClassId, c.id))
-    .orderBy(asc(soundFiles.name));
+    .orderBy(asc(soundFiles.position), asc(soundFiles.createdAt));
   return {
     id: c.id,
     name: c.name,
+    shuffle: c.shuffle,
     files: files.map((f) => ({
       id: f.id,
       name: f.name,
@@ -77,6 +79,14 @@ export async function mohRoutes(app: FastifyInstance) {
     await app.ami
       .action({ Action: 'Command', Command: 'moh reload' })
       .catch((e: unknown) => app.log.warn({ err: e }, 'moh reload'));
+  }
+
+  async function nextPosition(classId: string) {
+    const [r] = await db
+      .select({ n: sql<number>`coalesce(max(${soundFiles.position}) + 1, 0)::int` })
+      .from(soundFiles)
+      .where(eq(soundFiles.mohClassId, classId));
+    return r?.n ?? 0;
   }
 
   async function getClass(id: string) {
@@ -172,6 +182,8 @@ export async function mohRoutes(app: FastifyInstance) {
       source: 'upload',
       originalFilename: filename ?? null,
       asteriskName: `moh/${c.name}/${id}`,
+      // Plays last, after the ones already there.
+      position: await nextPosition(c.id),
       durationMs: (await durationMs(file)) ?? 0,
     });
     await audit(db, {
@@ -185,6 +197,43 @@ export async function mohRoutes(app: FastifyInstance) {
     await reloadMoh();
     app.generator.requestApply('api-change');
     return reply.code(201).send(await toDto(db, c));
+  });
+
+  /** Shuffle on or off, and the play order (every file of the class, first to last). */
+  app.patch('/api/moh-classes/:id', async (req) => {
+    const c = await getClass(IdParams.parse(req.params).id);
+    const { shuffle, order } = MohClassUpdateSchema.parse(req.body);
+    if (order) {
+      const ids = (
+        await db
+          .select({ id: soundFiles.id })
+          .from(soundFiles)
+          .where(eq(soundFiles.mohClassId, c.id))
+      ).map((f) => f.id);
+      if (
+        order.length !== ids.length ||
+        new Set(order).size !== order.length ||
+        !order.every((id) => ids.includes(id))
+      )
+        throw badRequest('The order must list every file of this music on hold once');
+    }
+    await db.transaction(async (tx) => {
+      if (shuffle !== undefined)
+        await tx.update(mohClasses).set({ shuffle }).where(eq(mohClasses.id, c.id));
+      for (const [position, id] of (order ?? []).entries())
+        await tx.update(soundFiles).set({ position }).where(eq(soundFiles.id, id));
+    });
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'update',
+      entityType: 'moh_class',
+      entityId: c.id,
+      summary: `Changed the play order of music on hold "${c.name}"`,
+      diff: { after: { shuffle, order } },
+    });
+    app.generator.requestApply('api-change');
+    return toDto(db, await getClass(c.id));
   });
 
   app.get('/api/moh-classes/:id/files/:fileId/audio', async (req, reply) => {

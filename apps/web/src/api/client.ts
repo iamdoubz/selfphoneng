@@ -65,6 +65,7 @@ import type {
   SoundDto,
   SoftphoneQr,
   MohClassDto,
+  MohClassUpdate,
   TotpSetup,
   TotpStatus,
   VoipmsDidDto,
@@ -292,6 +293,8 @@ export const mohApi = {
   list: () => api<ListResponse<MohClassDto>>('GET', '/api/moh-classes').then((r) => r.items),
   create: (name: string) => api<MohClassDto>('POST', '/api/moh-classes', { name }),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/moh-classes/${id}`),
+  update: (id: string, body: MohClassUpdate) =>
+    api<MohClassDto>('PATCH', `/api/moh-classes/${id}`, body),
   addFile: (id: string, name: string, file: File) =>
     upload<MohClassDto>(
       'POST',

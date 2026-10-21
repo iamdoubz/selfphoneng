@@ -12,6 +12,7 @@ import {
   type AnnouncementDto,
   type Destination,
   type MohClassDto,
+  type MohClassUpdate,
   type SoundDto,
 } from '@selfphoneng/shared';
 import { announcementsApi, mohApi, soundsApi } from '../../api/client.ts';
@@ -280,6 +281,16 @@ function MohClassCard({
     mutationFn: (fileId: string) => mohApi.removeFile(cls.id, fileId),
     onSuccess: onChanged,
   });
+  const update = useMutation({
+    mutationFn: (body: MohClassUpdate) => mohApi.update(cls.id, body),
+    onSuccess: onChanged,
+  });
+  /** The play order with file i moved one place up (-1) or down (+1). */
+  const move = (i: number, by: -1 | 1) => {
+    const ids = cls.files.map((f) => f.id);
+    [ids[i], ids[i + by]] = [ids[i + by]!, ids[i]!];
+    update.mutate({ order: ids });
+  };
   const tooBig = file !== null && file.size > SOUND_MAX_BYTES;
 
   return (
@@ -297,9 +308,48 @@ function MohClassCard({
       {cls.files.length === 0 && (
         <p className="text-sm text-zinc-500">No music yet: callers hear the default music.</p>
       )}
-      <ul className="flex flex-col gap-1">
-        {cls.files.map((f) => (
+      {cls.files.length > 1 && (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={cls.shuffle}
+            disabled={update.isPending}
+            onChange={(e) => update.mutate({ shuffle: e.target.checked })}
+          />
+          Shuffle
+          <span className="text-zinc-500">
+            {cls.shuffle
+              ? '(plays in random order)'
+              : '(each caller on hold starts at the top, in this order)'}
+          </span>
+        </label>
+      )}
+      <ol aria-label={`Play order of ${cls.name}`} className="flex flex-col gap-1">
+        {cls.files.map((f, i) => (
           <li key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+            {cls.files.length > 1 && (
+              <span className="flex items-center gap-0.5">
+                <span className="w-5 text-right text-zinc-500 tabular-nums">{i + 1}.</span>
+                <Button
+                  variant="ghost"
+                  aria-label={`Move ${f.name} up`}
+                  title="Play earlier"
+                  disabled={i === 0 || cls.shuffle || update.isPending}
+                  onClick={() => move(i, -1)}
+                >
+                  ↑
+                </Button>
+                <Button
+                  variant="ghost"
+                  aria-label={`Move ${f.name} down`}
+                  title="Play later"
+                  disabled={i === cls.files.length - 1 || cls.shuffle || update.isPending}
+                  onClick={() => move(i, 1)}
+                >
+                  ↓
+                </Button>
+              </span>
+            )}
             <span className="min-w-0 flex-1">
               {f.name} <span className="text-zinc-500">{secs(f.durationMs)}</span>
             </span>
@@ -319,7 +369,7 @@ function MohClassCard({
             </Button>
           </li>
         ))}
-      </ul>
+      </ol>
       <form
         className="flex flex-wrap items-end gap-3"
         onSubmit={(e) => {
@@ -348,6 +398,7 @@ function MohClassCard({
       {tooBig && <Alert>That file is larger than 20 MB.</Alert>}
       {add.error && <Alert>{add.error.message}</Alert>}
       {removeFile.error && <Alert>{removeFile.error.message}</Alert>}
+      {update.error && <Alert>{update.error.message}</Alert>}
     </div>
   );
 }

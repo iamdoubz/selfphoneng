@@ -200,7 +200,7 @@ export type Snapshot = {
    * Music-on-hold classes that have music ('default' is built in and not here). An empty class
    * would play silence; left out, Asterisk falls back to default (seen in M8-T5).
    */
-  mohClasses: string[];
+  mohClasses: SnapMohClass[];
   /** Played before recording a call that a phone number records (Settings → Recording). */
   recordingAnnouncement: string | null;
   /** Call audio ports from the environment (RTP_PORT_START/END), not the database. */
@@ -208,6 +208,9 @@ export type Snapshot = {
 };
 
 export const DEFAULT_RTP_PORTS = { start: 10000, end: 20000 };
+
+/** A music-on-hold class: its files (sound_files ids, <MOH_DIR>/<name>/<id>.wav) in play order. */
+export type SnapMohClass = { name: string; shuffle: boolean; files: string[] };
 
 export function todayIn(timezone: string, now = new Date()): string {
   // en-CA formats as YYYY-MM-DD.
@@ -265,9 +268,16 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
   const holidayRows = await db.select().from(holidays);
   const annRows = await db.select().from(announcements);
   const mohRows = await db
-    .selectDistinct({ name: mohClasses.name })
+    .select({ name: mohClasses.name, shuffle: mohClasses.shuffle, file: soundFiles.id })
     .from(mohClasses)
-    .innerJoin(soundFiles, eq(soundFiles.mohClassId, mohClasses.id));
+    .innerJoin(soundFiles, eq(soundFiles.mohClassId, mohClasses.id))
+    .orderBy(asc(mohClasses.name), asc(soundFiles.position), asc(soundFiles.createdAt));
+  const moh = new Map<string, SnapMohClass>();
+  for (const r of mohRows) {
+    const c = moh.get(r.name) ?? { name: r.name, shuffle: r.shuffle, files: [] };
+    c.files.push(r.file);
+    moh.set(r.name, c);
+  }
   const optionRows = await db.select().from(ivrOptions);
   const soundName = new Map(
     (await db.select({ id: soundFiles.id, name: soundFiles.asteriskName }).from(soundFiles)).map(
@@ -366,7 +376,7 @@ export async function loadSnapshot(db: Db, now = new Date()): Promise<Snapshot> 
       maxMembers: c.maxMembers,
       record: c.record,
     })),
-    mohClasses: mohRows.map((m) => m.name),
+    mohClasses: [...moh.values()],
     pagingGroups: pageRows.map((g) => ({
       id: g.id,
       number: g.number,

@@ -334,6 +334,8 @@ export const queueCalls = pgTable(
 export const mohClasses = pgTable('moh_classes', {
   id: id(),
   name: text().notNull().unique(),
+  /** Play the files in random order; otherwise in `sound_files.position` order (03 §8). */
+  shuffle: boolean().notNull().default(false),
   ...timestamps,
 });
 
@@ -349,6 +351,8 @@ export const soundFiles = pgTable(
     originalFilename: text(),
     asteriskName: text().notNull().unique(),
     durationMs: integer().notNull(),
+    /** Music on hold: where it plays in its class's list (0 first). Prompts don't use it. */
+    position: integer().notNull().default(0),
     ...timestamps,
   },
   (t) => [

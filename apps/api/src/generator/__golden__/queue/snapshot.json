@@ -1,5 +1,11 @@
 {
-  "mohClasses": ["support-jazz", "after-hours"],
+  "mohClasses": [
+    {
+      "name": "support-jazz",
+      "files": ["5a1f0c3e-0000-4000-8000-000000000002", "5a1f0c3e-0000-4000-8000-000000000001"]
+    },
+    { "name": "after-hours", "shuffle": true, "files": ["5a1f0c3e-0000-4000-8000-000000000003"] }
+  ],
   "extensions": [
     {
       "id": "00000000-0000-4000-8000-000000000101",

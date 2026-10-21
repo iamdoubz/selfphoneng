@@ -65,7 +65,7 @@ describe.skipIf(!hasTestDb || !hasFfmpeg)('/api/moh-classes', () => {
     const wav = join(mohDir(), 'sales-jazz', `${fileId}.wav`);
     expect(readFileSync(wav).readUInt32LE(24)).toBe(8000);
     expect(await conf()).toContain(
-      '[sales-jazz]\nmode = files\ndirectory = /var/lib/asterisk/moh/sales-jazz\nsort = random',
+      `[sales-jazz]\nmode = playlist\nentry = /var/lib/asterisk/moh/sales-jazz/${fileId}\n`,
     );
     const audio = await req('GET', `/api/moh-classes/${classId}/files/${fileId}/audio`);
     expect(audio.statusCode).toBe(200);
@@ -75,6 +75,48 @@ describe.skipIf(!hasTestDb || !hasFfmpeg)('/api/moh-classes', () => {
       'content-type': 'audio/wav',
     });
     expect(bad.statusCode).toBe(400);
+  });
+
+  it('plays in upload order until reordered; shuffle; the order must list every file', async () => {
+    const add = async (name: string) =>
+      (
+        await req('POST', `/api/moh-classes/${classId}/files?name=${name}`, silenceWav(), {
+          'content-type': 'audio/wav',
+        })
+      ).json();
+    await add('Second');
+    const dto = await add('Third');
+    const ids = dto.files.map((f: { id: string }) => f.id);
+    expect(dto.files.map((f: { name: string }) => f.name)).toEqual(['Smooth', 'Second', 'Third']);
+    const entries = async () =>
+      [...(await conf()).matchAll(/^entry = .*\/([0-9a-f-]+)$/gm)].map((m) => m[1]);
+    expect(await entries()).toEqual(ids);
+
+    const reordered = await req('PATCH', `/api/moh-classes/${classId}`, {
+      order: [ids[2], ids[0], ids[1]],
+    });
+    expect(reordered.statusCode, reordered.body).toBe(200);
+    expect(reordered.json().files.map((f: { name: string }) => f.name)).toEqual([
+      'Third',
+      'Smooth',
+      'Second',
+    ]);
+    expect(await entries()).toEqual([ids[2], ids[0], ids[1]]);
+    expect(await conf()).not.toContain('sort = random');
+
+    const shuffled = await req('PATCH', `/api/moh-classes/${classId}`, { shuffle: true });
+    expect(shuffled.json().shuffle).toBe(true);
+    expect(await conf()).toContain('sort = random');
+    for (const order of [
+      [ids[0], ids[1]],
+      [ids[0], ids[0], ids[1]],
+      [...ids.slice(1), extId],
+    ])
+      expect((await req('PATCH', `/api/moh-classes/${classId}`, { order })).statusCode).toBe(400);
+
+    await req('PATCH', `/api/moh-classes/${classId}`, { shuffle: false });
+    for (const id of [ids[1], ids[2]])
+      await req('DELETE', `/api/moh-classes/${classId}/files/${id}`);
   });
 
   it('users and queues may pick only classes that exist; delete is refused while used', async () => {

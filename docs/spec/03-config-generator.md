@@ -1038,6 +1038,21 @@ silence in Asterisk 24; left out, a channel asking for it gets `default` instead
 real queue caller). Because only the first and last file change this file, the api also sends
 `moh reload` after every file it adds or removes. Golden case `queue`; `scripts/e2e/m8-t5.mjs`.
 
+Since 2026-10-21 (owner: "whichever was uploaded first is always queued first"), a class is a
+playlist in the order set on Sounds & music, with an optional shuffle:
+
+```ini
+[{class.name}]
+mode = playlist
+entry = /var/lib/asterisk/moh/{class.name}/{sound_files.id}   ; by sound_files.position, no extension
+sort = random                                                ; only with moh_classes.shuffle
+```
+
+New uploads go last; `PATCH /api/moh-classes/:id {shuffle, order}` (order: every file id once).
+Without shuffle each caller on hold starts at the first entry. `sort = random` picks each next
+file at random in playlist mode too (res_musiconhold's randomize flag). `moh-test.ts` plays both
+kinds in a real Asterisk and reads the order of the files it opens from its debug log.
+
 ## 9. Snapshot → endpoint variables summary
 
 | Variable | Where set | Read by |
