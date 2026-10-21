@@ -8,6 +8,17 @@ Legend: 📖 read · 🔨 build · ✅ done when
 
 ---
 
+## Backlog (owner's order, 2026-10-21)
+1. **Grandstream HT802 V2 set up automatically** (step 3 of
+   [Analog phone adapters](#analog-phone-adapters-owner-2026-10-21-wanted-the-owner-is-buying-an-ht802-v2)):
+   several lines on one device and the `grandstream-ata.ts` template with the dial plan. Starts
+   when the owner's HT802 V2 arrives: its config export gives port 2's P-values.
+2. Cisco ATA 191/192 and SPA112/122 (step 4 there).
+3. [More SIP providers](#more-sip-providers-owner-2026-10-21-wanted-next-after-002): Telnyx,
+   Flowroute, Twilio.
+
+---
+
 ## M0 — Skeleton that boots
 
 **M0-T1 Workspace**
