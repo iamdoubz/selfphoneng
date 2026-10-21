@@ -1,6 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 name: selfphoneng
 
+# Container logs (docker compose logs): 3 files of 10 MB each, then the oldest goes.
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 10m, max-file: '3' }
+
 x-shared-volumes: &shared-volumes
   - ./data/asterisk-generated:/etc/asterisk/selfphoneng
   - ./data/voicemail:/var/spool/asterisk/voicemail
@@ -12,6 +17,7 @@ services:
   postgres:
     image: postgres:18-alpine
     restart: unless-stopped
+    logging: *logging
     environment:
       POSTGRES_DB: selfphoneng
       POSTGRES_USER: selfphoneng
@@ -32,6 +38,7 @@ services:
         ASTERISK_UID: ${APP_UID:-1000}
         ASTERISK_GID: ${APP_GID:-1000}
     restart: unless-stopped
+    logging: *logging
     network_mode: host
     environment:
       AMI_SECRET: ${AMI_SECRET:?set in .env}
@@ -51,6 +58,7 @@ services:
       context: .
       dockerfile: apps/api/Dockerfile
     restart: unless-stopped
+    logging: *logging
     network_mode: host
     user: '${APP_UID:-1000}:${APP_GID:-1000}'
     depends_on:
@@ -75,6 +83,7 @@ services:
     image: caddy:2
     profiles: ['caddy']
     restart: unless-stopped
+    logging: *logging
     network_mode: host
     environment:
       PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:?set in .env}

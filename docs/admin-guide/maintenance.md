@@ -2,8 +2,73 @@
 
 ## Updating SelfPhoneNG
 
-SelfPhoneNG has no releases yet. How to update will be documented, with a tested update
-script, when version 1.0 ships.
+SelfPhoneNG runs in Docker only. Each release has container images (`selfphoneng-api` and
+`selfphoneng-asterisk`) and an entry in the [changelog](../../CHANGELOG.md). Read the entries
+between your version and the new one first: anything you must do by hand, such as a new setting
+for `.env` or the stack, is listed there under the version that needs it.
+
+You don't run database upgrades yourself. When a new version starts and its database changes
+haven't run yet, the api **backs up first** (into the backups folder, without recordings), then
+makes the changes. If that backup fails (the backups folder is missing, read-only or full), the
+api stops and leaves the database as it was, so the old version still works: fix the cause and
+start it again. Only if you must update right away, set `SKIP_BACKUP_BEFORE_MIGRATE=true` for the
+api, start it, and remove the setting afterwards.
+
+Updates restart the api and Asterisk, which drops calls in progress. Pick a quiet time.
+
+### Installed with `scripts/install.sh` (docker compose)
+
+```sh
+cd selfphoneng
+sudo scripts/update.sh            # the newest release; or e.g. scripts/update.sh v0.0.3
+```
+
+The script:
+
+1. Checks: Docker, that no files in the folder were changed, at least 3 GB free, and no calls in
+   progress. It shows the changelog and any new `.env` settings, then asks before going on
+   (`--yes` doesn't ask; `--force` goes on despite calls in progress, low disk space or a failed
+   backup).
+2. Backs up (database, voicemail, custom sounds and music on hold) and compacts Asterisk's logs
+   (gzipped, kept 90 days).
+3. Builds the new images while the old version keeps running, then restarts.
+4. Checks that the api answers with the new version, Asterisk has started, and every trunk that
+   was registered still is.
+5. If the check fails, it goes back to the old version by itself, restoring the backup when the
+   database was already changed.
+
+Each run is logged in `data/update-logs/`, with one line per update in `data/update-logs/history`.
+
+### Portainer, or another setup with pulled images
+
+1. **Settings → Backups → Back up now**, and download the backup.
+2. Change both image tags to the new version (for example `selfphoneng-api:0.0.3` and
+   `selfphoneng-asterisk:0.0.3`), and add any new settings the changelog lists.
+3. Redeploy the stack (in Portainer: **Update the stack**, with **Re-pull image** on).
+4. Check: **System** (or **About**) shows the new version; trunks show
+   **Registered**; make a test call.
+
+Use exact version tags such as `0.0.3`, not `latest`, so you choose when to update.
+
+**Going back:** an older version can't always run on a database a newer one changed, so going
+back means the old tags **and** a backup from before the update: the one from step 1, or the one
+the api made before changing the database. `scripts/restore.sh` is for compose installs; with a
+stack, restore by hand. The stack's `APP_SECRET` must be the one the backup was made with.
+
+1. Put the old tags back, and stop the api and Asterisk containers (Postgres keeps running).
+2. Replace the database (`<postgres>` is your Postgres container's name):
+
+   ```sh
+   docker exec <postgres> psql -U selfphoneng -d postgres \
+     -c 'DROP DATABASE IF EXISTS selfphoneng WITH (FORCE)' -c 'CREATE DATABASE selfphoneng OWNER selfphoneng'
+   tar -xzOf selfphoneng-20261021-0300.tar.gz db.sql | docker exec -i <postgres> psql -q -U selfphoneng -d selfphoneng
+   ```
+
+3. Replace the folders the backup has (`tar -tzf` lists them: `voicemail`, `sounds-custom`, `moh`,
+   maybe `recordings`) in your data folder, and give them back to the app user:
+   `tar -xzf selfphoneng-….tar.gz -C <data folder> voicemail sounds-custom moh` after removing the
+   old ones, then `chown -R 1000:1000` them.
+4. Start Asterisk and the api. The api rebuilds Asterisk's config from the restored database.
 
 ### Asterisk security releases
 
@@ -121,6 +186,17 @@ Asterisk's log files in `data/asterisk-logs/` grow forever. Rotate them with log
 `copytruncate` lets Asterisk keep writing to the same file. fail2ban and CrowdSec notice the file
 shrinking.
 
-The api's logs are Docker's. Limit them in `/etc/docker/daemon.json` with
-`"log-opts": {"max-size": "20m", "max-file": "5"}`, restart Docker, then
-`docker compose up -d --force-recreate` (the limit only applies to new containers).
+`scripts/update.sh` also compacts them on every update (gzipped next to the log, kept 90 days).
+
+The api's logs are Docker's. `docker-compose.yml` keeps three files of 10 MB per container. In a
+Portainer stack, add the same to each service:
+
+```yaml
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '3' }
+```
+
+Or set it for every container in `/etc/docker/daemon.json` with
+`"log-opts": {"max-size": "20m", "max-file": "5"}`, restart Docker, then recreate the containers
+(the limit only applies to new ones).

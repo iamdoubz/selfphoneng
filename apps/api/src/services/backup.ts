@@ -151,6 +151,30 @@ export function runBackup(config: Config, db: Db): Promise<BackupDto> {
   return running;
 }
 
+/**
+ * Before a new version migrates the database (index.ts): the database and the folders the daily
+ * backup has, without recordings (big, and no migration touches them). Prunes nothing, so it
+ * doesn't push a daily backup out; the daily job's pruning removes it in time. Reads as little of
+ * the old schema as it can: the time zone only, falling back to TZ.
+ */
+export async function backupBeforeMigrate(config: Config, db: Db): Promise<BackupDto> {
+  const timezone = await getSetting(db, 'general.timezone').catch(() => config.TZ);
+  return createBackup(
+    {
+      databaseUrl: config.DATABASE_URL,
+      appSecret: config.APP_SECRET,
+      outDir: resolve(config.BACKUPS_DIR),
+      timezone,
+      dirs: {
+        voicemail: resolve(config.VOICEMAIL_DIR),
+        'sounds-custom': resolve(config.SOUNDS_DIR),
+        moh: resolve(config.MOH_DIR),
+      },
+    },
+    { keep: Infinity },
+  );
+}
+
 /** The daily backup is due: enabled, past `backup.time` here, and none made today yet. */
 export async function backupDue(config: Config, db: Db, now = new Date()): Promise<boolean> {
   if (!(await getSetting(db, 'backup.enabled'))) return false;

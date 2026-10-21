@@ -5,7 +5,8 @@ import { AmiClient } from './ami/client.ts';
 import { buildApp } from './app.ts';
 import { ConfigError, loadConfig } from './config.ts';
 import { setSecretKey } from './crypto/secrets.ts';
-import { createDb, runMigrations } from './db/client.ts';
+import { createDb, migrationsPending, runMigrations } from './db/client.ts';
+import { backupBeforeMigrate } from './services/backup.ts';
 import { clearRestartIfRestarted, createGenerator } from './generator/index.ts';
 import { ensureInitialAdmin } from './services/bootstrap.ts';
 import { LiveState } from './live/state.ts';
@@ -82,6 +83,24 @@ app.decorate('live', live);
 watchWebhooks(db, live, app.log);
 watchEvents(db, live, ami, app.log);
 
+// A new version with database changes: back up first, so a bad update can be undone (08 §3.1).
+if (await migrationsPending(db)) {
+  if (config.SKIP_BACKUP_BEFORE_MIGRATE)
+    app.log.warn('database changes pending; SKIP_BACKUP_BEFORE_MIGRATE is set, so no backup first');
+  else {
+    app.log.info('database changes pending: backing up first');
+    const backup = await backupBeforeMigrate(config, db).catch((err: unknown) => {
+      app.log.fatal(
+        { err, dir: config.BACKUPS_DIR },
+        'backup before migrating failed, so the database was left as it is. Fix the cause ' +
+          '(the backups folder must exist and be writable, with free space), or set ' +
+          'SKIP_BACKUP_BEFORE_MIGRATE=true to migrate without one',
+      );
+      process.exit(1);
+    });
+    app.log.info({ backup: backup.name }, 'backup before migrating made');
+  }
+}
 await runMigrations(db);
 app.log.info('database migrated');
 const admin = await ensureInitialAdmin(
