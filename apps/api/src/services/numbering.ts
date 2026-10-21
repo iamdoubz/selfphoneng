@@ -98,6 +98,19 @@ export async function assertNumberAvailable(
     );
 }
 
+/** Every length an internal number has or may get (the ranges, numbers in use, parking). */
+export async function internalNumberLengths(db: Db): Promise<number[]> {
+  const lengths = new Set([String(PARKING.from).length]);
+  for (const key of Object.values(RANGE_KEY)) {
+    const [from, to] = await getSetting(db, key);
+    for (let n = String(from).length; n <= String(to).length; n++) lengths.add(n);
+  }
+  for (const { table } of OWNERS)
+    for (const r of await db.select({ number: table.number }).from(table))
+      lengths.add(r.number.length);
+  return [...lengths];
+}
+
 /** Lowest free number in the kind's range, or null when the range is full. */
 export async function nextFreeNumber(db: Db, kind: NumberKind): Promise<string | null> {
   const [from, to] = await getSetting(db, RANGE_KEY[kind]);

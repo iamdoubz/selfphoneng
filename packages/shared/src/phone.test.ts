@@ -60,12 +60,24 @@ describe('formatNumber', () => {
 });
 
 describe('isReservedNumber', () => {
-  it.each(['211', '311', '411', '511', '611', '711', '811', '911', '933', '0123', '1000', '10000'])(
-    '%s is reserved',
-    (n) => {
-      expect(isReservedNumber(n)).toBe(true);
-    },
-  );
+  it.each([
+    '211',
+    '311',
+    '411',
+    '511',
+    '611',
+    '711',
+    '811',
+    '911',
+    '933',
+    '0123',
+    '1000',
+    '10000',
+    '9110',
+    '99112',
+  ])('%s is reserved', (n) => {
+    expect(isReservedNumber(n)).toBe(true);
+  });
   it.each(['100', '101', '499', '500', '700', '912', '011', '2000'])('%s is free', (n) => {
     expect(isReservedNumber(n)).toBe(false);
   });

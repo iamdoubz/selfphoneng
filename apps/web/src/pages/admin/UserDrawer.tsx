@@ -420,7 +420,14 @@ function CredentialsTab({ ext }: { ext: ExtensionDto }) {
         {row('Username', ext.number)}
         {row('Password', creds ? creds.password : '••••••••••••••••••••••••')}
         {ext.webrtcEnabled && row('Browser', `${ext.number}-web (used by the built-in softphone)`)}
+        {creds && row('Dial plan', creds.dialPlan)}
       </dl>
+      {creds && (
+        <p className="text-xs text-zinc-500">
+          The dial plan is for analog phone adapters (Grandstream HT80x and HT81x): numbers that
+          match go out at once, the rest after a pause or #.
+        </p>
+      )}
       {!creds && (
         <Button onClick={reveal} className="self-start">
           Reveal password

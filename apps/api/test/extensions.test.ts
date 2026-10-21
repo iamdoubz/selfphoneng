@@ -102,6 +102,7 @@ describe.skipIf(!hasTestDb)('extensions API', () => {
       port: 5060,
       username: '101',
       webUsername: '101-web',
+      dialPlan: '{ 911 | 9911 | xxx | *x+ | **x+ }', // no trunk yet, so no outbound routes
     });
     expect(pjsip()).toContain(`password = ${r.json().password}`);
     const [a] = await t.db

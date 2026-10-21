@@ -13,8 +13,8 @@ versions may name them a little differently.
 ## 1. In SelfPhoneNG
 
 1. **Users**: one user for each port you'll use (port 2 can stay empty).
-2. Open the user, **Credentials** tab, **Reveal password**. Keep the server, port, username and
-   password at hand. Viewing it is recorded in the audit log.
+2. Open the user, **Credentials** tab, **Reveal password**. Keep the server, port, username,
+   password and **dial plan** at hand. Viewing it is recorded in the audit log.
 
 You don't need to add the ATA on the Phones page: "Other (set up by hand)" there shows the same
 settings, and is only for one line per device.
@@ -48,18 +48,23 @@ the server `pjsip show contacts` ([Troubleshooting](troubleshooting.md)) lists t
 
 ### Dial plan
 
-An analog phone has no send button: the ATA decides when you've finished dialing. Without a dial
-plan it waits a few seconds after the last digit, which works for everything. To make the usual
-calls go at once, set **Dial Plan** to:
+An analog phone has no send button: the ATA decides when you've finished dialing. Its default
+dial plan, `{ x+ | … }`, always waits about 4 seconds after the last digit, even for 911. Paste
+the **Dial plan** from the Credentials tab into **Dial Plan** instead. For the usual setup it
+looks like:
 
 ```
-{ 911 | 9911 | [2-9]xxxxxxxxx | 1[2-9]xxxxxxxxx | 011x+ | *x+ | **x+ | x+ }
+{ 911 | 9911 | [2-9]xx[2-9]xxxxxx | 1[2-9]xx[2-9]xxxxxx | xxx | *x+ | **x+ }
 ```
 
 - 911 and 9911 go out at once (US law requires 911 to work without a prefix).
-- 10- and 11-digit numbers go out at once; international numbers after a pause.
-- Internal numbers (1 to 6 digits), `*` codes and pickup (`**`) go after a pause, or press **#**
-  to send now.
+- 10- and 11-digit numbers go out at once. International numbers (`011…`, when that route is on)
+  go after a pause.
+- Internal numbers and `*` codes go after a pause (an internal number could be the start of an
+  outside one), or press **#** to send now.
+- Numbers that match no rule can't be dialed from the ATA. It's made from your outbound routes
+  and the lengths of your internal numbers: after changing either (a new route, or Settings →
+  Numbering), copy it again.
 
 ## 3. Things to know
 

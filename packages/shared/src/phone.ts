@@ -25,7 +25,10 @@ export function formatNumber(n: string): string {
   return m ? `(${m[1]}) ${m[2]}-${m[3]}` : n;
 }
 
-/** N11 service codes, 933, and anything starting with 0 or 1 followed by more than 2 digits. */
+/**
+ * N11 service codes, 933, anything starting with 0 or 1 followed by more than 2 digits, and
+ * anything starting with 911 or 9911 (phones send those the moment they're dialed).
+ */
 export function isReservedNumber(n: string): boolean {
-  return RESERVED.has(n) || /^[01]\d{3,}$/.test(n);
+  return RESERVED.has(n) || /^[01]\d{3,}$/.test(n) || /^9?911/.test(n);
 }

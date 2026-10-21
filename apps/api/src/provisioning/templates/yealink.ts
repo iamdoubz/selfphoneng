@@ -1,13 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Yealink T3x/T4x/T5x <mac>.cfg (07 §3.1). Key names from Yealink's docs, (verify per model).
 import { oneLine, xml, type PhonebookEntry, type ProvisionContext } from '../context.ts';
+import { dialNowRules, ruleText } from '../dialplan.ts';
 
 const TRANSPORT = { udp: 0, tcp: 1, tls: 2 } as const;
 /** Line key 1 is the line; BLF keys are 2…; keys past the last BLF up to here are cleared. */
 const LAST_KEY = 33;
+/** Dial-now rules past the ones in use, up to here, are cleared. */
+const LAST_DIALNOW = 20;
 
 export function yealink(c: ProvisionContext): string {
   const v = oneLine;
+  const now = dialNowRules(c.dialRules).slice(0, LAST_DIALNOW);
   return [
     '#!version:1.0.0.1',
     '## account 1',
@@ -39,6 +43,12 @@ export function yealink(c: ProvisionContext): string {
     ...Array.from(
       { length: LAST_KEY - c.blf.length - 1 },
       (_, i) => `linekey.${i + c.blf.length + 2}.type = 0`,
+    ),
+    '## dial at once when the number is complete (911, full outside numbers); others wait for Send',
+    ...now.map((d, i) => `dialplan.dialnow.rule.${i + 1} = ${ruleText(d)}`),
+    ...Array.from(
+      { length: LAST_DIALNOW - now.length },
+      (_, i) => `dialplan.dialnow.rule.${i + now.length + 1} =`,
     ),
     '## time',
     `local_time.time_zone = ${c.timezone.yealinkOffset}`,

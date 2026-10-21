@@ -29,6 +29,7 @@ import { assertMohClass } from './moh.ts';
 import { softphoneQr } from '../provisioning/linphone.ts';
 import { findReferences } from '../services/destinations.ts';
 import { getSetting } from '../services/settings.ts';
+import { grandstreamDialPlan, loadDialRules } from '../provisioning/dialplan.ts';
 
 type ExtRow = typeof extensions.$inferSelect;
 
@@ -243,6 +244,7 @@ export async function extensionRoutes(app: FastifyInstance) {
       username: e.number,
       password: decrypt(e.sipPasswordEnc),
       webUsername: e.webrtcEnabled ? `${e.number}-web` : null,
+      dialPlan: grandstreamDialPlan(await loadDialRules(db)),
     };
   });
 

@@ -7,6 +7,7 @@ import { decrypt } from '../crypto/secrets.ts';
 import type { Db } from '../db/client.ts';
 import { contacts, devices, extensions } from '../db/schema.ts';
 import { getSetting } from '../services/settings.ts';
+import { loadDialRules, type DialRule } from './dialplan.ts';
 
 export type ProvisionContext = {
   mac: string;
@@ -26,6 +27,8 @@ export type ProvisionContext = {
   /** The phonebook with this phone's credentials in it (phones fetch it like the config). */
   phonebookUrl: string;
   ntpServer: string;
+  /** What's dialable (dialplan.ts), so phones can send complete numbers at once. */
+  dialRules: DialRule[];
 };
 
 export const NTP_SERVER = 'pool.ntp.org';
@@ -77,6 +80,7 @@ export async function loadContext(
       provPassword,
       phonebookUrl: `https://${d.mac}:${provPassword}@${config.PUBLIC_HOSTNAME}/prov/phonebook/${d.mac}.xml`,
       ntpServer: NTP_SERVER,
+      dialRules: await loadDialRules(db),
     },
   };
 }

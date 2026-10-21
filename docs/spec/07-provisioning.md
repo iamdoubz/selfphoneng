@@ -26,6 +26,7 @@ type ProvisionContext = {
   provUrl: string; provUser: string; provPassword: string;
   phonebookUrl: string;
   ntpServer: string;               // default 'pool.ntp.org'
+  dialRules: DialRule[];           // dialplan.ts: 911/9911, enabled routes, internal lengths, * codes
 };
 ```
 

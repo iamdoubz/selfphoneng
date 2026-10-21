@@ -8,7 +8,11 @@ Docker.
 ## Unreleased
 
 - Admin guide: [Analog phones (ATAs)](docs/admin-guide/ata.md), setting up a Grandstream HT802 V2
-  by hand, with a dial plan for analog phones.
+  by hand.
+- **Dial plan:** a user's Credentials tab shows a dial plan for analog phone adapters, made from
+  your outbound routes and internal number lengths: 911 and full outside numbers go out the moment
+  they're dialed instead of after a pause. Yealink desk phones get the same as dial-now rules.
+- Internal numbers can no longer start with 911 or 9911, so 911 can go out at once.
 
 ## v0.0.4 — 2026-10-21
 

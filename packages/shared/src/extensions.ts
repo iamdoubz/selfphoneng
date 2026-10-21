@@ -53,6 +53,8 @@ export type SipCredentials = {
   password: string;
   /** Browser softphone identity (when webrtc is on). */
   webUsername: string | null;
+  /** For analog adapters set up by hand (Grandstream syntax): what's complete when dialed. */
+  dialPlan: string;
 };
 
 /** GET /api/me/webrtc: what the browser softphone registers with (05 §5.2). */

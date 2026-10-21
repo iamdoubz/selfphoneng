@@ -292,6 +292,7 @@ function SetupInfo({ phone }: { phone: DeviceDto }) {
             {row('Username', creds.data.username)}
             {row('Password', creds.data.password)}
             {row('Voicemail', '*97')}
+            {row('Dial plan', creds.data.dialPlan)}
           </dl>
         )}
       </section>

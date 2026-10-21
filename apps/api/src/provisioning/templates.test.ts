@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest';
 import { phoneTimezone } from '@selfphoneng/shared';
 import type { PhonebookEntry, ProvisionContext } from './context.ts';
+import { dialRules } from './dialplan.ts';
 import { grandstream, grandstreamPhonebook } from './templates/grandstream.ts';
 import { yealink, yealinkPhonebook } from './templates/yealink.ts';
 
@@ -31,6 +32,7 @@ const ctx = (over: Partial<ProvisionContext> = {}): ProvisionContext => ({
   phonebookUrl:
     'https://001565abcdef:Pr0vPassw0rdXyZ12345@pbx.example.com/prov/phonebook/001565abcdef.xml',
   ntpServer: 'pool.ntp.org',
+  dialRules: dialRules(['NXXNXXXXXX', '1NXXNXXXXXX'], [3]),
   ...over,
 });
 const book: PhonebookEntry[] = [
@@ -53,6 +55,8 @@ describe('phone templates', () => {
     expect(out).toContain('linekey.4.type = 0');
     expect(out).toContain('linekey.33.type = 0');
     expect(out).not.toContain('linekey.34');
+    expect(out).toMatch(/^dialplan\.dialnow\.rule\.1 = 911$/m);
+    expect(out).toMatch(/^dialplan\.dialnow\.rule\.20 =$/m);
   });
 
   it('Grandstream config: XML-escaped values', async () => {

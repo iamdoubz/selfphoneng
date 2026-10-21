@@ -261,9 +261,12 @@ Each one checked against a real account before it's called supported (06's verif
 
 ## Analog phone adapters (owner, 2026-10-21: wanted; the owner is buying an HT802 V2)
 1. Done: admin guide page for setting one up by hand (`docs/admin-guide/ata.md`).
-2. A dial plan in the setup files, made from the numbering: 911/9911 at once, 10/11 digits at once,
-   internal numbers and `*` codes after the inter-digit pause or `#`. For ATAs and desk phones.
-   Check on the real unit that a full match sends at once while `x+` is also in the plan.
+2. Done: the dial plan (`provisioning/dialplan.ts`), made from the enabled outbound routes and the
+   lengths internal numbers use, with 911/9911 always. Yealink gets dial-now rules for what can't
+   grow into a longer number (911, 9911, full outside numbers); the Credentials tab shows the
+   Grandstream form for hand-set-up ATAs. Internal numbers starting 911/9911 are now reserved.
+   Grandstream desk phones keep their own plan: a restrictive one there is untested. Check on the
+   HT802 that a rule that can't grow goes out at once, and the Yealink dial-now syntax on a phone.
 3. Several lines on one device (`device_lines`: device, port, extension; the setup file lists every
    line of that MAC) and a `grandstream-ata.ts` template for the HT802 V2. Its port 2 P-values
    differ from the desk phones' account 2: take them from Grandstream's config template or an
