@@ -5,11 +5,17 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
-## Unreleased
+## v0.0.4 — 2026-10-21
+
+**Updating:** no database changes. Portainer: change both tags to `0.0.4` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.4`.
 
 - Settings → Security has the **SIP port** and **Accept SIP over TCP** (5060 and on by default,
-  as before). Both were settings with no field. Another port helps when a router or ISP keeps UDP
-  5060 for itself. A port that another part of SelfPhoneNG listens on is refused.
+  as before). Both were settings with no field. Another port, such as 5080, helps when a router or
+  the ISP keeps UDP 5060 for itself: a Complete network test shows UDP getting through while SIP
+  on UDP 5060 doesn't. Changing it needs a telephony restart, a new router forward and setting the
+  phones up again; trunks keep working. A port that another part of SelfPhoneNG listens on is
+  refused. The admin guide (Network) explains when to change it.
 
 ## v0.0.3 — 2026-10-21
 
