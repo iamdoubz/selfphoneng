@@ -72,9 +72,12 @@ describe.skipIf(!hasTestDb)('extensions API', () => {
     const make = (number: string, extra = {}) =>
       req('POST', '/api/extensions', { number, name: 'X', ...extra });
     expect((await make('211')).json().error.message).toMatch(/reserved/);
-    expect((await make('600')).json().error.message).toMatch(/from 100 to 499/);
-    expect((await make('12')).statusCode).toBe(400);
-    expect((await make('710')).statusCode).toBe(400); // outside the users range anyway
+    expect((await make('1234567')).statusCode).toBe(400); // 1 to 6 digits
+    expect((await make('710')).json().error.message).toMatch(/parking/);
+    // Any free number, in or out of the users range (owner, 2026-10-21): "1" for the first user.
+    const one = await make('1');
+    expect(one.statusCode, one.body).toBe(201);
+    expect((await req('DELETE', `/api/extensions/${one.json().id}`)).statusCode).toBe(200);
     const dup = await make('101');
     expect(dup.statusCode).toBe(409);
     expect(dup.json().error.message).toMatch(/extension "Dan Doe"/);

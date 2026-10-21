@@ -141,6 +141,14 @@ async function check(name) {
       if (!shownQ.startsWith(`${q} has`) || listed !== members)
         problems.push(`queue ${q}: expected ${members} members, got: ${shownQ.trim()}`);
     }
+    // A case can list [number, context] pairs Asterisk must match (short-numbers: one-digit
+    // numbers, which a pattern like _X. needs two digits for).
+    const snap = JSON.parse(readFileSync(join(GOLDEN, name, 'snapshot.json'), 'utf8'));
+    for (const [exten, ctx] of snap.asteriskMatches ?? []) {
+      const d = cli(`dialplan show ${exten}@${ctx}`).out;
+      if (!/-= \d+ extensions? \(/.test(d) || /There is no existence/.test(d))
+        problems.push(`${exten} doesn't match in ${ctx}`);
+    }
     // Asterisk colors its log: strip the escape codes before looking for ERROR[.
     // eslint-disable-next-line no-control-regex -- matching ANSI escapes is the point
     const log = docker('logs', NAME).out.replace(/\x1b\[[0-9;]*m/g, '');

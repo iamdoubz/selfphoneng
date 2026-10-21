@@ -5,7 +5,7 @@ import { DestinationSchema } from './destination.ts';
 
 const range = (from: number, to: number) =>
   z
-    .tuple([z.number().int().min(100), z.number().int().max(999999)])
+    .tuple([z.number().int().min(0), z.number().int().max(999999)])
     .refine(([a, b]) => a <= b, 'range start must be <= end')
     .default([from, to]);
 

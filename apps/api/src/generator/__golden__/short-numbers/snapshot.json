@@ -1,0 +1,62 @@
+{
+  "extensions": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "number": "1",
+      "name": "Dan Doe",
+      "voicemailEnabled": true,
+      "sipPassword": "Ab3dEf9hIj2kLm4nOp6qRs8t"
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000012",
+      "number": "12",
+      "name": "Sue Smith",
+      "sipPassword": "Bb3dEf9hIj2kLm4nOp6qRs8t"
+    }
+  ],
+  "ringGroups": [
+    {
+      "id": "22222222-2222-4222-8222-222222222005",
+      "number": "5",
+      "name": "Sales",
+      "members": ["1", "12"],
+      "noAnswerDestination": { "type": "voicemail", "id": "00000000-0000-4000-8000-000000000001" }
+    }
+  ],
+  "queues": [
+    {
+      "id": "44444444-4444-4444-8444-444444444006",
+      "number": "6",
+      "name": "Support",
+      "members": [{ "number": "1", "name": "Dan Doe", "penalty": 0 }]
+    }
+  ],
+  "ivrs": [
+    {
+      "id": "33333333-3333-4333-8333-333333333000",
+      "number": "0",
+      "name": "Main menu",
+      "greeting": "custom/44444444-4444-4444-8444-444444444444",
+      "allowDirectDial": true,
+      "options": [
+        {
+          "digit": "2",
+          "destination": { "type": "ring_group", "id": "22222222-2222-4222-8222-222222222005" }
+        }
+      ]
+    }
+  ],
+  "asteriskMatches": [
+    ["1", "sp-local-numbers"],
+    ["5", "sp-local-numbers"],
+    ["0", "sp-local-numbers"],
+    ["1", "sp-rg-member"],
+    ["1", "sp-queue-member"],
+    ["1", "sp-vm-direct"],
+    ["1", "sp-ivr-direct"],
+    ["**1", "sp-featurecodes"],
+    ["*456", "sp-featurecodes"],
+    ["*721", "sp-featurecodes"],
+    ["*801", "sp-featurecodes"]
+  ]
+}

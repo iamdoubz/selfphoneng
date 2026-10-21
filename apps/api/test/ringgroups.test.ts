@@ -64,7 +64,7 @@ describe.skipIf(!hasTestDb)('/api/ring-groups', () => {
         noAnswerDestination: { type: 'hangup' },
         ...body,
       });
-    expect((await bad({ number: '101' })).statusCode).toBe(400); // outside 500–549
+    expect((await bad({ number: '101' })).statusCode).toBe(409); // extension 101 has it
     expect((await bad({ number: '500' })).statusCode).toBe(409);
     expect((await bad({ memberIds: [ext['101'], ext['101']] })).statusCode).toBe(400);
     expect((await bad({ memberIds: ['00000000-0000-4000-8000-000000000999'] })).statusCode).toBe(

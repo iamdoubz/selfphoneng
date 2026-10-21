@@ -502,12 +502,13 @@ function NumbersStep({ next }: { next: () => void }) {
   );
 }
 
-type NewUser = { name: string; email: string };
+type NewUser = { name: string; email: string; number: string };
 
 function UsersStep({ next }: { next: () => void }) {
   const qc = useQueryClient();
   const users = useQuery({ queryKey: ['users'], queryFn: usersApi.list });
-  const [rows, setRows] = useState<NewUser[]>([{ name: '', email: '' }]);
+  const blank = { name: '', email: '', number: '' };
+  const [rows, setRows] = useState<NewUser[]>([blank]);
   const [created, setCreated] = useState<
     { name: string; email: string; number: string; password: string }[]
   >([]);
@@ -520,7 +521,8 @@ function UsersStep({ next }: { next: () => void }) {
           email: r.email.trim(),
           role: 'user',
         });
-        const number = await extensionsApi.nextNumber('user');
+        // Their own number if typed in (any free one, 1 to 6 digits), else the next free.
+        const number = r.number.trim() || (await extensionsApi.nextNumber('user'));
         if (number) await extensionsApi.create({ number, name: r.name.trim(), userId: user.id });
         out.push({
           name: r.name,
@@ -533,7 +535,7 @@ function UsersStep({ next }: { next: () => void }) {
       return out;
     },
     onSettled: () => {
-      setRows([{ name: '', email: '' }]);
+      setRows([blank]);
       void qc.invalidateQueries({ queryKey: ['users'] });
       void qc.invalidateQueries({ queryKey: ['extensions'] });
     },
@@ -546,7 +548,8 @@ function UsersStep({ next }: { next: () => void }) {
     <>
       <p className="text-sm text-zinc-500">
         Add the people who get a phone (up to 10 here; more later under Users &amp; Extensions).
-        Each gets the next free extension and a temporary password, shown once.
+        Each gets the extension you type (any free number, like 1), or the next free one, and a
+        temporary password, shown once.
       </p>
       {withExt.length > 0 && (
         <ul className="text-sm">
@@ -565,7 +568,16 @@ function UsersStep({ next }: { next: () => void }) {
         }}
       >
         {rows.map((r, i) => (
-          <div key={i} className="grid grid-cols-2 gap-2">
+          <div key={i} className="grid grid-cols-[6rem_1fr_1fr] gap-2">
+            <input
+              aria-label={`Extension ${i + 1}`}
+              placeholder="Next free"
+              inputMode="numeric"
+              pattern="[0-9]{1,6}"
+              value={r.number}
+              onChange={(e) => set(i, 'number', e.target.value)}
+              className={inputClass}
+            />
             <input
               aria-label={`Name ${i + 1}`}
               placeholder="Name"
@@ -585,9 +597,7 @@ function UsersStep({ next }: { next: () => void }) {
         ))}
         <div className="flex gap-2">
           {rows.length < 10 && (
-            <Button onClick={() => setRows([...rows, { name: '', email: '' }])}>
-              Another person
-            </Button>
+            <Button onClick={() => setRows([...rows, blank])}>Another person</Button>
           )}
           <Button variant="primary" type="submit" disabled={save.isPending}>
             Add users

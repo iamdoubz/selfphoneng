@@ -3,7 +3,15 @@
 import { and, eq, ne } from 'drizzle-orm';
 import { isReservedNumber, type NumberKind } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
-import { conferences, extensions, ivrs, pagingGroups, queues, ringGroups } from '../db/schema.ts';
+import {
+  conferences,
+  extensions,
+  ivrOptions,
+  ivrs,
+  pagingGroups,
+  queues,
+  ringGroups,
+} from '../db/schema.ts';
 import { badRequest, conflict } from '../errors.ts';
 import { getSetting } from './settings.ts';
 
@@ -46,20 +54,48 @@ export async function ownerOf(db: Db, number: string, excludeId?: string): Promi
   return null;
 }
 
+/**
+ * A digital receptionist that lets callers dial numbers and has `key` in its menu: callers pressing
+ * it get the menu option, so a one-digit number `key` can't be dialed from there.
+ */
+export async function menuKeyOwner(db: Db, key: string, excludeIvrId?: string) {
+  if (!/^\d$/.test(key)) return null;
+  const [row] = await db
+    .select({ name: ivrs.name })
+    .from(ivrOptions)
+    .innerJoin(ivrs, eq(ivrs.id, ivrOptions.ivrId))
+    .where(
+      and(
+        eq(ivrOptions.digit, key),
+        eq(ivrs.allowDirectDial, true),
+        ...(excludeIvrId ? [ne(ivrs.id, excludeIvrId)] : []),
+      ),
+    )
+    .limit(1);
+  return row?.name ?? null;
+}
+
+/**
+ * Any free internal number, for any kind (owner, 2026-10-21): the numbering ranges only choose the
+ * suggested next number (nextFreeNumber). `kind` is kept for that and for callers' readability.
+ */
 export async function assertNumberAvailable(
   db: Db,
   number: string,
-  kind: NumberKind,
+  _kind: NumberKind,
   excludeId?: string,
 ): Promise<void> {
-  if (!/^\d{3,6}$/.test(number)) throw badRequest('Internal numbers have 3 to 6 digits');
+  if (!/^\d{1,6}$/.test(number)) throw badRequest('Internal numbers have 1 to 6 digits');
   if (isReservedNumber(number))
     throw badRequest(`${number} is reserved (emergency and service codes can't be used)`);
-  const [from, to] = await getSetting(db, RANGE_KEY[kind]);
-  const n = Number(number);
-  if (n < from || n > to) throw badRequest(`Use a number from ${from} to ${to}`);
   const owner = await ownerOf(db, number, excludeId);
   if (owner) throw conflict(`${number} is already used by ${owner}`, { owner });
+  const menu = await menuKeyOwner(db, number);
+  if (menu)
+    throw conflict(
+      `${number} is a menu key of the digital receptionist "${menu}", which also lets callers dial numbers: pressing ${number} there would always choose the menu option`,
+      { owner: `digital receptionist "${menu}"` },
+    );
 }
 
 /** Lowest free number in the kind's range, or null when the range is full. */

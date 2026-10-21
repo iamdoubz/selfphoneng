@@ -3,7 +3,8 @@
 // The patterns match the generator's sanitizers (03 §2), so valid input always renders.
 import { z } from 'zod';
 
-export const InternalNumber = z.string().regex(/^\d{3,6}$/, 'Use 3 to 6 digits');
+/** 1 to 6 digits (owner, 2026-10-21: "1" for the first user; the generator's patterns are _X!). */
+export const InternalNumber = z.string().regex(/^\d{1,6}$/, 'Use 1 to 6 digits');
 const Slug = z.string().regex(/^[a-z0-9-]{1,32}$/, 'Lowercase letters, digits and dashes');
 const Pin = z.string().regex(/^\d{4,10}$/, 'Use 4 to 10 digits');
 

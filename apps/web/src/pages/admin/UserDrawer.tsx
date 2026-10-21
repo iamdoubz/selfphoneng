@@ -206,7 +206,7 @@ function GeneralTab({
         hint={
           ext
             ? 'Changing it renumbers their phones and voicemail box.'
-            : 'Leave empty for a user without a phone.'
+            : 'Any free number, 1 to 6 digits (1, 101, …). Leave empty for a user without a phone.'
         }
       >
         {(a) => (
@@ -260,7 +260,7 @@ const PhoneSchema = ExtensionUpdateSchema.pick({
     ]),
     blfNumbers: z
       .string()
-      .regex(/^(\s*\d{3,6}\s*(,\s*\d{3,6}\s*)*)?$/, 'Internal numbers separated by commas'),
+      .regex(/^(\s*\d{1,6}\s*(,\s*\d{1,6}\s*)*)?$/, 'Internal numbers separated by commas'),
   });
 type PhoneValues = z.input<typeof PhoneSchema>;
 

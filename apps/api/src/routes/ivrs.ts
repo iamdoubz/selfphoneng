@@ -21,7 +21,7 @@ import {
   describeDestination,
   findReferences,
 } from '../services/destinations.ts';
-import { assertNumberAvailable } from '../services/numbering.ts';
+import { assertNumberAvailable, ownerOf } from '../services/numbering.ts';
 
 type Row = typeof ivrs.$inferSelect;
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
@@ -99,9 +99,26 @@ export async function ivrRoutes(app: FastifyInstance) {
 
   app.get('/api/ivrs/:id', async (req) => toDto(db, await getIvr(IdParams.parse(req.params).id)));
 
+  /** With direct dialing on, a menu key can't also be a one-digit number: pressing it picks the option. */
+  async function assertMenuKeys(directDial: boolean, keys: string[]) {
+    if (!directDial) return;
+    for (const key of keys) {
+      const owner = /^\d$/.test(key) ? await ownerOf(db, key) : null;
+      if (owner)
+        throw conflict(
+          `Key ${key} is also the number of ${owner}: with "callers can dial numbers" on, pressing ${key} would always choose the menu option. Use another key, or turn that off`,
+          { owner },
+        );
+    }
+  }
+
   app.post('/api/ivrs', async (req, reply) => {
     const { options = [], ...body } = IvrCreateSchema.parse(req.body);
     await assertNumberAvailable(db, body.number, 'ivr');
+    await assertMenuKeys(
+      body.allowDirectDial ?? true,
+      options.map((o) => o.digit),
+    );
     await assertPrompt(db, body.greetingSoundId);
     await assertPrompt(db, body.invalidSoundId);
     await assertDestinations(db, [
@@ -139,6 +156,15 @@ export async function ivrRoutes(app: FastifyInstance) {
     const before = await getIvr(id);
     if (body.number && body.number !== before.number)
       await assertNumberAvailable(db, body.number, 'ivr', id);
+    if (options || body.allowDirectDial)
+      await assertMenuKeys(
+        body.allowDirectDial ?? before.allowDirectDial,
+        options
+          ? options.map((o) => o.digit)
+          : (await db.select().from(ivrOptions).where(eq(ivrOptions.ivrId, id))).map(
+              (o) => o.digit,
+            ),
+      );
     await assertPrompt(db, body.greetingSoundId);
     await assertPrompt(db, body.invalidSoundId);
     // Pointing at itself is fine here: the IVR exists.

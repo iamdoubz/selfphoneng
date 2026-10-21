@@ -20,7 +20,7 @@ export async function checkForward(
   const digits = dialedDigits(input);
   if (!digits) throw badRequest('Enter a number');
   if (digits === ext.number) throw badRequest("You can't forward calls to yourself");
-  if (/^\d{3,6}$/.test(digits)) {
+  if (/^\d{1,6}$/.test(digits)) {
     if (await ownerOf(db, digits)) return digits;
     throw badRequest(`${digits} isn't an extension or group here`);
   }

@@ -188,7 +188,7 @@ function IvrForm({
         <Field
           label="Number"
           error={errors.number}
-          hint="Dial it inside, or point a phone number at it"
+          hint="Any free number, 1 to 6 digits. Dial it inside, or point a phone number at it"
         >
           {(p) => (
             <input

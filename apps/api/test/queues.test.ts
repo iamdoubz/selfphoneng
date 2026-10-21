@@ -99,7 +99,7 @@ describe.skipIf(!hasTestDb)('/api/queues', () => {
         timeoutDestination: { type: 'hangup' },
         ...body,
       });
-    expect((await bad({ number: '500' })).statusCode).toBe(400); // outside 550–599
+    expect((await bad({ number: '1234567' })).statusCode).toBe(400); // 1 to 6 digits
     expect((await bad({ number: '550' })).statusCode).toBe(409);
     const twice = { extensionId: ext['101'], penalty: 0 };
     expect((await bad({ members: [twice, twice] })).statusCode).toBe(400);

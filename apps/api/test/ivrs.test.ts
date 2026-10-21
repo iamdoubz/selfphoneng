@@ -81,7 +81,24 @@ describe.skipIf(!hasTestDb)('/api/ivrs', () => {
     const post = (body: object) => req('POST', '/api/ivrs', { ...base(), number: '601', ...body });
     const missing = '00000000-0000-4000-8000-000000000999';
     expect((await post({ number: '600' })).statusCode).toBe(409);
-    expect((await post({ number: '500' })).statusCode).toBe(400); // ring-group range
+    expect((await post({ number: '1234567' })).statusCode).toBe(400);
+    // A one-digit number and a menu key (direct dialing on) can't be the same, either way round.
+    const one = await req('POST', '/api/extensions', { number: '1', name: 'X' });
+    expect(one.statusCode).toBe(409);
+    expect(one.json().error.message).toMatch(/menu key of the digital receptionist "Main menu"/);
+    const four = await req('POST', '/api/extensions', { number: '4', name: 'Four' });
+    expect(four.statusCode, four.body).toBe(201);
+    const clash = await post({ options: [{ digit: '4', destination: { type: 'hangup' } }] });
+    expect(clash.statusCode).toBe(409);
+    expect(clash.json().error.message).toMatch(/Key 4 is also the number of extension "Four"/);
+    const noDial = await post({
+      allowDirectDial: false,
+      number: '602',
+      options: [{ digit: '4', destination: { type: 'hangup' } }],
+    });
+    expect(noDial.statusCode).toBe(201);
+    await req('DELETE', `/api/ivrs/${noDial.json().id}`);
+    await req('DELETE', `/api/extensions/${four.json().id}`);
     expect((await post({ greetingSoundId: missing })).statusCode).toBe(400);
     const twice = await post({
       options: [

@@ -151,7 +151,7 @@ exten => *79,1,Answer()                                     ; DND off
  same => n,UserEvent(SpToggle,Key: DND,Ext: \${SP_EXT},Value: 0)
  same => n,Playback(do-not-disturb&de-activated)
  same => n,Hangup()
-exten => _*72X.,1,Answer()                                  ; *72<number> forward always
+exten => _*72X!,1,Answer()                                  ; *72<number> forward always
  same => n,Gosub(sp-sub-normalize,s,1(\${EXTEN:3}))
  same => n,Set(DB(SP/CFU/\${SP_EXT})=\${GOSUB_RETVAL})
  same => n,UserEvent(SpToggle,Key: CFU,Ext: \${SP_EXT},Value: \${GOSUB_RETVAL})
@@ -162,7 +162,7 @@ exten => *73,1,Answer()                                     ; cancel forward alw
  same => n,UserEvent(SpToggle,Key: CFU,Ext: \${SP_EXT},Value: )
  same => n,Playback(call-fwd-unconditional&de-activated)
  same => n,Hangup()
-exten => _**X.,1,Set(T=\${FILTER(0-9,\${EXTEN:2})})        ; digits only: "&" or "," would add arguments
+exten => _**X!,1,Set(T=\${FILTER(0-9,\${EXTEN:2})})        ; digits only: "&" or "," would add arguments
  same => n,PickupChan(PJSIP/\${T}-&PJSIP/\${T}-web-)           ; directed pickup **101
  same => n,Hangup()
 ; *8 group pickup: features.conf pickupexten catches it straight from a phone's INVITE; this
@@ -177,7 +177,7 @@ exten => *43,1,Answer()                                     ; echo test
 exten => *65,1,Answer()                                     ; say my extension
  same => n,SayDigits(\${SP_EXT})
  same => n,Hangup()
-exten => _*45X.,1,Answer()                                  ; *45<queue> toggle queue login
+exten => _*45X!,1,Answer()                                  ; *45<queue> toggle queue login
  same => n,Set(Q=\${FILTER(0-9,\${EXTEN:3})})
  same => n,Set(K=SP/QPAUSE/\${Q}/\${SP_EXT})
  same => n,GotoIf($["\${DB(\${K})}" = "1"]?login)
@@ -195,7 +195,7 @@ exten => _*45X.,1,Answer()                                  ; *45<queue> toggle 
  same => n,Hangup()
  same => n(deny),Playback(ss-noservice)
  same => n,Hangup()
-exten => _*80X.,1,Set(T=\${FILTER(0-9,\${EXTEN:3})})            ; *80<ext> intercom, both ways
+exten => _*80X!,1,Set(T=\${FILTER(0-9,\${EXTEN:3})})            ; *80<ext> intercom, both ways
  same => n,GotoIf($["\${T}" != "\${EXTEN:3}"]?deny)
  same => n,GotoIf($["\${PJSIP_ENDPOINT(\${T},context)}" != "sp-from-ext"]?deny)   ; desk phones only
  same => n,Page(PJSIP/\${T},db(sp-sub-autoanswer^s^1),30)
@@ -211,7 +211,7 @@ exten => _*3[123]X,1,Answer()
  same => n,Hangup()
 
 [sp-vm-direct]
-exten => _X.,1,Answer()
+exten => _X!,1,Answer()
  same => n,VoiceMail(\${EXTEN}@default,u)
  same => n,Hangup()
 
@@ -221,12 +221,12 @@ exten => _[0-9*#+].,1,Set(SP_CLASS=3)          ; admin-configured external desti
  same => n,Goto(sp-outbound-routes,\${EXTEN},1)
 
 [sp-rg-member]                                  ; one member of a ring group (Local channel)
-exten => _X.,1,GotoIf($["\${DB(SP/DND/\${EXTEN})}" = "1"]?skip)
+exten => _X!,1,GotoIf($["\${DB(SP/DND/\${EXTEN})}" = "1"]?skip)
  same => n,Gosub(sp-sub-dial-user,s,1(\${EXTEN},600))
  same => n(skip),Hangup()
 
 [sp-queue-member]                               ; one queue agent (Local channel)
-exten => _X.,1,Gosub(sp-sub-dial-user,s,1(\${EXTEN},600))
+exten => _X!,1,Gosub(sp-sub-dial-user,s,1(\${EXTEN},600))
  same => n,Hangup()
 
 [sp-from-ext]

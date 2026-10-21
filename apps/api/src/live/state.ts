@@ -37,7 +37,7 @@ function contactStatus(s: string | undefined): ContactLive['status'] {
 
 /** "101" and "101-web" both belong to extension 101; trunks and others don't match. */
 export const extOfEndpoint = (endpoint: string): string | null =>
-  /^(\d{3,6})(?:-web)?$/.exec(endpoint)?.[1] ?? null;
+  /^(\d{1,6})(?:-web)?$/.exec(endpoint)?.[1] ?? null;
 
 /** "trunk-<uuid>", "trunk-<uuid>-reg" → the trunk id. */
 export const trunkOfObject = (name: string): string | null =>

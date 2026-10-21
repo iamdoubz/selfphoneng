@@ -62,7 +62,7 @@ describe.skipIf(!hasTestDb)('/api/conferences', () => {
   it('checks the number and the PINs', async () => {
     const bad = (body: object) =>
       req('POST', '/api/conferences', { number: '801', name: 'X', ...body });
-    expect((await bad({ number: '700' })).statusCode).toBe(400); // parking, not 800–849
+    expect((await bad({ number: '700' })).statusCode).toBe(409); // the parking lot
     expect((await bad({ number: '800' })).statusCode).toBe(409);
     expect((await bad({ pin: '12' })).statusCode).toBe(400);
     expect((await bad({ pin: '12a4' })).statusCode).toBe(400);

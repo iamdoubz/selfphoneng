@@ -53,7 +53,7 @@ describe.skipIf(!hasTestDb)('/api/paging-groups', () => {
   it('checks the number and the members', async () => {
     const bad = (body: object) =>
       req('POST', '/api/paging-groups', { number: '851', name: 'X', ...body });
-    expect((await bad({ number: '800' })).statusCode).toBe(400); // conference range
+    expect((await bad({ number: '1234567' })).statusCode).toBe(400); // 1 to 6 digits
     expect((await bad({ number: '850' })).statusCode).toBe(409);
     expect((await bad({ memberIds: [ext['101'], ext['101']] })).statusCode).toBe(400);
     expect((await bad({ memberIds: ['00000000-0000-4000-8000-000000000000'] })).statusCode).toBe(

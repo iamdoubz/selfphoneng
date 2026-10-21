@@ -2,7 +2,7 @@
 // Settings (05 §2). M3: Email and Emergency; M7: Recording; M11: Network (public IP watch), Security (phone ACL, provisioning, SIP TLS), Backups,
 // Webhooks, API tokens.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { NavLink, useParams } from 'react-router';
 import {
   WEBHOOK_EVENTS,
@@ -27,6 +27,7 @@ const TABS = [
   { id: 'email', label: 'Email' },
   { id: 'emergency', label: 'Emergency' },
   { id: 'recording', label: 'Recording' },
+  { id: 'numbering', label: 'Numbering' },
   { id: 'network', label: 'Network' },
   { id: 'security', label: 'Security' },
   { id: 'backups', label: 'Backups' },
@@ -60,6 +61,7 @@ export function SettingsPage() {
       {settings.data && tab === 'email' && <EmailTab s={settings.data} />}
       {settings.data && tab === 'emergency' && <EmergencyTab s={settings.data} />}
       {settings.data && tab === 'recording' && <RecordingTab s={settings.data} />}
+      {settings.data && tab === 'numbering' && <NumberingTab s={settings.data} />}
       {settings.data && tab === 'network' && <NetworkTab s={settings.data} />}
       {settings.data && tab === 'security' && <SecurityTab s={settings.data} />}
       {settings.data && tab === 'backups' && <BackupsTab s={settings.data} />}
@@ -413,6 +415,73 @@ function RecordingTab({ s }: { s: SettingsDto }) {
 }
 
 /** The public IP Asterisk tells callers about, and re-checking it on a dynamic IP (01 §4.3, 04 §8). */
+const RANGES = [
+  ['numbering.users', 'Users (extensions)'],
+  ['numbering.ringGroups', 'Ring groups'],
+  ['numbering.queues', 'Queues'],
+  ['numbering.ivrs', 'Digital receptionists'],
+  ['numbering.conferences', 'Conference rooms'],
+  ['numbering.paging', 'Paging groups'],
+] as const;
+type RangeKey = (typeof RANGES)[number][0];
+
+/** Where "Next free" looks; any free number can still be typed in (owner, 2026-10-21). */
+function NumberingTab({ s }: { s: SettingsDto }) {
+  const save = useSave();
+  const [v, setV] = useState(
+    () =>
+      Object.fromEntries(RANGES.map(([k]) => [k, s[k].map(String)])) as Record<RangeKey, string[]>,
+  );
+  const set = (k: RangeKey, i: 0 | 1, x: string) =>
+    setV((o) => ({ ...o, [k]: i === 0 ? [x, o[k][1]] : [o[k][0], x] }));
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate(Object.fromEntries(RANGES.map(([k]) => [k, v[k].map(Number)])));
+      }}
+    >
+      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        Where <strong>Next free</strong> looks when you add a user, ring group, queue, digital
+        receptionist, conference room or paging group. You can always type any other free number of
+        1 to 6 digits instead, for example <strong>1</strong> for the first user: SelfPhoneNG checks
+        that nothing else has it. Parking uses 700–720, and 911, 933 and the other N11 service codes
+        can't be used.
+      </p>
+      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-2 text-sm">
+        <span />
+        <span className="text-zinc-500">From</span>
+        <span className="text-zinc-500">To</span>
+        {RANGES.map(([k, label]) => (
+          <Fragment key={k}>
+            <span>{label}</span>
+            {([0, 1] as const).map((i) => (
+              <input
+                key={i}
+                aria-label={`${label} ${i === 0 ? 'from' : 'to'}`}
+                type="number"
+                min={0}
+                max={999999}
+                className={`${inputClass} w-28`}
+                value={v[k][i]}
+                onChange={(e) => set(k, i, e.target.value)}
+              />
+            ))}
+          </Fragment>
+        ))}
+      </div>
+      <div className="flex items-center gap-3">
+        <Button type="submit" variant="primary" disabled={save.isPending}>
+          Save
+        </Button>
+        {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+      </div>
+      {save.error && <Alert>{save.error.message}</Alert>}
+    </form>
+  );
+}
+
 function NetworkTab({ s }: { s: SettingsDto }) {
   const save = useSave();
   const [ip, setIp] = useState(s['network.publicIp'] ?? '');

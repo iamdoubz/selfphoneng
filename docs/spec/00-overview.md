@@ -336,6 +336,14 @@ All internal numbers share **one namespace**. A number may belong to only one
 object (user, ring group, queue, IVR, conference, parking). The API must
 reject duplicates across all object types (see `04-backend-api.md` §7.2).
 
+As built (owner, 2026-10-21): internal numbers have **1 to 6 digits**, and any free one can be
+given to any object (a first user on `1`). The ranges below only choose the **Next free**
+suggestion, and are edited on Settings → Numbering. Generated patterns that take an internal
+number match one digit or more (`_X!`, `_**X!`, `_*45X!`, `_*72X!`, `_*80X!`; golden case
+`short-numbers`, which the Asterisk load test dials). One more clash is refused, both ways: a
+one-digit number that a digital receptionist with direct dialing also uses as a menu key
+(pressing it always picks the option).
+
 | Range | Object |
 |---|---|
 | 100–499 | Users (extensions) |
