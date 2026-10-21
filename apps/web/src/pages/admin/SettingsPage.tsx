@@ -417,13 +417,18 @@ function NetworkTab({ s }: { s: SettingsDto }) {
   const save = useSave();
   const [ip, setIp] = useState(s['network.publicIp'] ?? '');
   const [watch, setWatch] = useState(s['network.publicIpWatch']);
+  const [probe, setProbe] = useState(s['network.probeUrl'] ?? '');
   const detect = useMutation({ mutationFn: systemApi.detectPublicIp, onSuccess: setIp });
   return (
     <form
       className="flex flex-col gap-4"
       onSubmit={(e) => {
         e.preventDefault();
-        save.mutate({ 'network.publicIp': ip.trim() || null, 'network.publicIpWatch': watch });
+        save.mutate({
+          'network.publicIp': ip.trim() || null,
+          'network.publicIpWatch': watch,
+          'network.probeUrl': probe.trim() || null,
+        });
       }}
     >
       <Field label="Public IP" hint="Changing it needs a telephony restart (see System)">
@@ -449,6 +454,21 @@ function NetworkTab({ s }: { s: SettingsDto }) {
         When it changes, the new IP is saved and admins get an email asking for a telephony restart.
         Asks api.ipify.org (or ifconfig.me) for the address.
       </p>
+      <Field
+        label="Network test probe"
+        hint="A probe running outside this network (apps/probe), for System → Diagnostics. It only ever tests the address that asks it. Empty: no tests from outside."
+      >
+        {(p) => (
+          <input
+            {...p}
+            type="url"
+            placeholder="https://probe.example.com"
+            className={inputClass}
+            value={probe}
+            onChange={(e) => setProbe(e.target.value)}
+          />
+        )}
+      </Field>
       <div className="flex items-center gap-3">
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save

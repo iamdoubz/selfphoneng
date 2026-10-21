@@ -20,6 +20,11 @@ export const SettingsSchemas = {
     .default(['192.168.0.0/16', '10.0.0.0/8', '172.16.0.0/12']),
   'network.lanIp': z.ipv4().nullable().default(null),
   'network.publicIpWatch': z.boolean().default(false),
+  /** The network test probe (apps/probe), outside this network; null: no outside tests (08 §2.6). */
+  'network.probeUrl': z
+    .url({ protocol: /^https?$/ })
+    .nullable()
+    .default(null),
   'network.stunServer': z
     .string()
     .regex(/^[A-Za-z0-9.-]+(:\d{1,5})?$/)
@@ -126,6 +131,26 @@ export type SystemStatus = {
   ports: { sip: number; sipTcp: boolean; sips: number | null; rtp: string; https: number };
   ami: { connected: boolean };
   restartRequired: boolean;
+};
+
+/** One line of System → Diagnostics (08 §2.6). `fix` says what to do when it isn't ok. */
+export type DiagnosticCheck = {
+  id: string;
+  label: string;
+  status: 'ok' | 'warn' | 'fail' | 'skip';
+  detail: string;
+  fix?: string;
+};
+
+/** GET /api/system/diagnostics: what the server can check from the inside. */
+export type DiagnosticsDto = { checks: DiagnosticCheck[] };
+
+/** POST /api/system/diagnostics/network {mode}: the probe's outside view of the server. */
+export type NetworkTestDto = {
+  mode: 'quick' | 'complete';
+  /** The address the probe tested: the one this server reaches the internet from. */
+  testedIp: string | null;
+  checks: DiagnosticCheck[];
 };
 
 /** GET /api/system/events: the System page's event log, newest first. */

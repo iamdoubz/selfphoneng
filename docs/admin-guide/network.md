@@ -15,7 +15,7 @@ the wrong place.
    "<router model> disable SIP ALG".
 2. **Forward ports** to the server's LAN IP:
    - UDP 5060 (SIP);
-   - UDP 10000–20000 (audio);
+   - UDP 10000–20000 (audio; see [Call audio ports](#call-audio-ports) to use another range);
    - TCP 443 (and 80 with the bundled Caddy);
    - TCP 5061 only if you use SIP over TLS.
 3. **Double NAT** (the ISP's box in front of your own router): forward the ports on both, or put
@@ -34,6 +34,58 @@ the wrong place.
 
 ![Settings → Network](img/settings-network.png)
 
+## Call audio ports
+
+Call audio (RTP) uses UDP **10000–20000** unless you set another range in `.env` (or, in a
+Portainer stack, in the api's environment):
+
+```sh
+RTP_PORT_START=40000
+RTP_PORT_END=40199
+```
+
+Then `docker compose up -d` (the api writes the range into Asterisk's config), and open **the same
+range** on the firewall and the router instead of 10000–20000. Each call uses two ports, so 200
+ports is plenty for a small office. Pick a range nothing else on the server uses: System →
+Diagnostics counts how many ports in the range are already taken.
+
+## Diagnostics: is the server reachable?
+
+**System → Diagnostics** checks what usually stops calls from working outside the office, and
+says how to fix each problem it finds.
+
+**This server** runs every time you open the page:
+
+- the public IP is set, and is the address the server really reaches the internet from;
+- the host name's DNS record points at that address (with Cloudflare, it must be "DNS only": its
+  proxy carries web pages, not SIP);
+- the server's LAN address is in the local networks;
+- whether phones may sign in from anywhere (the phone network limit refuses phone apps on mobile
+  data), and whether phone setup is limited to the local networks;
+- Asterisk is listening on the SIP ports;
+- how many call audio ports are free.
+
+**From the internet** needs a **network test probe**: a small program, run on a machine outside
+your network, that connects back to the server the way a phone on mobile data or your SIP provider
+does. A server can't test this itself: most routers either don't route a connection to their own
+public address back in, or route it without going through the port forwards.
+
+- **Quick network test**: TCP 80 and 443, and SIP on 5060 over UDP (and TCP if it's on).
+- **Complete network test**: also SIP over TLS (if on), the browser phone's `/ws`, and a sample
+  of the call audio ports (the server listens on them while the probe sends to them).
+
+To run a probe, on any machine outside your network (a small VPS is plenty):
+
+```sh
+docker compose -f deploy/probe/compose.yml up -d
+```
+
+Then put its address, for example `http://203.0.113.50:8080`, in **Settings → Network → Network
+test probe**. The probe only ever tests the address a request comes from, so nobody can use it
+against someone else, and each address gets a few tests per 10 minutes. Its SIP test is one
+OPTIONS request; if you run fail2ban or CrowdSec, add the probe's address to their allow list so a
+test never counts toward a ban.
+
 ## Firewall
 
 Allow only the ports in the [port table](README.md#ports). All SelfPhoneNG containers use the
@@ -46,7 +98,7 @@ ufw allow OpenSSH
 ufw allow 443/tcp
 ufw allow 80/tcp                 # only with the bundled Caddy
 ufw allow 5060/udp
-ufw allow 10000:20000/udp
+ufw allow 10000:20000/udp          # or your RTP_PORT_START:RTP_PORT_END
 ufw enable
 ```
 

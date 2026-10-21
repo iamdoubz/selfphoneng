@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# The network test probe (08 §2.6). Run it on a machine OUTSIDE the network SelfPhoneNG is in (a
+# small VPS is plenty), then put its URL in SelfPhoneNG: Settings → Network → Network test probe.
+# It only ever tests the address that asks it, a few times per 10 minutes per address.
+#
+#   docker compose -f deploy/probe/compose.yml up -d     → http://<this machine>:8080
+#
+# Host networking, so it sees the real address that asks (Docker's published ports can hide it).
+# Behind your own HTTPS reverse proxy instead: set PORT to a local port, TRUST_PROXY=true, and have
+# the proxy set X-Forwarded-For. The SIP checks connect out from here, so no other ports are needed.
+services:
+  probe:
+    # Built by each release, like the api and asterisk images (pick your registry and version).
+    image: ghcr.io/iamdoubz/selfphoneng-probe:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      PORT: '8080'
+      TRUST_PROXY: 'false'
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '3' }

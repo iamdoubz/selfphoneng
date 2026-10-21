@@ -4,6 +4,8 @@ import type {
   AboutDto,
   SystemEventDto,
   SystemStatus,
+  DiagnosticsDto,
+  NetworkTestDto,
   QueueReportRow,
   ReportRange,
   ReportSummary,
@@ -239,6 +241,9 @@ export const systemApi = {
   detectPublicIp: () =>
     api<{ ip: string }>('POST', '/api/settings/network/detect-public-ip').then((r) => r.ip),
   tls: () => api<TlsCert>('GET', '/api/system/tls'),
+  diagnostics: () => api<DiagnosticsDto>('GET', '/api/system/diagnostics'),
+  networkTest: (mode: 'quick' | 'complete') =>
+    api<NetworkTestDto>('POST', '/api/system/diagnostics/network', { mode }),
   backups: () => api<BackupDto[]>('GET', '/api/system/backups'),
   backupNow: () => api<BackupDto>('POST', '/api/system/backups'),
   setupStatus: () => api<{ completed: boolean }>('GET', '/api/setup/status'),

@@ -23,6 +23,7 @@ const NET = 'sp-test';
 const AST = 'sp-test-ast';
 const PHONES = 'sp-test-phones';
 const PN_PHONE = 'sp-test-pn-phone';
+const RTP_PORTS = { start: 31000, end: 31200 };
 const AMI_PORT = 15038;
 const AMI_SECRET = 'call-test-secret';
 const PASS = { '101': 'CallTest101xxxxxxxxxxxxx', '102': 'CallTest102xxxxxxxxxxxxx' };
@@ -79,6 +80,8 @@ function snapshot(): Snapshot {
     announcements: [],
     recordingAnnouncement: null,
     extensions: [ext('101', 'Alice'), ext('102', 'Bob')],
+    // Not rtp.conf's 10000–20000: the generated range must win (RTP_PORT_START/END).
+    rtpPorts: RTP_PORTS,
   };
 }
 
@@ -174,6 +177,13 @@ async function main() {
     ami.start();
     await new Promise((r) => ami.once('connected', r));
     log('AMI connected from the host');
+    const rtp = await ami.command('rtp show settings');
+    if (
+      !new RegExp(`Port start:\\s+${RTP_PORTS.start}\\b`).test(rtp) ||
+      !new RegExp(`Port end:\\s+${RTP_PORTS.end}\\b`).test(rtp)
+    )
+      problems.push(`RTP ports aren't ${RTP_PORTS.start}–${RTP_PORTS.end}:\n${rtp}`);
+    else log(`RTP ports ${RTP_PORTS.start}–${RTP_PORTS.end} (generated, over rtp.conf's)`);
     if (RECORD) {
       // A second, raw AMI session so the fixture holds exactly what Asterisk sent.
       recorder = new Socket();
@@ -237,6 +247,27 @@ async function main() {
     ).out.trim();
     if (!wsReg.startsWith('SIP/2.0 200')) problems.push(`102-web over WebSocket: ${wsReg}`);
     else log('102-web over WebSocket from 127.0.0.1: registered');
+    // The network test probe's SIP checks (08 §2.6): Asterisk answers its OPTIONS, UDP and TCP.
+    const probed = docker(
+      'run',
+      '--rm',
+      '--network',
+      NET,
+      '-v',
+      `${join(import.meta.dirname, '../../../probe/src')}:/probe:ro`,
+      'node:24-trixie-slim',
+      'node',
+      '--input-type=module',
+      '-e',
+      `import { runTest } from '/probe/checks.ts';
+       for (const kind of ['sip-udp', 'sip-tcp'])
+         console.log(JSON.stringify(await runTest('${AST}', 'pbx.test', { id: kind, kind, port: 5060 })));`,
+    ).out;
+    for (const kind of ['sip-udp', 'sip-tcp'])
+      if (!new RegExp(`"id":"${kind}","ok":true,"detail":"SIP/2.0 \\d{3}`).test(probed))
+        problems.push(`probe ${kind}: ${probed.trim()}`);
+    if (!problems.some((p) => p.startsWith('probe ')))
+      log(`probe: Asterisk answers SIP OPTIONS over UDP and TCP`);
     // 101 also on an iOS Linphone: '&' in its push params used to break Dial for every device.
     const pn = docker(
       'run',

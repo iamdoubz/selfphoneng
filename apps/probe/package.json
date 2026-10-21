@@ -1,0 +1,11 @@
+{
+  "name": "@selfphoneng/probe",
+  "version": "0.0.2",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.ts",
+    "typecheck": "tsc --noEmit"
+  }
+}

@@ -5,7 +5,13 @@ import { networkInterfaces } from 'node:os';
 import { join, resolve } from 'node:path';
 import { desc, lt } from 'drizzle-orm';
 import { z } from 'zod';
-import type { ListResponse, SystemEventDto, SystemStatus } from '@selfphoneng/shared';
+import type {
+  DiagnosticsDto,
+  ListResponse,
+  NetworkTestDto,
+  SystemEventDto,
+  SystemStatus,
+} from '@selfphoneng/shared';
 import type { FastifyInstance } from 'fastify';
 import { requireAdmin } from '../auth/guards.ts';
 import { audit } from '../services/audit.ts';
@@ -14,7 +20,8 @@ import { systemEvents } from '../db/schema.ts';
 import { appVersion } from './about.ts';
 import { csvCell } from './calls.ts';
 import { BACKUP_NAME, listBackups, runBackup } from '../services/backup.ts';
-import { HttpError, notFound } from '../errors.ts';
+import { badRequest, HttpError, notFound } from '../errors.ts';
+import { insideChecks, networkTest } from '../services/diagnostics.ts';
 import { AmiDisconnectedError } from '../ami/client.ts';
 import { GENERATED_FILES } from '../generator/index.ts';
 
@@ -67,7 +74,7 @@ export async function systemRoutes(app: FastifyInstance) {
         sip: s['sip.udpPort'],
         sipTcp: s['sip.tcpEnabled'],
         sips: s['sip.tlsEnabled'] ? s['sip.tlsPort'] : null,
-        rtp: '10000–20000', // asterisk/conf/rtp.conf
+        rtp: `${app.config.RTP_PORT_START}–${app.config.RTP_PORT_END}`, // RTP_PORT_START/END
         https: 443,
       },
       ami: { connected: app.ami.isConnected() },
@@ -161,6 +168,20 @@ export async function systemRoutes(app: FastifyInstance) {
       throw notFound('Backup not found');
     reply.header('content-disposition', `attachment; filename="${name}"`);
     return reply.sendFile(name, dir);
+  });
+
+  // Diagnostics (08 §2.6): the inside checks; the probe's outside test, quick or complete.
+  const diag = () => ({ db: app.db, config: app.config, ami: app.ami });
+  app.get('/api/system/diagnostics', async (): Promise<DiagnosticsDto> => ({
+    checks: await insideChecks(diag()),
+  }));
+  app.post('/api/system/diagnostics/network', async (req): Promise<NetworkTestDto> => {
+    const { mode } = z
+      .object({ mode: z.enum(['quick', 'complete']).default('quick') })
+      .parse(req.body ?? {});
+    if (!(await getAllSettings(app.db))['network.probeUrl'])
+      throw badRequest('No network test probe set (Settings → Network)');
+    return networkTest(diag(), mode);
   });
 
   app.get('/api/system/generated-files', async () => ({

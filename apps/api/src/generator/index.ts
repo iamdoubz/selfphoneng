@@ -101,6 +101,8 @@ export type GeneratorDeps = {
   log: Pick<FastifyBaseLogger, 'info' | 'error'>;
   onApplied?: (r: ApplyResult) => void;
   debounceMs?: number;
+  /** RTP_PORT_START/END (config.ts). */
+  rtpPorts?: { start: number; end: number };
 };
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -165,7 +167,7 @@ export function createGenerator(deps: GeneratorDeps) {
       restartRequired: false,
     };
     try {
-      const snap = await loadSnapshot(db);
+      const snap = { ...(await loadSnapshot(db)), rtpPorts: deps.rtpPorts };
       const files = render(snap);
       await mkdir(join(dir, '.prev'), { recursive: true });
       const current = new Map<GeneratedFileName, string | null>();

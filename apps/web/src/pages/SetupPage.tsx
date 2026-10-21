@@ -216,6 +216,7 @@ function NetworkStep({ next }: { next: () => void }) {
       publicIp={s.data['network.publicIp'] ?? ''}
       lanIp={s.data['network.lanIp'] ?? status.data.lanIps[0] ?? ''}
       lanIps={status.data.lanIps}
+      rtpPorts={status.data.ports.rtp}
       localNets={s.data['network.localNets'].join(', ')}
     />
   );
@@ -226,6 +227,7 @@ function NetworkForm(p: {
   publicIp: string;
   lanIp: string;
   lanIps: string[];
+  rtpPorts: string;
   localNets: string;
 }) {
   const [publicIp, setPublicIp] = useState(p.publicIp);
@@ -325,7 +327,7 @@ function NetworkForm(p: {
             breaks them.
           </li>
           <li>
-            Forward <strong>UDP 5060</strong> and <strong>UDP 10000–20000</strong> to this server (
+            Forward <strong>UDP 5060</strong> and <strong>UDP {p.rtpPorts}</strong> to this server (
             {lanIp || 'its LAN IP'}). Behind two routers, do it on both.
           </li>
         </ol>

@@ -203,7 +203,11 @@ export type Snapshot = {
   mohClasses: string[];
   /** Played before recording a call that a phone number records (Settings → Recording). */
   recordingAnnouncement: string | null;
+  /** Call audio ports from the environment (RTP_PORT_START/END), not the database. */
+  rtpPorts?: { start: number; end: number };
 };
+
+export const DEFAULT_RTP_PORTS = { start: 10000, end: 20000 };
 
 export function todayIn(timezone: string, now = new Date()): string {
   // en-CA formats as YYYY-MM-DD.

@@ -270,3 +270,9 @@ warning is gone. System information shows the IP and ports, the event log and it
 in, the login page's link opens About, whose "Code v<version>" downloads `selfphone.tar.gz` byte for
 byte as built: the runner builds the api image and copies its `VERSION` and archive into the api's
 working folder (5th argument). About 6 minutes.
+
+`m11-diagnostics.mjs <baseUrl> <adminEmail> <adminPassword> <shotsDir>` (after `m1-t4.mjs`, on a
+database without `network.probeUrl`) checks System → Diagnostics: the server's checks show, the
+network tests wait for a probe, then it sets one in Settings → Network (a probe it starts on
+127.0.0.1:18090, so the results also warn that it's inside the network) and runs a quick and a
+complete test. Asterisk isn't needed.

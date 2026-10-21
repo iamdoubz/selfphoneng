@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// System (05 §2): system information, how to restart telephony, and the event log.
+// System (05 §2): system information, how to restart telephony, diagnostics, and the event log.
 // ponytail: the spec's generator runs, generated files, CLI views and audit log aren't here yet;
 // the admin guide's troubleshooting page covers them from the server's shell.
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
-import type { SystemEventDto } from '@selfphoneng/shared';
+import type { DiagnosticCheck, SystemEventDto } from '@selfphoneng/shared';
 import { systemApi } from '../../api/client.ts';
 import { Alert, Button } from '../../components/ui.tsx';
 
@@ -74,6 +74,105 @@ function Item({ label, children }: { label: string; children: ReactNode }) {
       <dt className="text-zinc-500">{label}</dt>
       <dd className="flex items-center gap-1.5 font-semibold">{children}</dd>
     </div>
+  );
+}
+
+const PULSE = 'M22 12h-4l-3 9L9 3l-3 9H2';
+const STATUS: Record<DiagnosticCheck['status'], [string, string]> = {
+  ok: ['OK', 'bg-green-500'],
+  warn: ['Check this', 'bg-amber-500'],
+  fail: ['Problem', 'bg-red-500'],
+  skip: ['Not tested', 'bg-zinc-400'],
+};
+
+function Checks({ label, checks }: { label: string; checks: DiagnosticCheck[] }) {
+  return (
+    <ul aria-label={label} className="divide-y divide-zinc-100 dark:divide-zinc-800">
+      {checks.map((c) => (
+        <li key={c.id} className="flex gap-3 px-4 py-2 text-sm">
+          <span
+            aria-hidden
+            className={`mt-1.5 size-2 shrink-0 rounded-full ${STATUS[c.status][1]}`}
+          />
+          <div className="min-w-0 flex-1">
+            <p>
+              <span className="font-medium">{c.label}</span>
+              <span className="text-zinc-500"> · {STATUS[c.status][0]}</span>
+            </p>
+            <p className="break-words text-zinc-600 dark:text-zinc-400">{c.detail}</p>
+            {c.fix && (
+              <p className="mt-1 rounded-md bg-amber-50 px-2 py-1 break-words text-amber-900 dark:bg-amber-950/50 dark:text-amber-100">
+                <strong>How to fix:</strong> {c.fix}
+              </p>
+            )}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Diagnostics (08 §2.6): the server's own checks, and the probe's test from outside. */
+function Diagnostics() {
+  const inside = useQuery({ queryKey: ['diagnostics'], queryFn: systemApi.diagnostics });
+  const test = useMutation({ mutationFn: systemApi.networkTest });
+  const hasProbe = inside.data?.checks.some((c) => c.id === 'probe' && c.status === 'ok');
+  return (
+    <Panel
+      title="Diagnostics"
+      path={PULSE}
+      action={
+        <Button onClick={() => void inside.refetch()} disabled={inside.isFetching}>
+          Check again
+        </Button>
+      }
+    >
+      <h3 className="px-4 pt-3 text-sm font-medium">This server</h3>
+      {inside.isPending && <p className="px-4 py-2 text-sm text-zinc-500">Checking…</p>}
+      {inside.error && <Alert>{inside.error.message}</Alert>}
+      {inside.data && <Checks label="Server checks" checks={inside.data.checks} />}
+      <div className="flex flex-col gap-2 border-t border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
+        <h3 className="font-medium">From the internet</h3>
+        <p className="text-zinc-600 dark:text-zinc-400">
+          The network test probe connects back to this server from outside, the way a phone on
+          mobile data or your SIP provider does. Quick: ports 80, 443 and SIP. Complete: also SIP
+          over TLS, the browser phone and the call audio ports.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="primary"
+            onClick={() => test.mutate('quick')}
+            disabled={!hasProbe || test.isPending}
+          >
+            Quick network test
+          </Button>
+          <Button onClick={() => test.mutate('complete')} disabled={!hasProbe || test.isPending}>
+            Complete network test
+          </Button>
+        </div>
+        {inside.data && !hasProbe && (
+          <p className="text-xs text-zinc-500">
+            Set a probe first:{' '}
+            <Link to="/admin/settings/network" className="text-sky-700 underline dark:text-sky-400">
+              Settings → Network
+            </Link>
+            .
+          </p>
+        )}
+        {test.isPending && (
+          <p role="status" className="text-zinc-500">
+            Testing… (up to half a minute)
+          </p>
+        )}
+        {test.error && <Alert>{test.error.message}</Alert>}
+      </div>
+      {test.data && (
+        <Checks
+          label={`${test.data.mode === 'quick' ? 'Quick' : 'Complete'} network test`}
+          checks={test.data.checks}
+        />
+      )}
+    </Panel>
   );
 }
 
@@ -180,6 +279,8 @@ export function SystemPage() {
           </p>
         </div>
       </Panel>
+
+      <Diagnostics />
 
       <Panel
         title="Event log"

@@ -47,7 +47,7 @@ declare module 'fastify' {
     /** Decorated by the caller (index.ts, tests) before ready(): it needs app.log. */
     generator: Generator;
     /** Decorated by the caller too (tests pass a fake). */
-    ami: Pick<AmiClient, 'action' | 'isConnected'>;
+    ami: Pick<AmiClient, 'action' | 'command' | 'isConnected'>;
   }
 }
 

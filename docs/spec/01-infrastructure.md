@@ -382,7 +382,10 @@ rtpend = 20000
 #include selfphoneng/rtp_selfphoneng.conf
 ```
 (The generator writes `icesupport`, `stunaddr` and `[ice_host_candidates]` into
-`rtp_selfphoneng.conf`, see `03-config-generator.md` §4.)
+`rtp_selfphoneng.conf`, see `03-config-generator.md` §4. Since 2026-10-21 it also writes
+`rtpstart`/`rtpend` there from the api's `RTP_PORT_START`/`RTP_PORT_END`: Asterisk takes a
+setting's last value, so they win over the defaults above, which only cover the first boot.
+`call-test.ts` checks `rtp show settings` with 31000–31200.)
 
 ### 3.7 `pjsip.conf`
 ```ini

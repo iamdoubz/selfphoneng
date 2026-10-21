@@ -49,10 +49,25 @@ The call connects but one side (or both) hears nothing. It's almost always NAT
 1. **SIP ALG** must be off on every router in the path. This is the first suspect.
 2. **Public IP:** Settings → Network must show the server's current public IP. If it changed,
    update it and restart telephony (`docker compose restart asterisk`).
-3. **Audio ports:** UDP 10000–20000 must be forwarded to the server and open on its firewall.
+3. **Audio ports:** UDP 10000–20000 (or your `RTP_PORT_START`–`RTP_PORT_END`) must be forwarded to the server and open on its firewall. **System → Diagnostics → Complete network test** checks it from outside.
 4. **Local networks** (setup wizard, Network step) must list your office networks, and only them.
 5. **Calls drop after about 30 seconds:** same causes. The answer never reaches the other side,
    so it gives up.
+
+## Phones work on the office Wi-Fi, not on mobile data
+
+A phone app (Linphone) registers and calls on the office network, but not elsewhere. Open
+**System → Diagnostics**: it checks each of these and says what to change.
+
+1. **The phone network limit** (Settings → Security, "Only accept desk phones from the networks
+   below") refuses phones outside the local networks. Turn it off, or add the networks they use.
+2. **Public IP** (Settings → Network) must be set: otherwise phones outside are given the
+   server's private address.
+3. **DNS**: the phone finds the server by its host name, which must point at the public IP. Behind
+   Cloudflare's proxy (orange cloud) web pages work but SIP doesn't: set it to "DNS only".
+4. **Port forwards**: UDP 5060 and the audio ports forwarded on the router, as well as open on the
+   server's firewall. On the office Wi-Fi the phone reaches the server directly, so missing
+   forwards only show up outside. The **Quick network test** checks 5060 from outside.
 
 ## The trunk won't register
 

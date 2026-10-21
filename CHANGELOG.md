@@ -5,6 +5,13 @@ tag (08 §3.1): `selfphoneng-api` and `selfphoneng-asterisk`, on ghcr.io and on 
 
 ## Unreleased
 
+- **System → Diagnostics:** checks what usually keeps phones off the network (public IP, DNS,
+  local networks, the phone network limit, SIP listening, free audio ports), with how to fix each.
+  A **Quick** or **Complete network test** checks the ports from the internet through a network
+  test probe (`apps/probe`, image `selfphoneng-probe`) you run outside your network; set its URL
+  in Settings → Network.
+- The call audio port range is configurable: `RTP_PORT_START` and `RTP_PORT_END` (default
+  10000–20000).
 - Updating (Docker only): a new version backs up before it changes the database, and stops
   instead if the backup fails. `scripts/update.sh` updates a compose install to a release, checks
   the result and goes back by itself if the check fails. The admin guide's "Updating" section

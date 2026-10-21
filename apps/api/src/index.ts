@@ -46,6 +46,7 @@ const generator = createGenerator({
   db,
   ami,
   dir: resolve(config.ASTERISK_CONFIG_DIR),
+  rtpPorts: { start: config.RTP_PORT_START, end: config.RTP_PORT_END },
   log: app.log,
   onApplied: (r) => {
     live.emit('message', {

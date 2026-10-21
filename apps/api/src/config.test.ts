@@ -19,6 +19,16 @@ describe('config', () => {
     expect(() => loadConfig({ ...env, APP_SECRET: undefined })).toThrow(ConfigError);
     expect(() => loadConfig({ ...env, APP_SECRET: 'c2hvcnQ=' })).toThrow(/APP_SECRET/);
   });
+  it('call audio ports: 10000–20000 by default; the end above the start', () => {
+    expect(loadConfig(env)).toMatchObject({ RTP_PORT_START: 10000, RTP_PORT_END: 20000 });
+    expect(loadConfig({ ...env, RTP_PORT_START: '40000', RTP_PORT_END: '40199' })).toMatchObject({
+      RTP_PORT_START: 40000,
+      RTP_PORT_END: 40199,
+    });
+    expect(() => loadConfig({ ...env, RTP_PORT_START: '40000', RTP_PORT_END: '30000' })).toThrow(
+      /RTP_PORT_END/,
+    );
+  });
   it('rejects a non-postgres DATABASE_URL', () => {
     expect(() => loadConfig({ ...env, DATABASE_URL: 'mysql://x' })).toThrow(/DATABASE_URL/);
   });

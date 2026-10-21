@@ -35,7 +35,7 @@ server is behind one; see [Network](network.md)):
 | 80 | TCP | Only with the bundled Caddy: getting the HTTPS certificate |
 | 5060 | UDP (+TCP) | SIP: voip.ms and desk phones |
 | 5061 | TCP | Only if you turn on SIP over TLS |
-| 10000–20000 | UDP | Call audio (RTP) |
+| 10000–20000 | UDP | Call audio (RTP); another range with `RTP_PORT_START`/`RTP_PORT_END` ([Network](network.md#call-audio-ports)) |
 
 Everything else (the database, the api on 8080, Asterisk's 5038 and 8088) listens on
 127.0.0.1 only. Don't open them.

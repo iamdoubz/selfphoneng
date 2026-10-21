@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Container images, built only when a release is published (08 §3.1). Runs on GitHub Actions and
 # Gitea Actions (both read .github/workflows); each pushes to its own registry:
-#   GitHub: ghcr.io/<owner>/selfphoneng-{api,asterisk}       (the job's GITHUB_TOKEN)
-#   Gitea:  <gitea host>/<owner>/selfphoneng-{api,asterisk}  (secrets REGISTRY_USER + REGISTRY_TOKEN:
+#   GitHub: ghcr.io/<owner>/selfphoneng-{api,asterisk,probe} (the job's GITHUB_TOKEN)
+#   Gitea:  <gitea host>/<owner>/selfphoneng-{api,asterisk,probe} (secrets REGISTRY_USER + REGISTRY_TOKEN:
 #           a personal access token with write:package; Gitea's job token can't push packages)
 # Tags: the version (0.0.1), plus <major>.<minor> and latest; a pre-release gets the version and dev.
 name: release
@@ -79,6 +79,7 @@ jobs:
           )
           docker build "${labels[@]}" -f apps/api/Dockerfile -t "$p-api:build" .
           docker build "${labels[@]}" -t "$p-asterisk:build" asterisk
+          docker build "${labels[@]}" -f apps/probe/Dockerfile -t "$p-probe:build" .
       - name: Check
         shell: bash
         run: |
@@ -88,15 +89,16 @@ jobs:
           docker run --rm --entrypoint node "$p-api:build" --input-type=module -e "await import('/app/dist/app.js')"
           test "$(docker run --rm --entrypoint cat "$p-api:build" /app/VERSION)" = "${{ steps.v.outputs.version }}"
           docker run --rm --entrypoint asterisk "$p-asterisk:build" -V
+          docker run --rm "$p-probe:build" node --input-type=module -e "await import('/app/src/server.ts')"
       - name: Push
         shell: bash
         run: |
           set -euo pipefail
           p="${{ steps.v.outputs.prefix }}"
-          for image in api asterisk; do
+          for image in api asterisk probe; do
             for t in ${{ steps.v.outputs.tags }}; do
               docker tag "$p-$image:build" "$p-$image:$t"
               docker push "$p-$image:$t"
             done
           done
-          echo "pushed: $p-{api,asterisk}:{${{ steps.v.outputs.tags }}}" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+          echo "pushed: $p-{api,asterisk,probe}:{${{ steps.v.outputs.tags }}}" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"

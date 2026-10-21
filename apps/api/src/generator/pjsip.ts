@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // pjsip_selfphoneng.conf (03 §5) and rtp_selfphoneng.conf (03 §4).
 import { CLASS_RANK } from '@selfphoneng/shared';
-import { byNumber, type SnapExtension, type SnapTrunk, type Snapshot } from './load.ts';
+import {
+  byNumber,
+  DEFAULT_RTP_PORTS,
+  type SnapExtension,
+  type SnapTrunk,
+  type Snapshot,
+} from './load.ts';
 import * as s from './sanitize.ts';
 
 const section = (title: string, lines: (string | false | null | undefined)[]) =>
@@ -275,7 +281,13 @@ export function renderPjsip(snap: Snapshot): string {
 
 export function renderRtp(snap: Snapshot): string {
   const st = snap.settings;
-  const lines = ['icesupport = yes'];
+  const rtp = snap.rtpPorts ?? DEFAULT_RTP_PORTS;
+  const lines = [
+    // After rtp.conf's own 10000–20000 (Asterisk takes a setting's last value): RTP_PORT_* (env).
+    `rtpstart = ${s.digits(String(rtp.start))}`,
+    `rtpend = ${s.digits(String(rtp.end))}`,
+    'icesupport = yes',
+  ];
   if (st['network.stunServer']) lines.push(`stunaddr = ${hostPort(st['network.stunServer'])}`);
   if (st['network.lanIp'] && st['network.publicIp'])
     lines.push(

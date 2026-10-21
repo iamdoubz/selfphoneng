@@ -95,6 +95,29 @@ get the proxy's address only (below). The setting is on Settings → Security, w
 - `.env` mode 0600 (install.sh sets it).
 - Recordings and voicemail are served only through authenticated api routes, never as static files.
 
+### 2.6 Network diagnostics (owner, 2026-10-21)
+System → Diagnostics (`services/diagnostics.ts`, admin only). Every failed or doubtful line says
+how to fix it.
+- **This server** (`GET /api/system/diagnostics`): public IP set and equal to what
+  api.ipify.org sees; `PUBLIC_HOSTNAME`'s A records include it (Cloudflare proxy named in the fix);
+  `network.lanIp` inside `network.localNets`; the phone ACL (§2.2) and `provisioning.lanOnly`
+  flagged as limits on phones elsewhere; `pjsip show transports` has the enabled transports; the
+  RTP range's even ports bound once each, a warning past a quarter taken; whether a probe is set.
+- **From the internet** (`POST /api/system/diagnostics/network {mode}`) needs the probe,
+  `apps/probe` (no dependencies, its own image `selfphoneng-probe`, `deploy/probe/compose.yml`),
+  run outside the network; `network.probeUrl` points at it. A server can't test its own ports:
+  hairpin NAT is missing or skips the port forwards, and browsers refuse port 5060.
+  - `POST /v1/check {host, tests}`: the probe tests **only the address the request came from** (the
+    last X-Forwarded-For entry with `TRUST_PROXY=true`), so it can't be aimed at anyone else; 20
+    tests at most, 10 checks per address per 10 minutes, 4 s per test.
+  - Quick: HTTP 80, HTTPS 443 `/healthz` (status and certificate), SIP OPTIONS over UDP (and TCP
+    when on) to `sip.udpPort`. Complete adds SIP over TLS (when on), a WebSocket upgrade on `/ws`
+    (protocol `sip`), and up to four even ports of the RTP range: the api binds them and the probe
+    sends a token to each.
+  - The answer's `ip` is checked too: a private one means the probe is inside the network; another
+    public one than `network.publicIp` means a VPN or a changed address.
+- The RTP range comes from `RTP_PORT_START`/`RTP_PORT_END` (api env, default 10000–20000; 01 §3.6).
+
 ## 3. Operations
 
 ### 3.1 Install / update
