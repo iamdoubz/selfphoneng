@@ -17,6 +17,8 @@ the wrong place.
    - UDP 5060 (SIP);
    - UDP 10000–20000 (audio; see [Call audio ports](#call-audio-ports) to use another range);
    - TCP 443 (and 80 with the bundled Caddy);
+   - TCP 5060 only for phones or trunks set to TCP (Settings → Security → Accept SIP over TCP;
+     phones this server sets up use UDP);
    - TCP 5061 only if you use SIP over TLS.
 3. **Double NAT** (the ISP's box in front of your own router): forward the ports on both, or put
    your router in the ISP box's DMZ / bridge mode.

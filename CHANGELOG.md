@@ -5,6 +5,11 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
+## Unreleased
+
+- Settings → Security has **Accept SIP over TCP** (on by default, as before). It was a setting
+  with no switch.
+
 ## v0.0.3 — 2026-10-21
 
 **Before you update:** this version changes the database (music-on-hold order). The api backs up

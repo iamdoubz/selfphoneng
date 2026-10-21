@@ -549,10 +549,11 @@ function NetworkTab({ s }: { s: SettingsDto }) {
   );
 }
 
-/** Phone ACL (08 §2.2), outside calls at once (08 §1), provisioning access (07 §2), SIP over TLS (M11-T2). */
+/** Phone ACL (08 §2.2), outside calls at once (08 §1), provisioning access (07 §2), SIP over TCP, SIP over TLS (M11-T2). */
 function SecurityTab({ s }: { s: SettingsDto }) {
   const save = useSave();
   const cert = useQuery({ queryKey: ['tls'], queryFn: systemApi.tls });
+  const [tcpOn, setTcpOn] = useState(s['sip.tcpEnabled']);
   const [tlsOn, setTlsOn] = useState(s['sip.tlsEnabled']);
   const [tlsPort, setTlsPort] = useState(String(s['sip.tlsPort']));
   const [restrict, setRestrict] = useState(s['sip.restrictPhonesToLocalNets']);
@@ -579,6 +580,7 @@ function SecurityTab({ s }: { s: SettingsDto }) {
           'provisioning.enabled': provOn,
           'calls.maxPerExtension': Number(perExt),
           'calls.maxTotal': Number(total),
+          'sip.tcpEnabled': tcpOn,
           'sip.tlsEnabled': tlsOn,
           'sip.tlsPort': Number(tlsPort),
         });
@@ -639,6 +641,12 @@ function SecurityTab({ s }: { s: SettingsDto }) {
       <h2 className="font-medium">Phone setup files</h2>
       {box(provOn, setProvOn, 'Serve setup files to phones (Phones page)')}
       {box(lanOnly, setLanOnly, 'Only to phones on the local networks')}
+      <h2 className="font-medium">SIP over TCP</h2>
+      {box(tcpOn, setTcpOn, `Accept SIP over TCP (port ${s['sip.udpPort']})`)}
+      <p className="-mt-2 text-xs text-zinc-500">
+        For phones and trunks set to TCP. Phones set up by this server use UDP. Changing it needs a
+        telephony restart.
+      </p>
       <h2 className="font-medium">Encrypted SIP (TLS)</h2>
       <p className="text-sm" aria-label="TLS certificate">
         {cert.data?.ok
