@@ -80,7 +80,9 @@ if [ -z "$yes" ]; then
 fi
 
 # What the check compares against, and what going back needs.
-prev=$(git rev-parse HEAD)
+# Going back means the running version's release, which isn't the checkout when that was moved
+# ahead by hand (a folder without this script yet: git checkout <release>, then run it).
+prev=$(git rev-parse -q --verify "refs/tags/v$current^{commit}" || git rev-parse HEAD)
 regs_before=$(ast 'pjsip show registrations' | grep -cw Registered || true)
 mig() { dc exec -T postgres psql -U selfphoneng -d selfphoneng -tAc 'select count(*) from drizzle.__drizzle_migrations'; }
 mig_before=$(mig) || die "can't read the database; is postgres running?"

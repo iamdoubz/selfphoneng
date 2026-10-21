@@ -274,6 +274,6 @@ Each one checked against a real account before it's called supported (06's verif
 ## Definition of done for v1.0
 Tracked box by box in [`docs/v1-checklist.md`](../v1-checklist.md).
 All of M0–M11 done (including the open real voip.ms checks under M3), plus: 7 days running on the owner's server handling real calls with
-no crash/restart of the api or Asterisk, and nightly backups restoring cleanly. Also `scripts/update.sh` (08 §3.1) written,
-reviewed and thoroughly tested on a real server (updating a running install, with calls, backups and the bundled Caddy), with
-the admin guide's "Updating" section to match.
+no crash/restart of the api or Asterisk, and nightly backups restoring cleanly. Also updating (08 §3.1, Docker only): the api's
+backup before migrating, `scripts/update.sh` for compose installs, and the admin guide's "Updating" section, tested by
+updating a real running install (compose with the bundled Caddy, and the owner's Portainer stack) with calls and backups.

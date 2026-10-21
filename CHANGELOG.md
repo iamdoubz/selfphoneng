@@ -5,6 +5,11 @@ tag (08 §3.1): `selfphoneng-api` and `selfphoneng-asterisk`, on ghcr.io and on 
 
 ## Unreleased
 
+- Updating (Docker only): a new version backs up before it changes the database, and stops
+  instead if the backup fails. `scripts/update.sh` updates a compose install to a release, checks
+  the result and goes back by itself if the check fails. The admin guide's "Updating" section
+  covers compose and Portainer.
+- Container logs are capped (3 × 10 MB) in `docker-compose.yml`.
 - Security leftovers from the review (08 §6), all fixed:
   - Asterisk no longer loads the modules that can run host commands (`app_system`, `func_shell`,
     `app_disa`, `res_agi`, `app_externalivr`).

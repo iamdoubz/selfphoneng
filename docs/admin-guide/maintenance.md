@@ -39,6 +39,10 @@ The script:
 
 Each run is logged in `data/update-logs/`, with one line per update in `data/update-logs/history`.
 
+A folder from before the script existed (v0.0.2 and older) gets it with the release: run
+`git fetch --tags && git checkout v0.0.3` first (with the release you want), then
+`sudo scripts/update.sh v0.0.3`. The running version stays up until the script restarts it.
+
 ### Portainer, or another setup with pulled images
 
 1. **Settings → Backups → Back up now**, and download the backup.

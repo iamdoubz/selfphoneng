@@ -99,9 +99,21 @@ get the proxy's address only (below). The setting is on Settings → Security, w
 
 ### 3.1 Install / update
 - `scripts/install.sh` (01 §1.3).
-- `scripts/update.sh`: `git pull --ff-only`, `docker compose build`, `docker compose up -d`. Migrations run automatically on api start. Print the new version.
-  Not built yet (owner, 2026-10-20): nothing has shipped, so there is nothing to update. Before v1.0
-  ships it must be written, reviewed and thoroughly tested (see the v1.0 definition of done, 09).
+- Docker only (owner, 2026-10-21): SelfPhoneNG never supports a bare-metal install.
+- Database changes ship in the image: the api runs pending migrations as it starts. Before it does,
+  it backs up (`backupBeforeMigrate`: database, voicemail, custom sounds, MOH; no recordings; prunes
+  nothing) and stops, leaving the database alone, if that fails; `SKIP_BACKUP_BEFORE_MIGRATE=true`
+  overrides. Any other one-off upgrade step goes in the image the same way, so pulling the new
+  image is the whole update for every install. What can't (a PostgreSQL major version, a new stack
+  setting) goes in the changelog under the version that needs it.
+- `scripts/update.sh`, for compose installs (the folder `install.sh` set up) only: checks (clean
+  checkout, 3 GB free, no calls, the changelog, new `.env.example` keys), a backup
+  (`node dist/backup-cli.js` in the running api), Asterisk logs gzipped (kept 90 days), the
+  release's images built while the old ones run, `up -d`, then a check (healthz, `/app/VERSION`,
+  Asterisk fully booted, trunks registered before still are). On a failed check: the previous
+  commit rebuilt and, if the migration count changed, `restore.sh` with the api's pre-migration
+  backup. Logs in `data/update-logs/`. Image-based installs (Portainer) change the tag and redeploy
+  (admin guide, maintenance.md).
 - Version: `package.json` version at the root, exposed at `/api/system/status`. Semver. `CHANGELOG.md` kept by hand.
 - Releases (owner, 2026-10-20; first one v0.0.1): container images are built only when a release
   is published, by `.github/workflows/release.yml`, which runs on Gitea and on the GitHub mirror,

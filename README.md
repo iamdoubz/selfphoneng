@@ -19,7 +19,8 @@ A fully open source, self-hosted business phone system. Bring your own SIP trunk
   pickup, conference rooms, paging and intercom, music on hold.
 - **Voicemail** with email, **call history**, **recordings**, a **live dashboard** (listen,
   whisper, barge) and reports.
-- **Running it:** backups and restore, background health checks, webhooks and API tokens,
+- **Running it:** updates (`scripts/update.sh` for compose installs; a backup before every
+  database change), backups and restore, background health checks, webhooks and API tokens,
   two-step sign-in for admins, limits on outside calls at once.
 
 ## Wanted
@@ -27,7 +28,6 @@ A fully open source, self-hosted business phone system. Bring your own SIP trunk
 - More SIP providers: **Telnyx, Flowroute and Twilio** first.
 - SMS (built for voip.ms, parked until wanted).
 - Push notifications, so phone apps ring in the background.
-- An update script for running installs.
 - Text-to-speech prompts, recording prompts by phone, a queue wallboard, Polycom phones.
 
 ## Docs

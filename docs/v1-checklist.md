@@ -46,9 +46,14 @@ In progress on the owner's server (v0.0.2, from 2026-10-21).
 
 ## Updating
 
-- [ ] `scripts/update.sh` written, reviewed and tested on a real server: updating a running
-      install, with calls, backups and the bundled Caddy.
-- [ ] The admin guide's "Updating" section matches it.
+Docker only, never bare metal (owner, 2026-10-21).
+
+- [x] The api backs up before it changes the database, and stops if it can't (2026-10-21).
+- [x] `scripts/update.sh` for compose installs, and the admin guide's "Updating" section for
+      compose and Portainer (2026-10-21).
+- [ ] A real compose install with the bundled Caddy updated with `scripts/update.sh`, with calls
+      and backups.
+- [ ] The owner's Portainer stack updated to a release that changes the database.
 
 ## Security leftovers (08 §6)
 
