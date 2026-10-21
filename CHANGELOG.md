@@ -1,10 +1,29 @@
 # Changelog
 
 Versions follow [semver](https://semver.org). Each release's container images are built from its
-tag (08 §3.1): `selfphoneng-api` and `selfphoneng-asterisk`, on ghcr.io and on the Gitea registry.
+tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe`, on ghcr.io and on
+the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
+Docker.
 
-## Unreleased
+## v0.0.3 — 2026-10-21
 
+**Before you update:** this version changes the database (music-on-hold order). The api backs up
+first, by itself (see the admin guide, Updating). Compose installs from v0.0.2 get
+`scripts/update.sh` with the release: `git fetch --tags && git checkout v0.0.3`, then
+`sudo scripts/update.sh v0.0.3`. Portainer: change both tags to `0.0.3` and redeploy. Optional:
+`RTP_PORT_START`/`RTP_PORT_END` on the api, then open that range instead of 10000–20000.
+
+- **Any internal number:** users, ring groups, queues, digital receptionists, conference rooms and
+  paging groups take any free number of 1 to 6 digits, for example **1** for the first user (the
+  setup wizard asks for it too). Settings → **Numbering** sets where **Next free** looks. A
+  one-digit number and a menu key of a digital receptionist that lets callers dial numbers can't
+  be the same. Ring groups, queues, voicemail, pickup (`**`), queue login (`*45`), forwarding
+  (`*72`) and intercom (`*80`) now work with one-digit numbers.
+- **Music on hold order:** a set plays in the order shown on Sounds & music (move files up and
+  down; new uploads go last), or **Shuffle** for random order. Before, the order was Asterisk's.
+- **Reports:** totals now include answered calls, talk time and **outside minutes** (in and out,
+  roughly what voip.ms bills), with outside minutes per day, and the **voip.ms balance** of each
+  trunk that has the API login.
 - **System → Diagnostics:** checks what usually keeps phones off the network (public IP, DNS,
   local networks, the phone network limit, SIP listening, free audio ports), with how to fix each.
   A **Quick** or **Complete network test** checks the ports from the internet through a network
