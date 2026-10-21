@@ -590,6 +590,8 @@ export const voicemailMessages = pgTable('voicemail_messages', {
   filePath: text().notNull(),
   emailedAt: tstz(),
   deletedAt: tstz(),
+  /** Speech to text (spec 10), when ai.voicemailTranscripts is on; null: none (yet). */
+  transcript: text(),
   ...timestamps,
 });
 

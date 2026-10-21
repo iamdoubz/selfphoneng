@@ -13,6 +13,12 @@ Docker.
   your outbound routes and internal number lengths: 911 and full outside numbers go out the moment
   they're dialed instead of after a pause. Yealink desk phones get the same as dial-now rules.
 - Internal numbers can no longer start with 911 or 9911, so 911 can go out at once.
+- **Local AI** (admin guide: [Local AI](docs/admin-guide/ai.md)): Settings → AI sets a language
+  model, speech to text and text to speech, each with a Test, on this server or the local network
+  only (anything else is refused). `deploy/ai/compose.yml` is a second stack with Speaches
+  (Whisper and Kokoro) on the GPU. `AI_*` in `.env` sets them on a new install.
+- **Voicemail transcripts:** with AI on, a new message's words are in the voicemail email and on the
+  voicemail page. Database change: `voicemail_messages.transcript` (the api backs up first).
 
 ## v0.0.4 — 2026-10-21
 

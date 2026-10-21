@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // M4-T2: voicemail index, live event and email (04 §5.6, §10).
 import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { LiveMessage } from '@selfphoneng/shared';
 import { extensions, voicemailMessages } from '../src/db/schema.ts';
 import { parseCallerId, type watchVoicemail } from '../src/services/voicemail.ts';
+import { setSetting } from '../src/services/settings.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
 
@@ -158,5 +161,46 @@ describe.skipIf(!hasTestDb)('voicemail watcher', () => {
     t.mail.fail = null;
     const r = (await rows()).find((x) => x.msgId === '1792300600-00000003')!;
     expect(r).toMatchObject({ emailedAt: null, deletedAt: null });
+  });
+
+  it('spec 10: with transcripts on, the words go in the row, the email and the list', async () => {
+    let fail = false;
+    const stt = createServer((req, res) => {
+      req.resume();
+      req.on('end', () =>
+        fail ? res.writeHead(500).end('out of memory') : res.end('{"text":" Please call me. "}'),
+      );
+    });
+    await new Promise<void>((ok) => stt.listen(0, '127.0.0.1', ok));
+    const url = `http://127.0.0.1:${(stt.address() as AddressInfo).port}/v1`;
+    await setSetting(t.db, 'ai.stt', { url, model: 'whisper' });
+    await setSetting(t.db, 'ai.voicemailTranscripts', true);
+    try {
+      leave('INBOX', 3, '1792300700-00000004', '<104>');
+      await w.scan('101');
+      const r = (await rows()).find((x) => x.msgId === '1792300700-00000004')!;
+      expect(r.transcript).toBe('Please call me.');
+      expect(t.mails.at(-1)!.text).toContain(
+        'What they said (automatic, may have mistakes):\nPlease call me.',
+      );
+      const list = await t.app.inject({
+        method: 'GET',
+        url: '/api/me/voicemail',
+        headers: { ...H, cookie: await t.login('dan@example.com', 'dan-password-123') },
+      });
+      expect(list.json().items).toContainEqual(
+        expect.objectContaining({ id: r.id, transcript: 'Please call me.' }),
+      );
+
+      // The speech server failing doesn't hold up the email.
+      fail = true;
+      leave('INBOX', 4, '1792300800-00000005', '<105>');
+      await w.scan('101');
+      expect((await rows()).find((x) => x.msgId === '1792300800-00000005')!.transcript).toBeNull();
+      expect(t.mails.at(-1)!.text).not.toContain('What they said');
+    } finally {
+      await setSetting(t.db, 'ai.voicemailTranscripts', false);
+      stt.close();
+    }
   });
 });

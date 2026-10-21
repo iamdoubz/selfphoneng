@@ -10,6 +10,7 @@ keeping the system safe, legal and up to date.
 5. [Troubleshooting](troubleshooting.md)
 6. [Updating, backups and monitoring](maintenance.md)
 7. [Analog phones (ATAs)](ata.md)
+8. [Local AI](ai.md): voicemail transcripts
 
 ---
 

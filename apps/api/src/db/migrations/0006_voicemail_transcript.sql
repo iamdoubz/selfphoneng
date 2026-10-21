@@ -1,0 +1,1 @@
+ALTER TABLE "voicemail_messages" ADD COLUMN "transcript" text;

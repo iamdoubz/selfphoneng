@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Settings (05 §2). M3: Email and Emergency; M7: Recording; M11: Network (public IP watch), Security (phone ACL, provisioning, SIP TLS), Backups,
-// Webhooks, API tokens.
+// Webhooks, API tokens; AI (spec 10).
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
 import { NavLink, useParams } from 'react-router';
 import {
   WEBHOOK_EVENTS,
   formatNumber,
+  type AiTestResult,
   type SettingsDto,
   type WebhookDto,
   type WebhookEvent,
 } from '@selfphoneng/shared';
 import {
+  aiApi,
   apiTokensApi,
   didsApi,
   extensionsApi,
@@ -33,6 +35,7 @@ const TABS = [
   { id: 'backups', label: 'Backups' },
   { id: 'webhooks', label: 'Webhooks' },
   { id: 'tokens', label: 'API tokens' },
+  { id: 'ai', label: 'AI' },
 ] as const;
 
 export function SettingsPage() {
@@ -67,6 +70,7 @@ export function SettingsPage() {
       {settings.data && tab === 'backups' && <BackupsTab s={settings.data} />}
       {settings.data && tab === 'webhooks' && <WebhooksTab s={settings.data} />}
       {tab === 'tokens' && <TokensTab />}
+      {settings.data && tab === 'ai' && <AiTab s={settings.data} />}
     </section>
   );
 }
@@ -545,6 +549,148 @@ function NetworkTab({ s }: { s: SettingsDto }) {
         {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
       </div>
       {(save.error ?? detect.error) && <Alert>{(save.error ?? detect.error)!.message}</Alert>}
+    </form>
+  );
+}
+
+const AI_KINDS = [
+  {
+    kind: 'llm',
+    key: 'ai.llm',
+    title: 'Language model',
+    placeholder: 'http://127.0.0.1:11434/v1',
+    hint: 'Ollama: http://127.0.0.1:11434/v1 and a model you pulled, for example qwen3:4b.',
+  },
+  {
+    kind: 'stt',
+    key: 'ai.stt',
+    title: 'Speech to text',
+    placeholder: 'http://127.0.0.1:8000/v1',
+    hint: 'Speaches (deploy/ai): http://127.0.0.1:8000/v1 and a Whisper model, for example Systran/faster-whisper-small.',
+  },
+  {
+    kind: 'tts',
+    key: 'ai.tts',
+    title: 'Text to speech',
+    placeholder: 'http://127.0.0.1:8000/v1',
+    hint: 'Speaches: http://127.0.0.1:8000/v1, speaches-ai/Kokoro-82M-v1.0-ONNX and a voice such as af_heart.',
+  },
+] as const;
+
+/** Local AI (spec 10): three OpenAI-style endpoints, each with a test, and what uses them. */
+function AiTab({ s }: { s: SettingsDto }) {
+  const save = useSave();
+  type Ep = { url: string; model: string; voice: string };
+  const [eps, setEps] = useState(
+    () =>
+      Object.fromEntries(
+        AI_KINDS.map(({ kind, key }) => [kind, { url: '', model: '', voice: '', ...s[key] }]),
+      ) as Record<'llm' | 'stt' | 'tts', Ep>,
+  );
+  const [vmText, setVmText] = useState(s['ai.voicemailTranscripts']);
+  const [tests, setTests] = useState<Record<string, AiTestResult | 'running'>>({});
+  const set = (kind: keyof typeof eps, k: keyof Ep, v: string) =>
+    setEps((e) => ({ ...e, [kind]: { ...e[kind], [k]: v } }));
+  const value = (kind: keyof typeof eps): Record<string, string> | null => {
+    const { url, model, voice } = eps[kind];
+    if (!url.trim()) return null;
+    return kind === 'tts'
+      ? { url: url.trim(), model: model.trim(), voice: voice.trim() }
+      : { url: url.trim(), model: model.trim() };
+  };
+  const test = async (kind: 'llm' | 'stt' | 'tts') => {
+    setTests((t) => ({ ...t, [kind]: 'running' }));
+    const r = await aiApi
+      .test(kind, value(kind) ?? {})
+      .catch((err: Error) => ({ ok: false as const, error: err.message }));
+    setTests((t) => ({ ...t, [kind]: r }));
+  };
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate({
+          'ai.llm': value('llm'),
+          'ai.stt': value('stt'),
+          'ai.tts': value('tts'),
+          'ai.voicemailTranscripts': vmText,
+        });
+      }}
+    >
+      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        AI runs on this server or your local network only: an address must be localhost or a local
+        IP (127.x, 10.x, 172.16–31.x, 192.168.x). Calls and text never go anywhere else. Leave an
+        address empty to turn that part off.
+      </p>
+      {AI_KINDS.map(({ kind, title, hint, placeholder }) => {
+        const t = tests[kind];
+        return (
+          <fieldset key={kind} className="flex flex-col gap-2">
+            <legend className="mb-1 font-medium">{title}</legend>
+            <p className="text-xs text-zinc-500">{hint}</p>
+            <div className="flex flex-wrap gap-2">
+              <input
+                aria-label={`${title} address`}
+                placeholder={placeholder}
+                className={`${inputClass} max-w-72`}
+                value={eps[kind].url}
+                onChange={(e) => set(kind, 'url', e.target.value)}
+              />
+              <input
+                aria-label={`${title} model`}
+                placeholder="model"
+                className={`${inputClass} max-w-72`}
+                value={eps[kind].model}
+                onChange={(e) => set(kind, 'model', e.target.value)}
+              />
+              {kind === 'tts' && (
+                <input
+                  aria-label={`${title} voice`}
+                  placeholder="voice"
+                  className={`${inputClass} max-w-40`}
+                  value={eps[kind].voice}
+                  onChange={(e) => set(kind, 'voice', e.target.value)}
+                />
+              )}
+              <Button
+                type="button"
+                onClick={() => void test(kind)}
+                disabled={t === 'running' || !eps[kind].url.trim()}
+              >
+                {t === 'running' ? 'Testing…' : 'Test'}
+              </Button>
+            </div>
+            {t && t !== 'running' && (
+              <p
+                aria-label={`${title} test`}
+                className={`text-sm ${t.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}
+              >
+                {t.ok ? `Works (${(t.ms / 1000).toFixed(1)} s): ${t.detail}` : t.error}
+              </p>
+            )}
+            {t && t !== 'running' && t.ok && t.audio && (
+              <audio controls src={t.audio} aria-label="Test voice" className="w-full max-w-sm" />
+            )}
+          </fieldset>
+        );
+      })}
+      <h2 className="font-medium">What uses it</h2>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={vmText} onChange={(e) => setVmText(e.target.checked)} />
+        Voicemail transcripts (speech to text)
+      </label>
+      <p className="-mt-2 text-xs text-zinc-500">
+        New messages are written out before the voicemail email goes, and the text is in the email
+        and on the voicemail page.
+      </p>
+      <div className="flex items-center gap-3">
+        <Button type="submit" variant="primary" disabled={save.isPending}>
+          Save
+        </Button>
+        {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+      </div>
+      {save.error && <Alert>{save.error.message}</Alert>}
     </form>
   );
 }

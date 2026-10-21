@@ -282,3 +282,8 @@ complete test. Asterisk isn't needed.
 checks the owner's 2026-10-21 features: Settings → Numbering (users from 1, Next free suggests 1),
 the music-on-hold play order (move up, Shuffle), and the Reports totals (answered, talk time,
 outside minutes in and out, the voip.ms balance tile). Needs ffmpeg for the uploads; no Asterisk.
+
+`ai-settings.mjs <baseUrl> <adminEmail> <adminPassword> <shotsDir>` (after `m1-t4.mjs`, spec 10)
+runs a fake OpenAI-style server on 127.0.0.1:18001 and checks Settings → AI: Test for speech to
+text and text to speech (the voice plays), Save with voicemail transcripts on, and an address off
+the local network refused.

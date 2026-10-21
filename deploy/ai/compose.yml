@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Local AI for SelfPhoneNG (spec 10, admin guide: AI). Its own stack beside the PBX, on the same
+# server: speech to text and text to speech (Speaches: Whisper and Kokoro). Bring your own Ollama
+# for the language model, or uncomment the one below.
+#
+#   docker compose -f deploy/ai/compose.yml up -d
+#
+# Everything listens on 127.0.0.1 only: the PBX (host networking) reaches it, nothing else does.
+# Then Settings → AI (or AI_* in .env) points at http://127.0.0.1:8000/v1.
+#
+# The GPU needs the NVIDIA Container Toolkit on the host. No NVIDIA GPU: use the
+# 0.8.3-cpu image and remove the `deploy` blocks.
+services:
+  speaches:
+    image: ghcr.io/speaches-ai/speaches:0.8.3-cuda
+    restart: unless-stopped
+    ports: ['127.0.0.1:8000:8000']
+    volumes:
+      - speaches-models:/home/ubuntu/.cache/huggingface/hub
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '3' }
+
+  # ollama:
+  #   image: ollama/ollama:0.40.8
+  #   restart: unless-stopped
+  #   ports: ['127.0.0.1:11434:11434']
+  #   environment:
+  #     OLLAMA_KEEP_ALIVE: '-1'   # keep the model loaded: the first call doesn't wait for it
+  #   volumes: [ollama-models:/root/.ollama]
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
+
+volumes:
+  speaches-models:
+  # ollama-models:

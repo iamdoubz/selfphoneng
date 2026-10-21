@@ -16,4 +16,6 @@ export type VoicemailDto = {
   callerName: string | null;
   durationS: number;
   receivedAt: string;
+  /** Speech to text (Settings → AI); null when off, failed, or not done yet. */
+  transcript: string | null;
 };

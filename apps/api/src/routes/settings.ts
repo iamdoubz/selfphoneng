@@ -4,8 +4,11 @@ import { eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
+  AiEndpointSchema,
+  AiTtsEndpointSchema,
   SettingsSchemas,
   SmtpInputSchema,
+  type AiTestResult,
   type Destination,
   type SettingKey,
   type SettingsDto,
@@ -24,6 +27,7 @@ import { readTlsCert } from '../services/tls.ts';
 import { backupMissed } from '../services/backup.ts';
 import { detectPublicIp } from '../jobs.ts';
 import type { SendMail } from '../services/mail.ts';
+import { AiError, assertLocalUrl, testEndpoint } from '../ai/client.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -114,6 +118,15 @@ export async function settingsRoutes(app: FastifyInstance) {
       } else values[key] = SettingsSchemas[key as SettingKey].parse(raw);
     }
     await checkRefs(db, values);
+    for (const key of ['ai.llm', 'ai.stt', 'ai.tts'] as const) {
+      const ep = values[key] as { url: string } | null | undefined;
+      try {
+        if (ep) assertLocalUrl(ep.url);
+      } catch (err) {
+        if (err instanceof AiError) throw badRequest(`${key}: ${err.message}`);
+        throw err;
+      }
+    }
     const before = await getAllSettings(db);
     // SIP ports may not land on another listener (Asterisk would fail to start the transport).
     const c = app.config;
@@ -212,6 +225,15 @@ export async function settingsRoutes(app: FastifyInstance) {
       summary: 'Finished the setup wizard',
     });
     return { ok: true };
+  });
+
+  /** Settings → AI → Test (spec 10): the values in the form, saved or not. */
+  app.post('/api/ai/test', async (req): Promise<AiTestResult> => {
+    const { kind } = z.object({ kind: z.enum(['llm', 'stt', 'tts']) }).parse(req.body);
+    const ep = (kind === 'tts' ? AiTtsEndpointSchema : AiEndpointSchema).parse(
+      (req.body as { endpoint?: unknown }).endpoint,
+    );
+    return testEndpoint(kind, ep);
   });
 
   /** The SIP TLS certificate, for Settings → Security (M11-T2). */

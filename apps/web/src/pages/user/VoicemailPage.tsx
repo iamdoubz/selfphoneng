@@ -64,6 +64,11 @@ function Messages() {
                 {m.callerName && m.callerNumber ? `${formatNumber(m.callerNumber)} · ` : ''}
                 {new Date(m.receivedAt).toLocaleString()} · {mmss(m.durationS)}
               </p>
+              {m.transcript !== null && (
+                <p className="mt-1 text-sm" title="Automatic transcript, may have mistakes">
+                  {m.transcript || <span className="text-zinc-500">(no words)</span>}
+                </p>
+              )}
             </div>
             <audio
               controls

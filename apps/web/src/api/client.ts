@@ -86,6 +86,7 @@ import type {
   TlsCert,
   BackupDto,
   Warning,
+  AiTestResult,
 } from '@selfphoneng/shared';
 
 export class ApiError extends Error {
@@ -230,6 +231,11 @@ export const settingsApi = {
 };
 
 export const aboutApi = { get: () => api<AboutDto>('GET', '/api/about') };
+
+export const aiApi = {
+  test: (kind: 'llm' | 'stt' | 'tts', endpoint: Record<string, string>) =>
+    api<AiTestResult>('POST', '/api/ai/test', { kind, endpoint }),
+};
 
 export const systemApi = {
   status: () => api<SystemStatus>('GET', '/api/system/status'),

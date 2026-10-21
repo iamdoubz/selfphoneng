@@ -435,7 +435,8 @@ create table voicemail_messages (                     -- index of files Asterisk
   received_at    timestamptz not null,
   file_path      text not null,                       -- current path to .wav
   emailed_at     timestamptz,
-  deleted_at     timestamptz
+  deleted_at     timestamptz,
+  transcript     text                                 -- speech to text (10), when it's on
 );
 
 create table contacts (

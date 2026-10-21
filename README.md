@@ -17,7 +17,7 @@ A fully open source, self-hosted business phone system. Bring your own SIP trunk
   outbound rules with calling permissions, 911 with E911 caller ID and alerts.
 - **Call flows:** digital receptionists, office hours and holidays, ring groups, queues, parking,
   pickup, conference rooms, paging and intercom, music on hold.
-- **Voicemail** with email, **call history**, **recordings**, a **live dashboard** (listen,
+- **Voicemail** with email (and transcripts by local AI), **call history**, **recordings**, a **live dashboard** (listen,
   whisper, barge) and reports.
 - **Running it:** updates (`scripts/update.sh` for compose installs; a backup before every
   database change), backups and restore, background health checks, webhooks and API tokens,
@@ -26,6 +26,8 @@ A fully open source, self-hosted business phone system. Bring your own SIP trunk
 ## Wanted
 
 - More SIP providers: **Telnyx, Flowroute and Twilio** first.
+- More local AI: call transcripts and summaries, typed prompts, type-to-speak, an AI
+  receptionist ([spec](docs/spec/10-ai.md)).
 - Analog phone adapters set up automatically: **Grandstream HT802 V2** first (two ports, a dial
   plan from your numbers), then Cisco ATA 191/192 and SPA112/122. Today they're set up by hand
   ([how](docs/admin-guide/ata.md)).
@@ -38,7 +40,7 @@ A fully open source, self-hosted business phone system. Bring your own SIP trunk
 - [Admin guide](docs/admin-guide/README.md): install, [voip.ms setup](docs/admin-guide/voipms.md),
   [network and firewall](docs/admin-guide/network.md), [E911 and recording law](docs/admin-guide/legal.md),
   [troubleshooting](docs/admin-guide/troubleshooting.md), [updating and backups](docs/admin-guide/maintenance.md),
-  [analog phones (ATAs)](docs/admin-guide/ata.md)
+  [analog phones (ATAs)](docs/admin-guide/ata.md), [local AI](docs/admin-guide/ai.md)
 - [Changelog](CHANGELOG.md)
 - [Ready for v1 checklist](docs/v1-checklist.md)
 - Writing code (human or AI): start with [`AGENTS.md`](AGENTS.md), then the

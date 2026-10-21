@@ -43,6 +43,13 @@
       "when": 1792606712441,
       "tag": "0005_moh_order",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792624567407,
+      "tag": "0006_voicemail_transcript",
+      "breakpoints": true
     }
   ]
 }

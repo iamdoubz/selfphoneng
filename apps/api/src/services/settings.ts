@@ -6,8 +6,20 @@ import type { Db } from '../db/client.ts';
 import { settings } from '../db/schema.ts';
 import { randomAlnum } from '../crypto/secrets.ts';
 
+/** AI_<KIND>_URL and _MODEL (and AI_TTS_VOICE) start an install with its AI endpoints set. */
+function aiFromEnv(kind: 'LLM' | 'STT' | 'TTS') {
+  const e = process.env;
+  const [url, model, voice] = [e[`AI_${kind}_URL`], e[`AI_${kind}_MODEL`], e.AI_TTS_VOICE];
+  if (!url || !model || (kind === 'TTS' && !voice)) return null;
+  return kind === 'TTS' ? { url, model, voice } : { url, model };
+}
+
 function defaultFor<K extends SettingKey>(key: K): SettingValue<K> {
   if (key === 'general.timezone' && process.env.TZ) return process.env.TZ as SettingValue<K>;
+  if (key === 'ai.llm' || key === 'ai.stt' || key === 'ai.tts') {
+    const v = aiFromEnv(key === 'ai.llm' ? 'LLM' : key === 'ai.stt' ? 'STT' : 'TTS');
+    if (v) return SettingsSchemas[key].parse(v) as SettingValue<K>;
+  }
   return SettingsSchemas[key].parse(undefined) as SettingValue<K>;
 }
 

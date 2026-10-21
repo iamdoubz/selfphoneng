@@ -9,6 +9,17 @@ const range = (from: number, to: number) =>
     .refine(([a, b]) => a <= b, 'range start must be <= end')
     .default([from, to]);
 
+/** An OpenAI-style API on this server or the local network (apps/api/src/ai/client.ts checks). */
+export const AiEndpointSchema = z.object({
+  url: z.url({ protocol: /^https?$/ }),
+  model: z.string().trim().min(1).max(200),
+});
+export const AiTtsEndpointSchema = AiEndpointSchema.extend({
+  voice: z.string().trim().min(1).max(100),
+});
+export type AiEndpoint = z.infer<typeof AiEndpointSchema>;
+export type AiTtsEndpoint = z.infer<typeof AiTtsEndpointSchema>;
+
 export const SettingsSchemas = {
   'general.companyName': z.string().trim().min(1).max(100).default('My Company'),
   // The api replaces this default with env TZ (services/settings.ts).
@@ -84,6 +95,11 @@ export const SettingsSchemas = {
   'provisioning.lanOnly': z.boolean().default(false),
   'provisioning.enabled': z.boolean().default(true),
   'system.restartRequired': z.boolean().default(false),
+  // Local AI (spec 10). The api replaces the null defaults with AI_* env values (services/settings.ts).
+  'ai.llm': AiEndpointSchema.nullable().default(null),
+  'ai.stt': AiEndpointSchema.nullable().default(null),
+  'ai.tts': AiTtsEndpointSchema.nullable().default(null),
+  'ai.voicemailTranscripts': z.boolean().default(false),
   // Not in 02 §3's table but used by the generator (03 §3).
   'system.transportHash': z.string().nullable().default(null),
 };
@@ -108,6 +124,10 @@ export type SettingsDto = {
 } & {
   smtp: (Omit<SmtpInput, 'password'> & { hasPassword: boolean }) | null;
 };
+
+/** POST /api/ai/test: one endpoint tried with a tiny request. `audio`: the TTS test, a data: URL. */
+export type AiTestResult =
+  { ok: true; ms: number; detail: string; audio?: string } | { ok: false; error: string };
 
 /** GET /api/system/warnings: shown as the dashboard banner (05 §2). */
 export type Warning = { code: string; message: string; link: string };

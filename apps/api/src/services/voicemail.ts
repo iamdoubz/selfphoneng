@@ -17,6 +17,7 @@ import {
 import { field, type AmiMessage } from '../ami/events.ts';
 import type { Db } from '../db/client.ts';
 import { extensions, users, voicemailMessages } from '../db/schema.ts';
+import { transcribe } from '../ai/client.ts';
 import { MailNotConfigured, type SendMail } from './mail.ts';
 import { getSetting } from './settings.ts';
 import { enqueueWebhook } from './webhooks.ts';
@@ -60,6 +61,7 @@ export const toVoicemailDto = (r: Row): VoicemailDto => ({
   callerName: r.callerName,
   durationS: r.durationS,
   receivedAt: r.receivedAt.toISOString(),
+  transcript: r.transcript,
 });
 
 /** Everything in one mailbox's INBOX, Old and Urgent folders. filePath is relative to the spool. */
@@ -99,7 +101,26 @@ type Box = {
   voicemailDeleteAfterEmail: boolean;
 };
 
-async function announce(d: VoicemailDeps, box: Box, row: Row) {
+/** Speech to text before anyone is told, so the email has the words. Null: off, or it failed. */
+async function transcribeMessage(d: VoicemailDeps, row: Row): Promise<string | null> {
+  const stt = await getSetting(d.db, 'ai.stt');
+  if (!stt || !(await getSetting(d.db, 'ai.voicemailTranscripts'))) return null;
+  try {
+    const text = await transcribe(stt, await readFile(join(d.spoolDir, row.filePath)));
+    await d.db
+      .update(voicemailMessages)
+      .set({ transcript: text })
+      .where(eq(voicemailMessages.id, row.id));
+    return text;
+  } catch (err) {
+    d.log.error({ err, msgId: row.msgId }, 'voicemail transcript failed');
+    return null;
+  }
+}
+
+async function announce(d: VoicemailDeps, box: Box, found: Row) {
+  const transcript = await transcribeMessage(d, found);
+  const row = { ...found, transcript };
   // Every mailbox, with or without a user (the live message is only for the user's own).
   void enqueueWebhook(d.db, 'voicemail.new', {
     ...toVoicemailDto(row),
@@ -125,6 +146,9 @@ async function announce(d: VoicemailDeps, box: Box, row: Row) {
         `Number: ${row.callerNumber ? formatNumber(row.callerNumber) : 'unknown'}`,
         `Received: ${at}`,
         `Length: ${mmss(row.durationS)}`,
+        ...(transcript === null
+          ? []
+          : ['', 'What they said (automatic, may have mistakes):', transcript || '(no words)']),
         '',
         `Listen: https://${d.publicHost}/me/voicemail`,
       ].join('\n'),
