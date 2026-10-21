@@ -6,7 +6,7 @@
 # .env must hold the APP_SECRET the backup was made with (SIP and trunk passwords are encrypted
 # with it): the script checks, and stops if it doesn't match.
 #
-# Usage: scripts/restore.sh <selfphoneng-YYYYMMDD-HHMM.tar.gz>   (run from anywhere)
+# Usage: scripts/restore.sh <selfphoneng-YYYYMMDD-HHMMSS.tar.gz>   (run from anywhere)
 set -eu
 [ $# -eq 1 ] || { sed -n '9s/^# \{0,1\}//p' "$0" >&2; exit 2; }
 file=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")

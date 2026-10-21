@@ -153,6 +153,8 @@ say "The check failed: going back to v$current"
 # The new api's own backup, made just before it migrated, beats the one above.
 own=$(dc logs --no-log-prefix --since "$started" api 2>&1 \
   | sed -n 's/.*"backup":"\(selfphoneng-[0-9-]*\.tar\.gz\)".*backup before migrating made.*/\1/p' | tail -1)
+echo "The api's last log lines:"
+dc logs --no-log-prefix --tail 15 api 2>&1 || true
 git -c advice.detachedHead=false checkout -q "$prev"
 dc build
 if [ "$(mig)" != "$mig_before" ]; then

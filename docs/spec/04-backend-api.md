@@ -477,7 +477,7 @@ whole minutes). Each job has a running flag; an error is logged, not fatal.
   backup emails them too (08 §3.2). Email not set up: logged, nothing else.
 
 ### 8.1 Backups
-Folder `/var/lib/selfphoneng/backups/selfphoneng-YYYYMMDD-HHMM.tar.gz` containing:
+Folder `/var/lib/selfphoneng/backups/selfphoneng-YYYYMMDD-HHMMSS.tar.gz` containing:
 `db.sql` (`pg_dump --no-owner`), `voicemail/`, `sounds-custom/`, `moh/`,
 `manifest.json`. Do **not** include `asterisk-generated/`: it holds plaintext SIP passwords and is rebuilt from the DB on start.
 `manifest.json` is `{version, createdAt, includesRecordings}`. The backup file mode is 0600. Recordings are optional

@@ -100,7 +100,7 @@ A later rebuild without `--build-arg` goes back to the version the code names.
 
 ![Settings → Backups](img/settings-backups.png)
 
-A backup (`data/backups/selfphoneng-YYYYMMDD-HHMM.tar.gz`) holds:
+A backup (`data/backups/selfphoneng-YYYYMMDD-HHMMSS.tar.gz`) holds:
 
 - the database: users, extensions, numbers, settings, call history;
 - voicemail;

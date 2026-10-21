@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Backups (04 §8.1): BACKUPS_DIR/selfphoneng-YYYYMMDD-HHMM.tar.gz with db.sql (pg_dump), the
+// Backups (04 §8.1): BACKUPS_DIR/selfphoneng-YYYYMMDD-HHMMSS.tar.gz with db.sql (pg_dump), the
 // voicemail, custom sounds and music-on-hold folders, optionally recordings, and manifest.json.
 // No generated Asterisk config (plaintext SIP passwords; it's rebuilt from the DB on start).
 // Restore is scripts/restore.sh only.
@@ -17,7 +17,9 @@ import { getSetting } from './settings.ts';
 const run = promisify(execFile);
 /** manifest.json `version`: the backup format, which restore.sh checks. */
 export const BACKUP_FORMAT = 1;
-export const BACKUP_NAME = /^selfphoneng-\d{8}-\d{4}\.tar\.gz$/;
+/** With seconds since 2026-10-21, so two backups in one minute (the update's and the api's own
+ * before migrating) don't share a name; older names have none. */
+export const BACKUP_NAME = /^selfphoneng-\d{8}-\d{4}(\d{2})?\.tar\.gz$/;
 
 /**
  * Lets restore.sh tell whether .env has the APP_SECRET the backup's encrypted columns need,
@@ -70,7 +72,9 @@ export async function createBackup(
   src: BackupSources,
   opts: { keep: number; now?: Date },
 ): Promise<BackupDto> {
-  const name = `selfphoneng-${stamp(src.timezone, opts.now)}.tar.gz`;
+  const now = opts.now ?? new Date();
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  const name = `selfphoneng-${stamp(src.timezone, now)}${seconds}.tar.gz`;
   const work = await mkdtemp(join(tmpdir(), 'sp-backup-'));
   const tmp = join(src.outDir, `.${name}.tmp`);
   try {
@@ -99,7 +103,7 @@ export async function createBackup(
     }
     const manifest = {
       version: BACKUP_FORMAT,
-      createdAt: (opts.now ?? new Date()).toISOString(),
+      createdAt: now.toISOString(),
       includesRecordings: included.includes('recordings'),
       folders: included,
       secretCheck: secretCheck(src.appSecret),

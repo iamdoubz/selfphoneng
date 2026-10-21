@@ -50,14 +50,17 @@ describe.skipIf(!hasTestDb)('backup routes', () => {
   it('lists backups newest first, ignoring other files', async () => {
     writeFileSync(join(dir(), 'selfphoneng-20261018-0330.tar.gz'), 'old');
     writeFileSync(join(dir(), 'selfphoneng-20261019-0330.tar.gz'), 'newer');
+    // with seconds (from 2026-10-21): a second one in the same minute sorts after it, newer
+    writeFileSync(join(dir(), 'selfphoneng-20261019-033045.tar.gz'), 'newest');
     writeFileSync(join(dir(), '.selfphoneng-20261020-0330.tar.gz.tmp'), 'half-written');
     writeFileSync(join(dir(), 'notes.txt'), 'x');
     const r = await req('GET', '/api/system/backups');
     expect(r.json().map((b: { name: string }) => b.name)).toEqual([
+      'selfphoneng-20261019-033045.tar.gz',
       'selfphoneng-20261019-0330.tar.gz',
       'selfphoneng-20261018-0330.tar.gz',
     ]);
-    expect(r.json()[0].size).toBe(5);
+    expect(r.json()[1].size).toBe(5);
   });
 
   it('downloads one by name, nothing else', async () => {
