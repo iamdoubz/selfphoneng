@@ -107,6 +107,14 @@ how to fix it.
   `apps/probe` (no dependencies, its own image `selfphoneng-probe`, `deploy/probe/compose.yml`),
   run outside the network; `network.probeUrl` points at it. A server can't test its own ports:
   hairpin NAT is missing or skips the port forwards, and browsers refuse port 5060.
+  - Without Docker (owner, 2026-10-21): each release also attaches `selfphoneng-probe-linux-x64`
+    and `-arm64` (Node's single executable applications: esbuild bundles the probe into one CJS
+    file, postject injects it into that Node's official binary, checked against nodejs.org's
+    SHASUMS256.txt), the bundle itself (`selfphoneng-probe.cjs`, Node 22+) and `SHA256SUMS`.
+    `apps/probe/build-binary.mjs`, run in `binary.Dockerfile` with BuildKit's local output (so it
+    works on Gitea's runner, where the job's checkout can't be bind-mounted).
+    `deploy/probe/selfphoneng-probe.service` runs it under systemd with `DynamicUser` and a
+    read-only system. About 45 MB of memory.
   - `POST /v1/check {host, tests}`: the probe tests **only the address the request came from** (the
     last X-Forwarded-For entry with `TRUST_PROXY=true`), so it can't be aimed at anyone else; 20
     tests at most, 10 checks per address per 10 minutes, 4 s per test.

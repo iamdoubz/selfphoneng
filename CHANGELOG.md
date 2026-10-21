@@ -8,8 +8,9 @@ tag (08 §3.1): `selfphoneng-api` and `selfphoneng-asterisk`, on ghcr.io and on 
 - **System → Diagnostics:** checks what usually keeps phones off the network (public IP, DNS,
   local networks, the phone network limit, SIP listening, free audio ports), with how to fix each.
   A **Quick** or **Complete network test** checks the ports from the internet through a network
-  test probe (`apps/probe`, image `selfphoneng-probe`) you run outside your network; set its URL
-  in Settings → Network.
+  test probe you run outside your network; set its URL in Settings → Network. The probe comes as
+  a Docker image (`selfphoneng-probe`), and, for a machine without Docker, as a single Linux
+  executable (x64 and arm64) attached to each release, with a systemd unit.
 - The call audio port range is configurable: `RTP_PORT_START` and `RTP_PORT_END` (default
   10000–20000).
 - Updating (Docker only): a new version backs up before it changes the database, and stops

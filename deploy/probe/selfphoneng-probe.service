@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# The network test probe (08 §2.6) as a service, without Docker. With the downloaded executable at
+# /usr/local/bin/selfphoneng-probe:
+#   sudo cp selfphoneng-probe.service /etc/systemd/system/
+#   sudo systemctl enable --now selfphoneng-probe
+#   sudo ufw allow 8080/tcp
+[Unit]
+Description=SelfPhoneNG network test probe
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/selfphoneng-probe
+Environment=PORT=8080
+# Behind your own HTTPS reverse proxy that sets X-Forwarded-For: PORT to a local one, and
+#Environment=TRUST_PROXY=true
+Restart=always
+RestartSec=5
+# It needs nothing but the network: no files, no privileges.
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryMax=200M
+
+[Install]
+WantedBy=multi-user.target

@@ -5,13 +5,14 @@
 #   Gitea:  <gitea host>/<owner>/selfphoneng-{api,asterisk,probe} (secrets REGISTRY_USER + REGISTRY_TOKEN:
 #           a personal access token with write:package; Gitea's job token can't push packages)
 # Tags: the version (0.0.1), plus <major>.<minor> and latest; a pre-release gets the version and dev.
+# The release also gets the probe as downloads (selfphoneng-probe-linux-{x64,arm64}, .cjs, SHA256SUMS).
 name: release
 on:
   release:
     types: [published]
 
 permissions:
-  contents: read
+  contents: write # attaching the probe downloads to the release
   packages: write
 
 jobs:
@@ -102,3 +103,28 @@ jobs:
             done
           done
           echo "pushed: $p-{api,asterisk,probe}:{${{ steps.v.outputs.tags }}}" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+      - name: Probe downloads
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          # The probe without Docker (08 §2.6): a .cjs for Node 22+, and Linux executables with Node
+          # inside. Built in BuildKit and handed back as files, so it works on Gitea's runner too.
+          docker build -f apps/probe/binary.Dockerfile --output type=local,dest=probe-dist .
+          id="${{ github.event.release.id }}"
+          for f in probe-dist/*; do
+            name=$(basename "$f")
+            if [ "${{ steps.v.outputs.registry }}" = ghcr.io ]; then
+              curl -fsS -o /dev/null -X POST -H "Authorization: Bearer $GH_TOKEN" \
+                -H 'Content-Type: application/octet-stream' --data-binary "@$f" \
+                "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$id/assets?name=$name"
+            else
+              # The REGISTRY_TOKEN personal access token needs write:repository for this.
+              curl -fsS -o /dev/null -X POST -H "Authorization: token ${REGISTRY_TOKEN:-$GH_TOKEN}" \
+                -F "attachment=@$f" \
+                "$GITHUB_SERVER_URL/api/v1/repos/$GITHUB_REPOSITORY/releases/$id/assets?name=$name"
+            fi
+            echo "attached $name" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+          done

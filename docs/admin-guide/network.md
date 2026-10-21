@@ -74,7 +74,31 @@ public address back in, or route it without going through the port forwards.
 - **Complete network test**: also SIP over TLS (if on), the browser phone's `/ws`, and a sample
   of the call audio ports (the server listens on them while the probe sends to them).
 
-To run a probe, on any machine outside your network (a small VPS is plenty):
+To run a probe, on any machine outside your network (a small VPS is plenty). It needs about
+50 MB of memory and one open TCP port (8080).
+
+**Without Docker:** each release has the probe as a single executable for Linux, with everything it
+needs inside (`selfphoneng-probe-linux-x64`, or `-arm64` for ARM machines), next to `SHA256SUMS`.
+With Node 22 or newer installed you can take the small `selfphoneng-probe.cjs` instead.
+
+```sh
+v=v0.0.3   # the release
+curl -fLO https://git.dou.bet/spng/selfphoneng/releases/download/$v/selfphoneng-probe-linux-x64
+curl -fLO https://git.dou.bet/spng/selfphoneng/releases/download/$v/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS
+sudo install -m 755 selfphoneng-probe-linux-x64 /usr/local/bin/selfphoneng-probe
+curl -fLO https://git.dou.bet/spng/selfphoneng/raw/tag/$v/deploy/probe/selfphoneng-probe.service
+sudo cp selfphoneng-probe.service /etc/systemd/system/
+sudo systemctl enable --now selfphoneng-probe
+sudo ufw allow 8080/tcp
+```
+
+(On GitHub, the downloads are at `https://github.com/iamdoubz/selfphoneng/releases/download/$v/…`.)
+To try it first without the service, run `./selfphoneng-probe-linux-x64` and open
+`http://<machine>:8080/healthz`. `PORT` changes the port; behind your own HTTPS reverse proxy
+that sets X-Forwarded-For, also set `TRUST_PROXY=true`.
+
+**With Docker:**
 
 ```sh
 docker compose -f deploy/probe/compose.yml up -d
