@@ -9,6 +9,7 @@ keeping the system safe, legal and up to date.
 4. [Emergency calls and recording law](legal.md): E911 duties and call recording consent
 5. [Troubleshooting](troubleshooting.md)
 6. [Updating, backups and monitoring](maintenance.md)
+7. [Analog phones (ATAs)](ata.md)
 
 ---
 

@@ -5,6 +5,11 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
+## Unreleased
+
+- Admin guide: [Analog phones (ATAs)](docs/admin-guide/ata.md), setting up a Grandstream HT802 V2
+  by hand, with a dial plan for analog phones.
+
 ## v0.0.4 — 2026-10-21
 
 **Updating:** no database changes. Portainer: change both tags to `0.0.4` and redeploy. Compose:

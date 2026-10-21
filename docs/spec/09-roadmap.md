@@ -259,6 +259,21 @@ Quick hits: **Telnyx, Flowroute, Twilio**, as presets beside voip.ms with their 
 - Flowroute's tech prefix (`12345678*`) in a route's prepend: check it fits.
 Each one checked against a real account before it's called supported (06's verify rule).
 
+## Analog phone adapters (owner, 2026-10-21: wanted; the owner is buying an HT802 V2)
+1. Done: admin guide page for setting one up by hand (`docs/admin-guide/ata.md`).
+2. A dial plan in the setup files, made from the numbering: 911/9911 at once, 10/11 digits at once,
+   internal numbers and `*` codes after the inter-digit pause or `#`. For ATAs and desk phones.
+   Check on the real unit that a full match sends at once while `x+` is also in the plan.
+3. Several lines on one device (`device_lines`: device, port, extension; the setup file lists every
+   line of that MAC) and a `grandstream-ata.ts` template for the HT802 V2. Its port 2 P-values
+   differ from the desk phones' account 2: take them from Grandstream's config template or an
+   export of the real unit, not from memory. Fax: Pass-Through and PCMU only; T.38 stays out
+   (00 §2).
+4. Later (Cisco): `cisco-ata.ts` for ATA 191/192 (multiplatform firmware) and SPA112/122
+   (end of support 2025-05-31): `<flat-profile>` XML, `_1_`/`_2_` per line, served at
+   `/prov/<mac>.xml`. No DHCP login, so the Phones page shows the `Profile_Rule` to paste
+   (`[--uid <mac> --pwd <password>] https://<host>/prov/$MA.xml`). Needs a real unit.
+
 ---
 
 ## M12 — Nice to have (after v1.0)
