@@ -5,14 +5,22 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
-## Unreleased
+## v0.0.5 — 2026-10-21
+
+**Before you update:** this version changes the database (voicemail transcripts); the api backs
+up first, by itself. Portainer: change both tags to `0.0.5` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.5`. The AI is optional and off until you set it up: a second stack
+from `deploy/ai/compose.yml`, then Settings → AI (admin guide: [Local AI](docs/admin-guide/ai.md)).
+After updating, phones set up automatically pick up the dial plan at their next daily check (or
+reboot them).
 
 - Admin guide: [Analog phones (ATAs)](docs/admin-guide/ata.md), setting up a Grandstream HT802 V2
   by hand.
 - **Dial plan:** a user's Credentials tab shows a dial plan for analog phone adapters, made from
   your outbound routes and internal number lengths: 911 and full outside numbers go out the moment
   they're dialed instead of after a pause. Yealink desk phones get the same as dial-now rules.
-- Internal numbers can no longer start with 911 or 9911, so 911 can go out at once.
+- New internal numbers can no longer start with 911 or 9911, so 911 can go out at once (numbers
+  you already have keep working).
 - **Local AI** (admin guide: [Local AI](docs/admin-guide/ai.md)): Settings → AI sets a language
   model, speech to text and text to speech, each with a Test, on this server or the local network
   only (anything else is refused). `deploy/ai/compose.yml` is a second stack with Speaches
