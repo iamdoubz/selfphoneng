@@ -115,6 +115,20 @@ export async function settingsRoutes(app: FastifyInstance) {
     }
     await checkRefs(db, values);
     const before = await getAllSettings(db);
+    // SIP ports may not land on another listener (Asterisk would fail to start the transport).
+    const c = app.config;
+    const [sip, tls] = [
+      (values['sip.udpPort'] ?? before['sip.udpPort']) as number,
+      (values['sip.tlsPort'] ?? before['sip.tlsPort']) as number,
+    ];
+    for (const port of [sip, tls])
+      if ([80, 443, 8088, c.AMI_PORT, c.API_PORT].includes(port))
+        throw badRequest(`Port ${port} is already used by SelfPhoneNG`);
+      else if (port >= c.RTP_PORT_START && port <= c.RTP_PORT_END)
+        throw badRequest(
+          `Port ${port} is in the call audio range (${c.RTP_PORT_START}–${c.RTP_PORT_END})`,
+        );
+    if (sip === tls) throw badRequest('The SIP port and the TLS port must differ');
     if (values['sip.tlsEnabled'] === true && !before['sip.tlsEnabled']) {
       const cert = await readTlsCert(app.config.TLS_DIR);
       if (!cert.ok) throw badRequest(`Can't turn on TLS. ${cert.error}`);

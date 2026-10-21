@@ -549,10 +549,11 @@ function NetworkTab({ s }: { s: SettingsDto }) {
   );
 }
 
-/** Phone ACL (08 §2.2), outside calls at once (08 §1), provisioning access (07 §2), SIP over TCP, SIP over TLS (M11-T2). */
+/** Phone ACL (08 §2.2), outside calls at once (08 §1), provisioning access (07 §2), SIP port and TCP, SIP over TLS (M11-T2). */
 function SecurityTab({ s }: { s: SettingsDto }) {
   const save = useSave();
   const cert = useQuery({ queryKey: ['tls'], queryFn: systemApi.tls });
+  const [sipPort, setSipPort] = useState(String(s['sip.udpPort']));
   const [tcpOn, setTcpOn] = useState(s['sip.tcpEnabled']);
   const [tlsOn, setTlsOn] = useState(s['sip.tlsEnabled']);
   const [tlsPort, setTlsPort] = useState(String(s['sip.tlsPort']));
@@ -580,6 +581,7 @@ function SecurityTab({ s }: { s: SettingsDto }) {
           'provisioning.enabled': provOn,
           'calls.maxPerExtension': Number(perExt),
           'calls.maxTotal': Number(total),
+          'sip.udpPort': Number(sipPort),
           'sip.tcpEnabled': tcpOn,
           'sip.tlsEnabled': tlsOn,
           'sip.tlsPort': Number(tlsPort),
@@ -641,11 +643,24 @@ function SecurityTab({ s }: { s: SettingsDto }) {
       <h2 className="font-medium">Phone setup files</h2>
       {box(provOn, setProvOn, 'Serve setup files to phones (Phones page)')}
       {box(lanOnly, setLanOnly, 'Only to phones on the local networks')}
-      <h2 className="font-medium">SIP over TCP</h2>
-      {box(tcpOn, setTcpOn, `Accept SIP over TCP (port ${s['sip.udpPort']})`)}
+      <h2 className="font-medium">SIP port</h2>
+      <Field
+        label="SIP port (UDP, and TCP below)"
+        hint="5060 unless your router or ISP keeps UDP 5060 for itself: then for example 5080, forwarded on the router. Phones need setting up again (Phones page or the Linphone QR); trunks don't mind. Needs a telephony restart."
+      >
+        {(p) => (
+          <input
+            {...p}
+            className={`${inputClass} max-w-32`}
+            inputMode="numeric"
+            value={sipPort}
+            onChange={(e) => setSipPort(e.target.value)}
+          />
+        )}
+      </Field>
+      {box(tcpOn, setTcpOn, 'Accept SIP over TCP')}
       <p className="-mt-2 text-xs text-zinc-500">
-        For phones and trunks set to TCP. Phones set up by this server use UDP. Changing it needs a
-        telephony restart.
+        For phones and trunks set to TCP. Phones set up by this server use UDP.
       </p>
       <h2 className="font-medium">Encrypted SIP (TLS)</h2>
       <p className="text-sm" aria-label="TLS certificate">

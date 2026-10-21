@@ -20,6 +20,11 @@ the wrong place.
    - TCP 5060 only for phones or trunks set to TCP (Settings → Security → Accept SIP over TCP;
      phones this server sets up use UDP);
    - TCP 5061 only if you use SIP over TLS.
+   - If nothing reaches the server on UDP 5060 while other UDP ports do (System → Diagnostics, a
+     **Complete network test**), the router or the ISP keeps that port for itself: often an ISP
+     box with phone jacks, or a SIP ALG you can't turn off. Set another **SIP port** in Settings →
+     Security, for example 5080, forward that instead, restart telephony, and set the phones up
+     again. Trunks keep working: they're reached from the port the server registers from.
 3. **Double NAT** (the ISP's box in front of your own router): forward the ports on both, or put
    your router in the ISP box's DMZ / bridge mode.
 4. **Public IP and local networks.**

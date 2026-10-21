@@ -7,8 +7,9 @@ Docker.
 
 ## Unreleased
 
-- Settings → Security has **Accept SIP over TCP** (on by default, as before). It was a setting
-  with no switch.
+- Settings → Security has the **SIP port** and **Accept SIP over TCP** (5060 and on by default,
+  as before). Both were settings with no field. Another port helps when a router or ISP keeps UDP
+  5060 for itself. A port that another part of SelfPhoneNG listens on is refused.
 
 ## v0.0.3 — 2026-10-21
 
