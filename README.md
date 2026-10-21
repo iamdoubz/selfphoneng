@@ -1,15 +1,43 @@
+<p align="center">
+  <img src="apps/web/public/logo-512.png" alt="SelfPhoneNG" width="220">
+</p>
+
 # SelfPhoneNG
 
-A fully open source, self-hosted business phone system: extensions, desk phones and a
-browser softphone, voicemail to email, IVRs, ring groups, queues, office hours, call
-recording, live dashboard, SMS and phone provisioning. Bring your own SIP trunk and
-numbers (reference provider: voip.ms). Built on Asterisk 24 LTS + TypeScript + PostgreSQL 18.
+A fully open source, self-hosted business phone system. Bring your own SIP trunk and numbers
+(reference provider: voip.ms). Built on Asterisk 24 + TypeScript + PostgreSQL 18, runs in Docker.
 
-**Status:** pre-1.0, not yet tested by an outside installer.
+**Status:** pre-1.0 (v0.0.2), for testing. See [what's left for v1](docs/v1-checklist.md).
 
-- Installing and running it: the [admin guide](docs/admin-guide/README.md)
-- Start here if you are writing code (human or AI): [`AGENTS.md`](AGENTS.md)
-- The full spec: [`docs/spec/`](docs/spec/00-overview.md)
-- Build order: [`docs/spec/09-roadmap.md`](docs/spec/09-roadmap.md)
+## What it does today
+
+- **Phones:** users and extensions, desk phones (Yealink, Grandstream) set up automatically, a
+  browser phone, and Linphone set up by scanning a QR code.
+- **Numbers:** voip.ms trunks (registration or IP auth, UDP/TCP/TLS + SRTP), phone numbers,
+  outbound rules with calling permissions, 911 with E911 caller ID and alerts.
+- **Call flows:** digital receptionists, office hours and holidays, ring groups, queues, parking,
+  pickup, conference rooms, paging and intercom, music on hold.
+- **Voicemail** with email, **call history**, **recordings**, a **live dashboard** (listen,
+  whisper, barge) and reports.
+- **Running it:** backups and restore, background health checks, webhooks and API tokens,
+  two-step sign-in for admins, limits on outside calls at once.
+
+## Wanted
+
+- More SIP providers: **Telnyx, Flowroute and Twilio** first.
+- SMS (built for voip.ms, parked until wanted).
+- Push notifications, so phone apps ring in the background.
+- An update script for running installs.
+- Text-to-speech prompts, recording prompts by phone, a queue wallboard, Polycom phones.
+
+## Docs
+
+- [Admin guide](docs/admin-guide/README.md): install, [voip.ms setup](docs/admin-guide/voipms.md),
+  [network and firewall](docs/admin-guide/network.md), [E911 and recording law](docs/admin-guide/legal.md),
+  [troubleshooting](docs/admin-guide/troubleshooting.md), [updating and backups](docs/admin-guide/maintenance.md)
+- [Changelog](CHANGELOG.md)
+- [Ready for v1 checklist](docs/v1-checklist.md)
+- Writing code (human or AI): start with [`AGENTS.md`](AGENTS.md), then the
+  [spec](docs/spec/00-overview.md) and the [roadmap](docs/spec/09-roadmap.md)
 
 License: AGPL-3.0-or-later.
