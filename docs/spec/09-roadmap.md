@@ -248,6 +248,19 @@ As built: all four tasks done and tested with simulated phones (`scripts/e2e/m10
 
 ---
 
+## More SIP providers (owner, 2026-10-21: wanted, next after 0.0.2)
+Quick hits: **Telnyx, Flowroute, Twilio**, as presets beside voip.ms with their own setup checklist
+(like 06 §1). The generic trunk misses, for these:
+- Password on calls without registering: `authMode: 'ip'` sends no `outbound_auth` (Twilio's SIP
+  trunks don't register).
+- More than one inbound address per trunk: `identify` only matches the server host; they send from
+  several addresses or ranges.
+- Numbers sent as +1…: caller ID goes through `s.digits`, which drops the `+` (Twilio needs E.164).
+- Flowroute's tech prefix (`12345678*`) in a route's prepend: check it fits.
+Each one checked against a real account before it's called supported (06's verify rule).
+
+---
+
 ## M12 — Nice to have (after v1.0)
 - Piper TTS for prompts (04 §6).
 - Record prompts by phone.

@@ -3,7 +3,7 @@
 Versions follow [semver](https://semver.org). Each release's container images are built from its
 tag (08 §3.1): `selfphoneng-api` and `selfphoneng-asterisk`, on ghcr.io and on the Gitea registry.
 
-## Unreleased
+## v0.0.2 — 2026-10-21
 
 - Fix: calls to a user with Linphone on an iPhone registered dropped at once, for every device of
   that user. Its push parameters hold `&`, which split the dial string.
