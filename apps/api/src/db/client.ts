@@ -24,19 +24,24 @@ export async function runMigrations(db: Db): Promise<void> {
 }
 
 /**
- * This image has migrations the database hasn't run yet. False for an empty database (a fresh
- * install: nothing to lose). Reads drizzle's own bookkeeping, `drizzle.__drizzle_migrations`.
+ * Migrations this image has and the database hasn't run yet: how many are applied, of how many.
+ * Null when none are, or for an empty database (a fresh install: nothing to lose). Reads drizzle's
+ * own bookkeeping, `drizzle.__drizzle_migrations`.
  */
-export async function migrationsPending(db: Db, folder = MIGRATIONS_DIR): Promise<boolean> {
+export async function migrationsPending(
+  db: Db,
+  folder = MIGRATIONS_DIR,
+): Promise<{ applied: number; total: number } | null> {
   const journal = JSON.parse(await readFile(join(folder, 'meta', '_journal.json'), 'utf8')) as {
     entries: unknown[];
   };
   const t = await db.execute<{ t: string | null }>(
     sql`select to_regclass('drizzle.__drizzle_migrations')::text as t`,
   );
-  if (!t.rows[0]?.t) return false;
+  if (!t.rows[0]?.t) return null;
   const r = await db.execute<{ n: number }>(
     sql`select count(*)::int as n from drizzle.__drizzle_migrations`,
   );
-  return r.rows[0]!.n < journal.entries.length;
+  const applied = r.rows[0]!.n;
+  return applied < journal.entries.length ? { applied, total: journal.entries.length } : null;
 }

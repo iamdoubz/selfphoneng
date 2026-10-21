@@ -84,12 +84,13 @@ watchWebhooks(db, live, app.log);
 watchEvents(db, live, ami, app.log);
 
 // A new version with database changes: back up first, so a bad update can be undone (08 §3.1).
-if (await migrationsPending(db)) {
+const pending = await migrationsPending(db);
+if (pending) {
   if (config.SKIP_BACKUP_BEFORE_MIGRATE)
     app.log.warn('database changes pending; SKIP_BACKUP_BEFORE_MIGRATE is set, so no backup first');
   else {
-    app.log.info('database changes pending: backing up first');
-    const backup = await backupBeforeMigrate(config, db).catch((err: unknown) => {
+    app.log.info(pending, 'database changes pending: backing up first');
+    const backup = await backupBeforeMigrate(config, db, pending).catch((err: unknown) => {
       app.log.fatal(
         { err, dir: config.BACKUPS_DIR },
         'backup before migrating failed, so the database was left as it is. Fix the cause ' +
@@ -98,7 +99,11 @@ if (await migrationsPending(db)) {
       );
       process.exit(1);
     });
-    app.log.info({ backup: backup.name }, 'backup before migrating made');
+    // update.sh finds this line to restore from (the name, then the message).
+    app.log.info(
+      { backup: backup.name },
+      backup.made ? 'backup before migrating made' : 'backup before migrating made earlier, kept',
+    );
   }
 }
 await runMigrations(db);

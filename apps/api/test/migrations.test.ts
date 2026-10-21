@@ -29,10 +29,11 @@ describe.skipIf(!hasTestDb)('migrationsPending', () => {
     await rm(newer, { recursive: true, force: true });
   });
 
-  it('false when up to date, true when the image has more, false for an empty database', async () => {
-    expect(await migrationsPending(t.db)).toBe(false);
-    expect(await migrationsPending(t.db, newer)).toBe(true);
+  it('none when up to date, counts when the image has more, none for an empty database', async () => {
+    expect(await migrationsPending(t.db)).toBeNull();
+    const pending = await migrationsPending(t.db, newer);
+    expect(pending).toEqual({ applied: pending!.total - 1, total: pending!.total });
     await t.db.execute(sql`drop schema drizzle cascade`);
-    expect(await migrationsPending(t.db, newer)).toBe(false);
+    expect(await migrationsPending(t.db, newer)).toBeNull();
   });
 });

@@ -5,7 +5,7 @@
 // Restore is scripts/restore.sh only.
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtemp, readdir, rename, rm, stat, writeFile, chmod } from 'node:fs/promises';
+import { chmod, mkdtemp, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -160,10 +160,29 @@ export function runBackup(config: Config, db: Db): Promise<BackupDto> {
  * backup has, without recordings (big, and no migration touches them). Prunes nothing, so it
  * doesn't push a daily backup out; the daily job's pruning removes it in time. Reads as little of
  * the old schema as it can: the time zone only, falling back to TZ.
+ *
+ * With `step` (the migrations about to run), once per step: a crash-looping api would otherwise
+ * back up on every restart until the disk fills. `.before-migrate.json` in the backups folder
+ * remembers the step and its backup; `made: false` means that one is reused.
  */
-export async function backupBeforeMigrate(config: Config, db: Db): Promise<BackupDto> {
+export async function backupBeforeMigrate(
+  config: Config,
+  db: Db,
+  step?: { applied: number; total: number },
+): Promise<BackupDto & { made: boolean }> {
+  const dir = resolve(config.BACKUPS_DIR);
+  const marker = join(dir, '.before-migrate.json');
+  const key = step && `${step.applied}-${step.total}`;
+  if (key) {
+    const last = await readFile(marker, 'utf8').then(
+      (s) => JSON.parse(s) as { key: string; name: string },
+      () => null,
+    );
+    const kept = last?.key === key && (await listBackups(dir)).find((b) => b.name === last.name);
+    if (kept) return { ...kept, made: false };
+  }
   const timezone = await getSetting(db, 'general.timezone').catch(() => config.TZ);
-  return createBackup(
+  const made = await createBackup(
     {
       databaseUrl: config.DATABASE_URL,
       appSecret: config.APP_SECRET,
@@ -177,6 +196,8 @@ export async function backupBeforeMigrate(config: Config, db: Db): Promise<Backu
     },
     { keep: Infinity },
   );
+  if (key) await writeFile(marker, JSON.stringify({ key, name: made.name }));
+  return { ...made, made: true };
 }
 
 /** The daily backup is due: enabled, past `backup.time` here, and none made today yet. */
