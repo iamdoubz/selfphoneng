@@ -276,3 +276,9 @@ database without `network.probeUrl`) checks System → Diagnostics: the server's
 network tests wait for a probe, then it sets one in Settings → Network (a probe it starts on
 127.0.0.1:18090, so the results also warn that it's inside the network) and runs a quick and a
 complete test. Asterisk isn't needed.
+
+`numbers-music-reports.mjs <baseUrl> <adminEmail> <adminPassword> <shotsDir>` (after `m1-t4.mjs`;
+`PG_CONTAINER` and `PG_DB` name the Postgres container and database, for the calls it inserts)
+checks the owner's 2026-10-21 features: Settings → Numbering (users from 1, Next free suggests 1),
+the music-on-hold play order (move up, Shuffle), and the Reports totals (answered, talk time,
+outside minutes in and out, the voip.ms balance tile). Needs ffmpeg for the uploads; no Asterisk.

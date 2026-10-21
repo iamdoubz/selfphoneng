@@ -88,9 +88,40 @@ export type ReportRange = z.input<typeof ReportRangeSchema>;
 export type ReportSummary = {
   from: string;
   to: string;
-  /** Every day in the range, empty ones too. Missed = missed, voicemail or abandoned. */
-  days: { date: string; inbound: number; outbound: number; internal: number; missed: number }[];
-  totals: { calls: number; missed: number; avgTalkSeconds: number | null };
+  /**
+   * Every day in the range, empty ones too. Missed = missed, voicemail or abandoned.
+   * `outsideMinutes`: that day's outside line time (see `totals.outsideSeconds`), whole minutes.
+   */
+  days: {
+    date: string;
+    inbound: number;
+    outbound: number;
+    internal: number;
+    missed: number;
+    outsideMinutes: number;
+  }[];
+  totals: {
+    calls: number;
+    answered: number;
+    missed: number;
+    avgTalkSeconds: number | null;
+    /** People talking, every direction. */
+    talkSeconds: number;
+    /**
+     * Time on the outside line, roughly what the provider bills (owner, 2026-10-21): inbound from
+     * arrival to hang-up (a receptionist or voicemail answers too), outbound from the answer.
+     */
+    outsideSeconds: { inbound: number; outbound: number };
+  };
   /** Calls by weekday (0 = Sunday) and hour, in the company time zone: hours[day][hour]. */
   hours: number[][];
+};
+
+/** GET /api/reports/balance: each voip.ms trunk's account balance, or why it can't be shown. */
+export type ProviderBalanceDto = {
+  trunkId: string;
+  trunkName: string;
+  /** In the voip.ms account's currency. */
+  balance: number | null;
+  error: string | null;
 };

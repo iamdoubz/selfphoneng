@@ -19,6 +19,10 @@ function fakeVoipms() {
         { server_name: 'Chicago 1', server_hostname: 'chicago1.voip.ms', server_ip: '1.2.3.5' },
       ],
     },
+    getBalance: {
+      status: 'success',
+      balance: { current_balance: '12.3456', spent_total: '7.89', calls_total: '42' },
+    },
     getDIDsInfo: {
       status: 'success',
       dids: [
@@ -124,6 +128,15 @@ describe.skipIf(!hasTestDb)('/api/trunks/:id voip.ms routes', () => {
     const r = await req('GET', `/api/trunks/${trunkId}/voipms-servers`);
     expect(r.statusCode).toBe(400);
     expect(r.json().error.message).toMatch(/API username and password/);
+    // The balance on Reports says so instead of failing (owner, 2026-10-21).
+    expect((await req('GET', '/api/reports/balance')).json().items).toEqual([
+      {
+        trunkId,
+        trunkName: 'voip.ms',
+        balance: null,
+        error: expect.stringMatching(/API username and password/),
+      },
+    ]);
   });
 
   it('a wrong API password is a 502 with voip.ms’s reason', async () => {
@@ -135,10 +148,20 @@ describe.skipIf(!hasTestDb)('/api/trunks/:id voip.ms routes', () => {
     expect(r.statusCode).toBe(502);
     expect(r.json().error.message).toBe('voip.ms rejected the API username or password');
     expect(r.body).not.toContain('nope');
+    const bal = await req('GET', '/api/reports/balance');
+    expect(bal.json().items[0]).toMatchObject({
+      balance: null,
+      error: 'voip.ms rejected the API username or password',
+    });
+    expect(bal.body).not.toContain('nope');
   });
 
   it('lists servers, previews and imports numbers (not routed, label from voip.ms)', async () => {
     await req('PATCH', `/api/trunks/${trunkId}`, { voipmsApiPassword: 'api-pw' });
+    expect((await req('GET', '/api/reports/balance')).json().items).toEqual([
+      { trunkId, trunkName: 'voip.ms', balance: 12.3456, error: null },
+    ]);
+    expect(fake.seen.at(-1)!.get('method')).toBe('getBalance');
     expect((await req('GET', `/api/trunks/${trunkId}/voipms-servers`)).json()).toEqual({
       servers: ['chicago1.voip.ms', 'seattle1.voip.ms'],
     });

@@ -105,3 +105,16 @@ export async function getDids(baseUrl: string, creds: VoipmsCreds): Promise<Voip
     ];
   });
 }
+
+/**
+ * The account's balance (getBalance → balance.current_balance, in the account's currency).
+ * (verify) against a real account: the shape is from voip.ms's API docs (06 §5.1).
+ */
+export async function getBalance(baseUrl: string, creds: VoipmsCreds): Promise<number> {
+  const r = await voipmsApi(baseUrl, creds, 'getBalance');
+  const b = r.balance as Record<string, unknown> | undefined;
+  const n = Number(str(b?.current_balance));
+  if (!b || str(b.current_balance) === '' || !Number.isFinite(n))
+    throw new VoipmsError('bad_response');
+  return n;
+}

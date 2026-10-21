@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Reports (05 §2): calls per day by direction, missed per day, busiest hours, queue table.
+// Reports (05 §2): totals (calls, minutes, the voip.ms balance), calls and outside minutes per
+// day, missed per day, busiest hours, queue table.
 // ponytail: bars and the heatmap are plain divs and a table, no chart library.
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -14,6 +15,11 @@ const SERIES = [
   ['internal', 'Internal', 'bg-zinc-400'],
 ] as const;
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+/** 75 → "1 min", 4000 → "1 h 7 min": totals, rounded to the minute. */
+const fmtMinutes = (s: number) => {
+  const m = Math.round(s / 60);
+  return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`;
+};
 const shortDate = (d: string) =>
   new Date(`${d}T12:00:00Z`).toLocaleDateString(undefined, {
     month: 'short',
@@ -121,6 +127,7 @@ export function ReportsPage() {
     queryKey: ['reports', 'queues', range],
     queryFn: () => reportsApi.queues(range),
   });
+  const balance = useQuery({ queryKey: ['reports', 'balance'], queryFn: reportsApi.balance });
   const s = summary.data;
   const date = (k: 'from' | 'to', label: string) => (
     <Field label={label}>
@@ -163,24 +170,46 @@ export function ReportsPage() {
 
       {s && (
         <>
-          <dl aria-label="Totals" className="grid grid-cols-3 gap-3 text-sm sm:max-w-xl">
+          <dl aria-label="Totals" className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
             {(
               [
-                ['Calls', s.totals.calls],
-                ['Missed', s.totals.missed],
+                ['Calls', s.totals.calls, null],
+                ['Answered', s.totals.answered, null],
+                ['Missed', s.totals.missed, 'missed, voicemail or hung up waiting'],
                 [
                   'Average talk time',
                   s.totals.avgTalkSeconds === null ? '—' : fmtDuration(s.totals.avgTalkSeconds),
+                  null,
                 ],
+                ['Talk time', fmtMinutes(s.totals.talkSeconds), 'people talking, inside calls too'],
+                [
+                  'Outside minutes',
+                  fmtMinutes(s.totals.outsideSeconds.inbound + s.totals.outsideSeconds.outbound),
+                  `${fmtMinutes(s.totals.outsideSeconds.inbound)} in, ${fmtMinutes(s.totals.outsideSeconds.outbound)} out: roughly what voip.ms bills`,
+                ],
+                ...(balance.data ?? []).map(
+                  (b) =>
+                    [
+                      balance.data!.length > 1 ? `Balance (${b.trunkName})` : 'voip.ms balance',
+                      b.balance === null ? '—' : b.balance.toFixed(2),
+                      b.error ?? "now, in your voip.ms account's currency",
+                    ] as const,
+                ),
               ] as const
-            ).map(([k, v]) => (
+            ).map(([k, v, note]) => (
               <div key={k} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
                 <dt className="text-zinc-500">{k}</dt>
                 <dd className="text-lg font-semibold tabular-nums">{v}</dd>
+                {note && <dd className="text-xs text-zinc-500">{note}</dd>}
               </div>
             ))}
           </dl>
           <Bars label="Calls per day" days={s.days} segments={SERIES} />
+          <Bars
+            label="Outside minutes per day"
+            days={s.days}
+            segments={[['outsideMinutes', 'Minutes', 'bg-emerald-500']]}
+          />
           <Bars
             label="Missed per day"
             days={s.days}

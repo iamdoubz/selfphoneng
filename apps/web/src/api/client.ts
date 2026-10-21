@@ -7,6 +7,7 @@ import type {
   DiagnosticsDto,
   NetworkTestDto,
   QueueReportRow,
+  ProviderBalanceDto,
   ReportRange,
   ReportSummary,
   ApiTokenDto,
@@ -430,6 +431,8 @@ export const reportsApi = {
     api<ListResponse<QueueReportRow>>('GET', `/api/reports/queues?${callQuery(r)}`).then(
       (x) => x.items,
     ),
+  balance: () =>
+    api<ListResponse<ProviderBalanceDto>>('GET', '/api/reports/balance').then((x) => x.items),
 };
 
 export const recordingsApi = {

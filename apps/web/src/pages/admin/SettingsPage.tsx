@@ -43,7 +43,7 @@ export function SettingsPage() {
       <h1 className="text-xl font-semibold">Settings</h1>
       <nav
         aria-label="Settings"
-        className="flex gap-1 border-b border-zinc-200 dark:border-zinc-800"
+        className="flex flex-wrap gap-1 border-b border-zinc-200 dark:border-zinc-800"
       >
         {TABS.map((t) => (
           <NavLink

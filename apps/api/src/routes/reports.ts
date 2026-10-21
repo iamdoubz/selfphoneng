@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // /api/reports (04 §7.3, 05 §2 Reports): calls per day, busiest hours, per-queue stats. Admin only.
-import { and, asc, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import {
   CALL_DIRECTIONS,
   ReportRangeSchema,
   type ListResponse,
   type QueueReportRow,
+  type ProviderBalanceDto,
   type ReportSummary,
 } from '@selfphoneng/shared';
 import { requireAdmin } from '../auth/guards.ts';
 import type { Db } from '../db/client.ts';
-import { calls, queues } from '../db/schema.ts';
+import { decrypt } from '../crypto/secrets.ts';
+import { calls, queues, trunks } from '../db/schema.ts';
+import { getBalance, VoipmsError } from '../integrations/voipms/client.ts';
 import { badRequest } from '../errors.ts';
 import { todayIn } from '../generator/load.ts';
 import { queueStats } from '../services/queuestats.ts';
@@ -42,6 +45,10 @@ export async function reportRoutes(app: FastifyInstance) {
     );
     const local = sql`(${calls.startedAt} at time zone ${tz})`;
     const missed = sql`${calls.status} in ('missed', 'voicemail', 'abandoned')`;
+    // Outside line time: inbound from arrival (a receptionist or voicemail answers too),
+    // outbound from the answer (talk time).
+    const lineIn = sql`coalesce(sum(extract(epoch from ${calls.endedAt} - ${calls.startedAt})) filter (where ${calls.direction} = 'inbound'), 0)`;
+    const lineOut = sql`coalesce(sum(${calls.talkSeconds}) filter (where ${calls.direction} = 'outbound'), 0)`;
     const [perDay, perHour, [t]] = await Promise.all([
       db
         .select({
@@ -49,6 +56,7 @@ export async function reportRoutes(app: FastifyInstance) {
           direction: calls.direction,
           n: sql<number>`count(*)::int`,
           missed: sql<number>`count(*) filter (where ${missed})::int`,
+          outside: sql<number>`round(${lineIn} + ${lineOut})::int`,
         })
         .from(calls)
         .where(where)
@@ -65,7 +73,11 @@ export async function reportRoutes(app: FastifyInstance) {
       db
         .select({
           calls: sql<number>`count(*)::int`,
+          answered: sql<number>`count(*) filter (where ${calls.status} = 'answered')::int`,
           missed: sql<number>`count(*) filter (where ${missed})::int`,
+          talk: sql<number>`coalesce(sum(${calls.talkSeconds}), 0)::int`,
+          lineIn: sql<number>`round(${lineIn})::int`,
+          lineOut: sql<number>`${lineOut}::int`,
           avgTalk: sql<
             number | null
           >`round(avg(${calls.talkSeconds}) filter (where ${calls.status} = 'answered'))::int`,
@@ -82,6 +94,7 @@ export async function reportRoutes(app: FastifyInstance) {
           CALL_DIRECTIONS.map((dir) => [dir, rows.find((r) => r.direction === dir)?.n ?? 0]),
         ) as Record<(typeof CALL_DIRECTIONS)[number], number>),
         missed: rows.reduce((s, r) => s + r.missed, 0),
+        outsideMinutes: Math.round(rows.reduce((s, r) => s + r.outside, 0) / 60),
       });
     }
     const hours = Array.from({ length: 7 }, () => Array<number>(24).fill(0));
@@ -90,9 +103,51 @@ export async function reportRoutes(app: FastifyInstance) {
       from,
       to,
       days,
-      totals: { calls: t!.calls, missed: t!.missed, avgTalkSeconds: t!.avgTalk },
+      totals: {
+        calls: t!.calls,
+        answered: t!.answered,
+        missed: t!.missed,
+        avgTalkSeconds: t!.avgTalk,
+        talkSeconds: t!.talk,
+        outsideSeconds: { inbound: t!.lineIn, outbound: t!.lineOut },
+      },
       hours,
     };
+  });
+
+  /** Each voip.ms trunk's account balance (owner, 2026-10-21); a trunk without API login says so. */
+  app.get('/api/reports/balance', async (): Promise<ListResponse<ProviderBalanceDto>> => {
+    const rows = await db
+      .select()
+      .from(trunks)
+      .where(eq(trunks.provider, 'voipms'))
+      .orderBy(asc(trunks.name));
+    const items = await Promise.all(
+      rows.map(async (t): Promise<ProviderBalanceDto> => {
+        const base = { trunkId: t.id, trunkName: t.name };
+        if (!t.voipmsApiUsername || !t.voipmsApiPasswordEnc)
+          return {
+            ...base,
+            balance: null,
+            error: 'Add the voip.ms API username and password to this trunk (Trunks) to see it',
+          };
+        try {
+          const creds = {
+            username: t.voipmsApiUsername,
+            password: decrypt(t.voipmsApiPasswordEnc),
+          };
+          return {
+            ...base,
+            balance: await getBalance(app.config.VOIPMS_API_URL, creds),
+            error: null,
+          };
+        } catch (e) {
+          if (e instanceof VoipmsError) return { ...base, balance: null, error: e.message };
+          throw e;
+        }
+      }),
+    );
+    return { items, nextCursor: null };
   });
 
   app.get('/api/reports/queues', async (req): Promise<ListResponse<QueueReportRow>> => {

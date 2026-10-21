@@ -327,14 +327,14 @@ function MohClassCard({
       <ol aria-label={`Play order of ${cls.name}`} className="flex flex-col gap-1">
         {cls.files.map((f, i) => (
           <li key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-            {cls.files.length > 1 && (
+            {cls.files.length > 1 && !cls.shuffle && (
               <span className="flex items-center gap-0.5">
                 <span className="w-5 text-right text-zinc-500 tabular-nums">{i + 1}.</span>
                 <Button
                   variant="ghost"
                   aria-label={`Move ${f.name} up`}
                   title="Play earlier"
-                  disabled={i === 0 || cls.shuffle || update.isPending}
+                  disabled={i === 0 || update.isPending}
                   onClick={() => move(i, -1)}
                 >
                   ↑
@@ -343,7 +343,7 @@ function MohClassCard({
                   variant="ghost"
                   aria-label={`Move ${f.name} down`}
                   title="Play later"
-                  disabled={i === cls.files.length - 1 || cls.shuffle || update.isPending}
+                  disabled={i === cls.files.length - 1 || update.isPending}
                   onClick={() => move(i, 1)}
                 >
                   ↓

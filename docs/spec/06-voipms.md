@@ -86,6 +86,10 @@ GET https://voip.ms/api/v1/rest.php
 - Rate limit our sends to 1 per second per DID (queue in memory).
 - Other methods used: `getDIDsInfo` (DID import), `getServersInfo` (server dropdown),
   `getSMS` (optional polling fallback). All behind `voipmsApi(method, params)` with a 15 s timeout.
+- `getBalance` (owner, 2026-10-21: the balance on Reports): `balance.current_balance`, a string
+  like `"12.3456"` in the account's currency **(verify the shape and that the API login needs
+  nothing more, with a real account)**. Each Reports load asks once per voip.ms trunk that has an
+  API login.
 
 ### 5.2 Receiving
 Endpoint: `GET|POST /hooks/voipms/sms/:token`. `:token` is a 32-char random value stored

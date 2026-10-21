@@ -24,20 +24,21 @@ describe.skipIf(!hasTestDb)('/api/reports', () => {
       direction: 'inbound' | 'outbound' | 'internal',
       status: 'answered' | 'missed' | 'voicemail' | 'busy',
       talkSeconds = 0,
+      lineSeconds = talkSeconds, // arrival to hang-up
     ) => ({
       linkedid,
       direction,
       status,
       startedAt: new Date(at),
-      endedAt: new Date(at),
+      endedAt: new Date(Date.parse(at) + lineSeconds * 1000),
       talkSeconds,
     });
     await t.db.insert(calls).values([
-      call('a', '2026-05-04T14:00:00Z', 'inbound', 'answered', 60), // Mon 09:00 local
-      call('b', '2026-05-04T14:30:00Z', 'inbound', 'missed'), // Mon 09:30
-      call('c', '2026-05-04T15:00:00Z', 'outbound', 'answered', 120), // Mon 10:00
-      call('d', '2026-05-05T03:00:00Z', 'inbound', 'voicemail'), // still Mon, 22:00
-      call('e', '2026-05-06T13:00:00Z', 'internal', 'busy'), // Wed 08:00
+      call('a', '2026-05-04T14:00:00Z', 'inbound', 'answered', 60, 75), // Mon 09:00 local
+      call('b', '2026-05-04T14:30:00Z', 'inbound', 'missed', 0, 20), // Mon 09:30
+      call('c', '2026-05-04T15:00:00Z', 'outbound', 'answered', 120, 130), // Mon 10:00
+      call('d', '2026-05-05T03:00:00Z', 'inbound', 'voicemail', 0, 40), // still Mon, 22:00
+      call('e', '2026-05-06T13:00:00Z', 'internal', 'busy', 0, 5), // Wed 08:00
       call('f', '2026-05-09T12:00:00Z', 'inbound', 'answered', 30), // outside the range
     ]);
     const [q] = await t.db
@@ -78,11 +79,19 @@ describe.skipIf(!hasTestDb)('/api/reports', () => {
     expect(r.statusCode, r.body).toBe(200);
     const s = r.json();
     expect(s.days).toEqual([
-      { date: '2026-05-04', inbound: 3, outbound: 1, internal: 0, missed: 2 },
-      { date: '2026-05-05', inbound: 0, outbound: 0, internal: 0, missed: 0 },
-      { date: '2026-05-06', inbound: 0, outbound: 0, internal: 1, missed: 0 },
+      // outside: inbound 75 + 20 + 40 s from arrival, outbound 120 s talk = 255 s, 4 minutes
+      { date: '2026-05-04', inbound: 3, outbound: 1, internal: 0, missed: 2, outsideMinutes: 4 },
+      { date: '2026-05-05', inbound: 0, outbound: 0, internal: 0, missed: 0, outsideMinutes: 0 },
+      { date: '2026-05-06', inbound: 0, outbound: 0, internal: 1, missed: 0, outsideMinutes: 0 },
     ]);
-    expect(s.totals).toEqual({ calls: 5, missed: 2, avgTalkSeconds: 90 });
+    expect(s.totals).toEqual({
+      calls: 5,
+      answered: 2,
+      missed: 2,
+      avgTalkSeconds: 90,
+      talkSeconds: 180,
+      outsideSeconds: { inbound: 135, outbound: 120 },
+    });
     expect(s.hours).toHaveLength(7);
     expect(s.hours[1][9]).toBe(2);
     expect(s.hours[1][10]).toBe(1);
