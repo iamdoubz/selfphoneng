@@ -51,6 +51,10 @@ Docker only, never bare metal (owner, 2026-10-21).
 - [x] The api backs up before it changes the database, and stops if it can't (2026-10-21).
 - [x] `scripts/update.sh` for compose installs, and the admin guide's "Updating" section for
       compose and Portainer (2026-10-21).
+- [x] `scripts/update.sh` on a throwaway compose install (Docker in Docker, 2026-10-21):
+      `install.sh` at v0.0.2, then a test v0.0.3 with a migration (the api backed up, then
+      migrated), then a test v0.0.4 whose api crashes after migrating: one backup despite the
+      restarts, and the script went back to v0.0.3 with that backup restored.
 - [ ] A real compose install with the bundled Caddy updated with `scripts/update.sh`, with calls
       and backups.
 - [ ] The owner's Portainer stack updated to a release that changes the database.
