@@ -114,8 +114,11 @@ export async function authRoutes(app: FastifyInstance) {
 
   app.post('/api/auth/totp/enable', { preHandler: requireAuth }, async (req) => {
     adminOnly(req.user!);
-    const { secret, code } = TotpEnableSchema.parse(req.body);
-    if ((await myRow(req.user!.id)).totpSecretEnc) throw conflict('Two-step sign-in is already on');
+    const { secret, code, password } = TotpEnableSchema.parse(req.body);
+    const u = await myRow(req.user!.id);
+    if (u.totpSecretEnc) throw conflict('Two-step sign-in is already on');
+    // Like turning it off: a stolen session alone can't lock the owner out with its own secret.
+    if (!(await verifyPassword(u.passwordHash, password))) throw badRequest('Wrong password');
     const step = checkTotp(secret, code, null);
     if (step === null)
       throw badRequest('That code doesn’t match. Check the phone’s clock and try again.');
@@ -135,7 +138,7 @@ export async function authRoutes(app: FastifyInstance) {
     return { recoveryCodes: codes };
   });
 
-  /** Turning it off or making new recovery codes needs the password again. */
+  /** Turning it off or making new recovery codes needs the password again (on does too). */
   async function confirmPassword(id: string, body: unknown) {
     const { password } = PasswordConfirmSchema.parse(body);
     const u = await myRow(id);

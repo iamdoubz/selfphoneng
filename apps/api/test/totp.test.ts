@@ -44,12 +44,18 @@ describe.skipIf(!hasTestDb)('two-step sign-in', () => {
     secret = setup.secret;
     expect(setup.otpauthUrl).toMatch(/^otpauth:\/\/totp\/.+\?secret=[A-Z2-7]{32}&issuer=/);
     expect(setup.qr).toMatch(/^data:image\/png;base64,/);
-    const bad = await req('POST', '/api/auth/totp/enable', { secret, code: '000000' });
+    const password = ADMIN.password;
+    const bad = await req('POST', '/api/auth/totp/enable', { secret, code: '000000', password });
     expect(bad.statusCode).toBe(400);
-    const ok = await req('POST', '/api/auth/totp/enable', {
-      secret,
-      code: totpCode(secret, stepAt()),
-    });
+    // A session alone isn't enough: the password again, like turning it off.
+    const code = totpCode(secret, stepAt());
+    for (const payload of [
+      { secret, code },
+      { secret, code, password: 'not-it' },
+    ])
+      expect((await req('POST', '/api/auth/totp/enable', payload)).statusCode).toBe(400);
+    expect((await req('GET', '/api/auth/totp')).json().enabled).toBe(false);
+    const ok = await req('POST', '/api/auth/totp/enable', { secret, code, password });
     expect(ok.statusCode, ok.body).toBe(200);
     recovery = ok.json().recoveryCodes;
     expect(recovery).toHaveLength(10);
@@ -58,7 +64,7 @@ describe.skipIf(!hasTestDb)('two-step sign-in', () => {
       recoveryCodesLeft: 10,
     });
     expect(
-      (await req('POST', '/api/auth/totp/enable', { secret, code: '123456' })).statusCode,
+      (await req('POST', '/api/auth/totp/enable', { secret, code: '123456', password })).statusCode,
     ).toBe(409);
   });
 

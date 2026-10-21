@@ -30,11 +30,12 @@ function TwoStep() {
   const [password, setPassword] = useState('');
   const setup = useMutation({ mutationFn: authApi.totpSetup });
   const enable = useMutation({
-    mutationFn: () => authApi.totpEnable(setup.data!.secret, code.trim()),
+    mutationFn: () => authApi.totpEnable(setup.data!.secret, code.trim(), password),
     onSuccess: async (r) => {
       setCodes(r.recoveryCodes);
       setup.reset();
       setCode('');
+      setPassword('');
       await refresh();
     },
   });
@@ -131,8 +132,9 @@ function TwoStep() {
               />
             )}
           </Field>
+          {passwordField}
           <div className="flex gap-2">
-            <Button type="submit" variant="primary" disabled={enable.isPending}>
+            <Button type="submit" variant="primary" disabled={!password || enable.isPending}>
               Turn on
             </Button>
             <Button onClick={() => setup.reset()}>Cancel</Button>

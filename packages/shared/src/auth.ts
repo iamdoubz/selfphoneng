@@ -40,5 +40,6 @@ export const TotpEnableSchema = z.object({
     .string()
     .trim()
     .regex(/^\d{6}$/, 'The 6-digit code from the app'),
+  password: z.string().min(1).max(200),
 });
 export const PasswordConfirmSchema = z.object({ password: z.string().min(1).max(200) });

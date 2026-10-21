@@ -40,7 +40,8 @@ type ProvisionContext = {
 | `GET /prov/linphone/<token>.xml` | Linphone (§5) | token auth instead of Basic |
 
 Rules:
-- Unknown MAC → 404, wrong/missing Basic auth → 401 with `WWW-Authenticate: Basic realm="selfphoneng"`.
+- Unknown MAC or wrong/missing Basic auth → the same 401 with `WWW-Authenticate: Basic realm="selfphoneng"`
+  (an unknown MAC was a 404 until 2026-10-21: the difference told which MACs exist, 08 §6).
   Both get logged with IP. Rate limit: 20 requests / 10 min per IP; after 10 failures, block that IP for 1 h.
 - If `provisioning.lanOnly` is true and the client IP isn't in `network.localNets` → 403.
 - On success: update `last_provisioned_at`, `last_provisioned_ip`. Set `Cache-Control: no-store`.
@@ -48,8 +49,9 @@ Rules:
 
 As built (M10-T1), `routes/provisioning.ts` + `provisioning/limiter.ts`:
 - A request **without** an `Authorization` header gets the 401 but isn't a failure: phones ask without
-  credentials first and retry after the challenge. Failures are unknown MACs (or a file for another
-  vendor) and wrong credentials; 10 within an hour block the IP for an hour (429).
+  credentials first and retry after the challenge. Failures are requests with credentials that
+  don't match: a wrong password, an unknown MAC, or a file for another vendor; 10 within an hour
+  block the IP for an hour (429).
 - The 20 requests / 10 min limit applies to clients **outside** `network.localNets`: an office's
   phones rebooting together behind one address would pass it in a minute. Failures count for all.
 - The Basic auth user name is the 12-hex MAC (either case); it can't carry colons (Basic auth splits

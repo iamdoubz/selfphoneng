@@ -83,8 +83,8 @@ get the proxy's address only (below). The setting is on Settings → Security, w
   code, get 10 recovery codes once (`k7m3q-x9tpw`; case and dashes don't matter). Login asks for
   the code only after the password is right (401 `totp_required`, no session); a wrong code is a
   failed login (rate limit, audit). Each 30 s step signs in once (`users.totp_last_step`, updated
-  atomically) and each recovery code once (`array_remove` with an `any()` guard). Turning it off or
-  making new codes needs the password. Another admin can turn it off for a lost phone
+  atomically) and each recovery code once (`array_remove` with an `any()` guard). Turning it on or
+  off, or making new codes, needs the password. Another admin can turn it off for a lost phone
   (`POST /api/users/:id/reset-two-step`, signs that user out). `scripts/e2e/m11-t1-totp.mjs`.
 - As built (M11-T1): the headers come from an `onSend` hook on every response (UI, API, `/prov`);
   `connect-src` also allows `WEBRTC_WS_URL`'s origin when it's set. The dark-mode bootstrap moved
@@ -181,13 +181,14 @@ without a shell; CSV export escapes formulas; no `dangerouslySetInnerHTML`; sess
 stored as sha256; AES-256-GCM with a random IV per value; AMI, Asterisk HTTP and the api listen on
 127.0.0.1 only; webhooks check addresses at connect time (no DNS rebinding), follow no redirects.
 
-To do (owner, 2026-10-20, for the next image): `noload` in `asterisk/conf/modules.conf` for
-`app_system.so`, `func_shell.so`, `app_disa.so` and `res_agi.so`. Nothing uses them, but they are
-what a dialplan injection would reach for (`SHELL()` runs host commands). Check with
-`pnpm test:asterisk` before releasing.
-
-Left as they are, for the owner:
-- Turning two-step sign-in on doesn't ask for the password again (turning it off does).
-- `*98` allows 3 PIN tries per call, with no limit on calls; only internal phones reach it.
-- A known MAC answers `/prov` with 401, an unknown one with 404 (07 §2 accepts this).
-- The login limiter's memory grows with the number of distinct emails tried until restart.
+Fixed after the review (owner, 2026-10-21):
+- `asterisk/conf/modules.conf` doesn't load `app_system`, `func_shell`, `app_disa`, `res_agi` or
+  `app_externalivr`. Nothing uses them, but they are what a dialplan injection would reach for
+  (`SHELL()` runs host commands). `pnpm test:asterisk` passes without them.
+- Turning two-step sign-in on asks for the password again, like turning it off (`totp.test.ts`).
+- `*97`/`*98`: one voicemail login at a time per phone and 10 an hour (`sp-sub-vmlimit`, AstDB
+  `SP/VMLOGIN/<ext>` = `<UTC hour>:<count>`), each with 3 PIN tries (`voicemail-test.ts`).
+- `/prov`: an unknown MAC gets the same 401 as a known one, so the answers don't tell which MACs
+  exist; with credentials it counts as a failure (`devices.test.ts`).
+- The login limiter forgets keys past every window, swept at most once a minute
+  (`login-limiter.test.ts`).

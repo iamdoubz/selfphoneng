@@ -3,6 +3,16 @@
 Versions follow [semver](https://semver.org). Each release's container images are built from its
 tag (08 §3.1): `selfphoneng-api` and `selfphoneng-asterisk`, on ghcr.io and on the Gitea registry.
 
+## Unreleased
+
+- Security leftovers from the review (08 §6), all fixed:
+  - Asterisk no longer loads the modules that can run host commands (`app_system`, `func_shell`,
+    `app_disa`, `res_agi`, `app_externalivr`).
+  - Turning two-step sign-in on asks for your password again.
+  - `*97`/`*98` voicemail logins: one at a time per phone, 10 an hour.
+  - Phone setup files: an unknown MAC gets the same answer as a known one.
+  - The login limiter no longer keeps every email ever tried until a restart.
+
 ## v0.0.2 — 2026-10-21
 
 - Fix: calls to a user with Linphone on an iPhone registered dropped at once, for every device of

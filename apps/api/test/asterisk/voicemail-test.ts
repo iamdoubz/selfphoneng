@@ -285,6 +285,31 @@ async function main() {
       await sleep(1000);
     }
 
+    // Voicemail logins: *97 above counted once; with 10 this hour, *98 doesn't reach a PIN prompt.
+    const hour = new Date().toISOString().replace(/\D/g, '').slice(0, 10);
+    const counted = await ami.command('database get SP/VMLOGIN 101');
+    if (!counted.includes(`${hour}:1`)) problems.push(`*97 not counted: ${counted}`);
+    await ami.command(`database put SP/VMLOGIN 101 ${hour}:10`);
+    await ami.action({
+      Action: 'Originate',
+      Channel: 'Local/*98@sp-from-ext',
+      Application: 'Wait',
+      Data: '5',
+      Variable: '__SP_EXT=101',
+      Async: 'true',
+    });
+    let refused = false;
+    for (let i = 0; i < 20 && !refused; i++) {
+      await sleep(500);
+      refused = /Playing 'an-error-has-occurred/.test(docker('logs', AST).out);
+    }
+    if (!refused) problems.push('*98 past the hourly voicemail login limit was not refused');
+    else if (/VoiceMailMain\("[^"]*", "@default"\)/.test(docker('logs', AST).out))
+      problems.push('*98 reached VoiceMailMain past the limit');
+    else log('*98 past 10 logins an hour: refused');
+    await ami.command('channel request hangup all');
+    await waitIdle();
+
     // eslint-disable-next-line no-control-regex -- strips Asterisk's ANSI colors
     const plainLog = docker('logs', AST).out.replace(/\x1b\[[0-9;]*m/g, '');
     problems.push(

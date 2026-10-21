@@ -11,20 +11,23 @@ Tick a box only with proof: a date and what was seen.
 
 ## Real voip.ms account (M3)
 
-- [ ] The trunk shows **Registered** in the UI.
+- [x] The trunk shows **Registered** in the UI (2026-10-21: green, voip.ms, the sub-account at
+      its POP).
 - [x] A mobile → DID call rings a phone. 2026-10-21: DID → digital receptionist → browser
       phone; the DID came in the Request-URI. Still to do: write that down in 06 §3.
-- [ ] An outbound call shows the DID as caller ID on the mobile. Write down in 06 §4 whether
-      per-call caller ID (Remote-Party-ID) is honored.
+- [x] An outbound call shows the DID as caller ID on the mobile (2026-10-21, owner).
+- [ ] Write down in 06 §4 whether per-call caller ID (Remote-Party-ID) is honored.
 
 ## Real phones (M8, M10)
 
 - [x] Linphone on a real phone registers by scanning the QR (2026-10-20, iPhone).
-- [ ] An incoming call rings that Linphone while the app is open (fixed in v0.0.2, needs
-      checking on the server).
+- [x] An incoming call rings that Linphone while the app is open (2026-10-21, v0.0.2: DID →
+      receptionist → 100 rings the iPhone).
 - [ ] A factory-reset Yealink pointed at the setup URL registers with the right name and BLF keys.
 - [ ] A Grandstream gets its keys the same way.
 - [ ] Paging auto-answers on a real Yealink or Grandstream.
+
+On hold until the owner has the phones (2026-10-21).
 
 ## Someone else installs it (M11)
 
@@ -32,10 +35,14 @@ Tick a box only with proof: a date and what was seen.
       on a fresh VM.
 - [ ] A backup restores on a second VM.
 
+On hold (2026-10-21).
+
 ## A week on the owner's server
 
 - [ ] 7 days handling real calls with no crash or restart of the api or Asterisk.
 - [ ] Nightly backups restore cleanly.
+
+In progress on the owner's server (v0.0.2, from 2026-10-21).
 
 ## Updating
 
@@ -45,18 +52,20 @@ Tick a box only with proof: a date and what was seen.
 
 ## Security leftovers (08 §6)
 
-- [ ] Asterisk no longer loads `app_system`, `func_shell`, `app_disa` and `res_agi`; checked with
-      `pnpm test:asterisk`.
-- [ ] Owner decision, fix or accept each:
-  - [ ] Turning two-step sign-in on doesn't ask for the password again.
-  - [ ] `*98` allows 3 PIN tries per call, with no limit on calls.
-  - [ ] A known MAC answers `/prov` with 401, an unknown one with 404.
-  - [ ] The login limiter's memory grows with the number of distinct emails tried.
+Owner's decision (2026-10-21): fix all of them. Each is in 08 §6 with its test.
+
+- [x] Asterisk no longer loads `app_system`, `func_shell`, `app_disa`, `res_agi` or
+      `app_externalivr`; `pnpm test:asterisk` passes.
+- [x] Turning two-step sign-in on asks for the password again.
+- [x] `*97`/`*98`: one voicemail login at a time per phone, 10 an hour.
+- [x] An unknown MAC answers `/prov` like a known one (401).
+- [x] The login limiter forgets old entries.
 
 ## The release
 
 - [ ] Version 1.0.0 in every `package.json`, and a v1.0.0 entry in the [changelog](../CHANGELOG.md).
-- [ ] The release builds and pushes images to both the Gitea registry and ghcr.io.
+- [ ] The release builds and pushes images to both the Gitea registry and ghcr.io. (Gitea works.
+      ghcr.io: the api image pushes; the asterisk package exists, empty, and refuses the push.)
 
 ## Not needed for v1
 

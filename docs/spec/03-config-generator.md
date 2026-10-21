@@ -849,10 +849,18 @@ Default routes, created with the first trunk (06 §4), in this order. Toll-free 
 ```ini
 [sp-featurecodes]
 exten => *97,1,Answer()                                     ; my voicemail
+ same => n,Gosub(sp-sub-vmlimit,s,1)                         ; 1 at a time, 10/hour per phone (08 §6)
+ same => n,GotoIf($["${GOSUB_RETVAL}" != "ok"]?full)
  same => n,VoiceMailMain(${SP_EXT}@default)
  same => n,Hangup()
+ same => n(full),Playback(an-error-has-occurred)
+ same => n,Hangup()
 exten => *98,1,Answer()                                     ; any voicemail (asks mailbox)
+ same => n,Gosub(sp-sub-vmlimit,s,1)
+ same => n,GotoIf($["${GOSUB_RETVAL}" != "ok"]?full)
  same => n,VoiceMailMain(@default)
+ same => n,Hangup()
+ same => n(full),Playback(an-error-has-occurred)
  same => n,Hangup()
 exten => *78,1,Answer()                                     ; DND on
  same => n,Set(DB(SP/DND/${SP_EXT})=1)

@@ -43,6 +43,7 @@ try {
     `[...document.querySelectorAll('span.font-mono')].map(s => s.textContent).find(t => /^[A-Z2-7]{32}$/.test(t))`,
   );
   assert.match(secret, /^[A-Z2-7]{32}$/);
+  await p.fill('Your password', pw); // turning it on asks for the password too (08 §6)
   await p.fill('2. Enter the 6-digit code it shows', '000000');
   await p.click('Turn on');
   await p.waitFor(`document.body.innerText.includes('doesn’t match')`, 'wrong code refused');

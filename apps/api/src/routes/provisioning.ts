@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // GET /prov/... (07 §2): phones fetch their config with HTTP Basic auth (user = MAC, password =
-// the device's provisioning password). No session. Unknown MAC → 404, bad auth → 401; both are
-// logged with the IP and count toward an IP block (provisioning/limiter.ts).
+// the device's provisioning password). No session. Unknown MAC or bad auth → 401, alike; wrong
+// credentials are logged with the IP and count toward an IP block (provisioning/limiter.ts).
 import { timingSafeEqual } from 'node:crypto';
 import { BlockList, isIPv4 } from 'node:net';
 import { eq, sql } from 'drizzle-orm';
@@ -113,24 +113,28 @@ export async function provisioningRoutes(app: FastifyInstance) {
     if (!kind) return deny(reply, 404, 'Not found');
     const mac = kind.m![1]!;
 
-    const found = await loadContext(db, app.config, mac);
-    if (
-      !found ||
-      found.ctx.vendor === 'generic' ||
-      (kind.f.vendor && found.ctx.vendor !== kind.f.vendor)
-    ) {
-      recordProvFailure(req.ip);
-      req.log.warn({ ip: req.ip, mac }, 'provisioning: unknown MAC');
-      return deny(reply, 404, 'Not found');
-    }
+    const loaded = await loadContext(db, app.config, mac);
+    const found =
+      loaded &&
+      loaded.ctx.vendor !== 'generic' &&
+      (!kind.f.vendor || loaded.ctx.vendor === kind.f.vendor)
+        ? loaded
+        : null;
     const auth = basicAuth(req);
     const ok =
-      auth !== null && auth.user.toLowerCase() === mac && same(auth.pass, found.ctx.provPassword);
+      found !== null &&
+      auth !== null &&
+      auth.user.toLowerCase() === mac &&
+      same(auth.pass, found.ctx.provPassword);
     if (!ok) {
-      // A phone asks without credentials first and retries after the 401: not a failure.
+      // An unknown MAC gets the same 401 as a known one, so the answers don't tell which MACs
+      // exist (08 §6). A phone asks without credentials first and retries: not a failure.
       if (auth) {
         recordProvFailure(req.ip);
-        req.log.warn({ ip: req.ip, mac }, 'provisioning: wrong credentials');
+        req.log.warn(
+          { ip: req.ip, mac },
+          found ? 'provisioning: wrong credentials' : 'provisioning: unknown MAC',
+        );
       }
       return reply
         .code(401)

@@ -143,8 +143,8 @@ export const authApi = {
     }).then((r) => r.user),
   totp: () => api<TotpStatus>('GET', '/api/auth/totp'),
   totpSetup: () => api<TotpSetup>('POST', '/api/auth/totp/setup', {}),
-  totpEnable: (secret: string, code: string) =>
-    api<{ recoveryCodes: string[] }>('POST', '/api/auth/totp/enable', { secret, code }),
+  totpEnable: (secret: string, code: string, password: string) =>
+    api<{ recoveryCodes: string[] }>('POST', '/api/auth/totp/enable', { secret, code, password }),
   totpDisable: (password: string) =>
     api<{ ok: true }>('POST', '/api/auth/totp/disable', { password }),
   totpNewCodes: (password: string) =>

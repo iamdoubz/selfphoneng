@@ -105,10 +105,25 @@ describe.skipIf(!hasTestDb)('/api/devices and /prov', () => {
     expect((await prov('y000000000044.cfg')).body).toBe('#!version:1.0.0.1\n');
   });
 
-  it('unknown MAC and the other vendor’s file are 404; ten failures block the IP', async () => {
-    expect((await prov('001565000000.cfg')).statusCode).toBe(404);
-    expect((await prov(`cfg${device.mac}.xml`)).statusCode).toBe(404); // a Yealink here
+  it('unknown MAC and the other vendor’s file answer like a known MAC; ten failures block the IP', async () => {
+    // 08 §6: the answers mustn't tell which MACs exist.
+    const known = await prov(`${device.mac}.cfg`);
+    for (const f of ['001565000000.cfg', `cfg${device.mac}.xml`]) {
+      const r = await prov(f);
+      expect([r.statusCode, r.headers['www-authenticate'], r.body]).toEqual([
+        401,
+        known.headers['www-authenticate'],
+        known.body,
+      ]);
+    }
     expect((await prov('anything.boot')).statusCode).toBe(404);
+    // with credentials they're failures, like a wrong password
+    expect(
+      (await prov('001565000000.cfg', '192.168.1.20', 'guess', '001565000000')).statusCode,
+    ).toBe(401);
+    expect(
+      (await prov(`cfg${device.mac}.xml`, '192.168.1.20', device.provisioningPassword)).statusCode,
+    ).toBe(401); // a Yealink here
     for (let i = 0; i < 8; i++)
       expect((await prov(`${device.mac}.cfg`, '192.168.1.20', 'guess')).statusCode).toBe(401);
     // 10 failures (2 unknown MACs, 8 wrong passwords): even the right password is refused now
@@ -181,7 +196,7 @@ describe.skipIf(!hasTestDb)('/api/devices and /prov', () => {
     expect(
       (await prov('112233445566.cfg', '192.168.1.40', generic.provisioningPassword, '112233445566'))
         .statusCode,
-    ).toBe(404);
+    ).toBe(401);
   });
 
   it('M10-T2: BLF keys named after their users, the time zone, and the phonebook', async () => {
@@ -256,6 +271,6 @@ describe.skipIf(!hasTestDb)('/api/devices and /prov', () => {
     expect((await req('DELETE', `/api/devices/${device.id}`)).statusCode).toBe(200);
     expect(
       (await prov(`${device.mac}.cfg`, '192.168.1.50', device.provisioningPassword)).statusCode,
-    ).toBe(404);
+    ).toBe(401);
   });
 });
