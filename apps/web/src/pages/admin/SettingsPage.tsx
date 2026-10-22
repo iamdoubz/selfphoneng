@@ -588,6 +588,8 @@ function AiTab({ s }: { s: SettingsDto }) {
       ) as Record<'llm' | 'stt' | 'tts', Ep>,
   );
   const [vmText, setVmText] = useState(s['ai.voicemailTranscripts']);
+  const [callText, setCallText] = useState(s['ai.callTranscripts']);
+  const [callSum, setCallSum] = useState(s['ai.callSummaries']);
   const [tests, setTests] = useState<Record<string, AiTestResult | 'running'>>({});
   const set = (kind: keyof typeof eps, k: keyof Ep, v: string) =>
     setEps((e) => ({ ...e, [kind]: { ...e[kind], [k]: v } }));
@@ -615,6 +617,8 @@ function AiTab({ s }: { s: SettingsDto }) {
           'ai.stt': value('stt'),
           'ai.tts': value('tts'),
           'ai.voicemailTranscripts': vmText,
+          'ai.callTranscripts': callText,
+          'ai.callSummaries': callText && callSum,
         });
       }}
     >
@@ -684,6 +688,23 @@ function AiTab({ s }: { s: SettingsDto }) {
         New messages are written out before the voicemail email goes, and the text is in the email
         and on the voicemail page.
       </p>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={callText} onChange={(e) => setCallText(e.target.checked)} />
+        Call transcripts (speech to text)
+      </label>
+      <p className="-mt-2 text-xs text-zinc-500">
+        Recorded calls are written out a minute or two after they end, the caller and the other side
+        apart, and can be searched on the Recordings page. Only calls recorded while this is on.
+      </p>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={callText && callSum}
+          disabled={!callText}
+          onChange={(e) => setCallSum(e.target.checked)}
+        />
+        Call summaries and action items (language model)
+      </label>
       <div className="flex items-center gap-3">
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save

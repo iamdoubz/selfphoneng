@@ -50,6 +50,13 @@
       "when": 1792624567407,
       "tag": "0006_voicemail_transcript",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792626762332,
+      "tag": "0007_recording_transcripts",
+      "breakpoints": true
     }
   ]
 }

@@ -80,6 +80,24 @@ export async function transcribe(ep: AiEndpoint, audio: Buffer, timeoutMs = 180_
   return text.trim();
 }
 
+/** Speech to text with timings (verbose_json): what was said, and from which second. */
+export async function transcribeSegments(ep: AiEndpoint, audio: Buffer, timeoutMs = 600_000) {
+  const form = new FormData();
+  form.append('file', new Blob([new Uint8Array(audio)], { type: 'audio/wav' }), 'audio.wav');
+  form.append('model', ep.model);
+  form.append('response_format', 'verbose_json');
+  const r = await call(ep.url, 'audio/transcriptions', { method: 'POST', body: form }, timeoutMs);
+  const j = (await r.json()) as {
+    text?: unknown;
+    segments?: { start?: unknown; text?: unknown }[];
+  };
+  // A server without segments: the whole text, from the start.
+  const segs = Array.isArray(j.segments)
+    ? j.segments.map((s) => ({ at: Number(s.start) || 0, text: String(s.text ?? '').trim() }))
+    : [{ at: 0, text: typeof j.text === 'string' ? j.text.trim() : '' }];
+  return segs.filter((s) => s.text);
+}
+
 /** Text to speech: a WAV. */
 export async function speak(ep: AiTtsEndpoint, input: string, timeoutMs = 60_000) {
   const r = await call(

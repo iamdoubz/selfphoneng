@@ -1,18 +1,45 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Recordings (05 §2): every recorded call, newest first; play, download, delete. Calls are
 // recorded by user record modes and per phone number; retention is in Settings → Recording.
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+// With call transcripts on (spec 10 §3): the summary, the transcript, and search.
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { recordingsApi } from '../../api/client.ts';
 import { ConfirmDialog } from '../../components/Dialog.tsx';
-import { Alert, Button } from '../../components/ui.tsx';
+import { Alert, Button, inputClass } from '../../components/ui.tsx';
 import { fmtDuration, fmtNumber } from './CallsPage.tsx';
+
+const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+/** Who said what, fetched when opened. */
+function Transcript({ id }: { id: string }) {
+  const t = useQuery({ queryKey: ['transcript', id], queryFn: () => recordingsApi.transcript(id) });
+  if (t.error) return <Alert>{t.error.message}</Alert>;
+  if (!t.data) return <p className="text-zinc-500">Loading…</p>;
+  return (
+    <ol aria-label="Transcript" className="mt-1 flex flex-col gap-1">
+      {t.data.lines.map((l, i) => (
+        <li key={i} className="flex gap-2">
+          <span className="w-10 shrink-0 text-zinc-500 tabular-nums">{mmss(l.at)}</span>
+          <span className="w-20 shrink-0 font-medium">
+            {l.side === 'caller' ? 'Caller' : 'Other side'}
+          </span>
+          <span>{l.text}</span>
+        </li>
+      ))}
+      {!t.data.lines.length && <li className="text-zinc-500">No words.</li>}
+    </ol>
+  );
+}
 
 export function RecordingsPage() {
   const qc = useQueryClient();
+  const [draft, setDraft] = useState('');
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState<string | null>(null);
   const list = useInfiniteQuery({
-    queryKey: ['recordings'],
-    queryFn: ({ pageParam }) => recordingsApi.list(pageParam),
+    queryKey: ['recordings', q],
+    queryFn: ({ pageParam }) => recordingsApi.list(pageParam, q || undefined),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
@@ -30,10 +57,41 @@ export function RecordingsPage() {
       <h1 className="text-xl font-semibold">Recordings</h1>
       <p className="text-sm text-zinc-500">
         Calls are recorded when a user's record mode or a phone number says so. How long they're
-        kept is under Settings → Recording.
+        kept is under Settings → Recording. With call transcripts on (Settings → AI), each call is
+        written out a minute or two after it ends.
       </p>
+      <form
+        role="search"
+        className="flex flex-wrap gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setQ(draft.trim());
+        }}
+      >
+        <input
+          aria-label="Search transcripts"
+          placeholder="Search what was said"
+          className={`${inputClass} max-w-72`}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+        />
+        <Button type="submit">Search</Button>
+        {q && (
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setDraft('');
+              setQ('');
+            }}
+          >
+            Clear
+          </Button>
+        )}
+      </form>
       {list.isError && <Alert>{list.error.message}</Alert>}
-      {list.data && items.length === 0 && <p className="text-sm text-zinc-500">No recordings.</p>}
+      {list.data && items.length === 0 && (
+        <p className="text-sm text-zinc-500">{q ? 'No call mentions that.' : 'No recordings.'}</p>
+      )}
       <ul
         aria-label="Recordings"
         className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800"
@@ -68,6 +126,28 @@ export function RecordingsPage() {
             <Button variant="ghost" onClick={() => setDeleting(r.id)}>
               Delete
             </Button>
+            {r.summary && (
+              <p
+                aria-label="Summary"
+                className="w-full whitespace-pre-line text-zinc-700 dark:text-zinc-300"
+              >
+                {r.summary}
+              </p>
+            )}
+            {r.aiError && (
+              <p className="w-full text-xs text-zinc-500">
+                {r.hasTranscript ? '' : 'No transcript: '}
+                {r.aiError}
+              </p>
+            )}
+            {r.hasTranscript && (
+              <div className="w-full">
+                <Button variant="ghost" onClick={() => setOpen(open === r.id ? null : r.id)}>
+                  {open === r.id ? 'Hide transcript' : 'Show transcript'}
+                </Button>
+                {open === r.id && <Transcript id={r.id} />}
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -81,7 +161,7 @@ export function RecordingsPage() {
       <ConfirmDialog
         open={deleting !== null}
         title="Delete recording"
-        message={<p>Delete this recording? This can't be undone.</p>}
+        message={<p>Delete this recording and its transcript? This can't be undone.</p>}
         confirmLabel="Delete"
         busy={remove.isPending}
         error={remove.error?.message}

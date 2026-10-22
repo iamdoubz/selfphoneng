@@ -287,3 +287,8 @@ outside minutes in and out, the voip.ms balance tile). Needs ffmpeg for the uplo
 runs a fake OpenAI-style server on 127.0.0.1:18001 and checks Settings → AI: Test for speech to
 text and text to speech (the voice plays), Save with voicemail transcripts on, and an address off
 the local network refused.
+
+`call-transcripts.mjs <baseUrl> <adminEmail> <adminPassword> <shotsDir>` (after `m1-t4.mjs`, with
+`PG_CONTAINER` and `PG_DB` like `numbers-music-reports.mjs`) puts a recording with a transcript and
+summary in the database and checks the Recordings page: the summary, why another has none, Show
+transcript in order, and search by what was said.

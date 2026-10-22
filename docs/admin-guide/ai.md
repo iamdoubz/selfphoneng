@@ -1,7 +1,7 @@
 # Local AI
 
-SelfPhoneNG can use AI that runs on your own server: voicemail transcripts now, more later
-(call summaries, typed prompts, an AI receptionist). Nothing is sent to an AI company. The
+SelfPhoneNG can use AI that runs on your own server: voicemail transcripts, and transcripts and
+summaries of recorded calls. More later (typed prompts, an AI receptionist). Nothing is sent to an AI company. The
 addresses in Settings → AI must be this server or your local network, and SelfPhoneNG refuses
 anything else.
 
@@ -60,3 +60,26 @@ voicemail page. A transcript is a machine's guess: names and numbers are the usu
 the AI stack is down, the email goes without one.
 
 Transcripts are kept with the voicemail in the database, and are in your backups.
+
+## Call transcripts and summaries
+
+Turn on **Call transcripts** (and **Call summaries and action items**) in Settings → AI. From then
+on, each recorded call is also recorded one side at a time, and a minute or two after it ends:
+
+- both sides are written out and put together in time order, as **Caller** and **Other side**, so
+  you see who said what;
+- the language model writes a short summary with the action items;
+- the two one-side files are deleted. The normal recording stays.
+
+On the **Recordings** page each call shows its summary, **Show transcript**, and the search box
+finds calls by what was said. People who were on a call can read its transcript too, like they can
+play its recording.
+
+- Only calls that are recorded are written out (user record modes, phone numbers, queues and
+  conference rooms set to record), and only those recorded while it's on.
+- If the AI stack is down, calls wait and are done when it's back (up to two days old).
+- A long call's summary only covers its first 15 minutes or so (a small model's limit); the
+  transcript has all of it.
+- Transcripts and summaries are part of the recording: deleting the recording (or the retention in
+  Settings → Recording) deletes them too. The recording notice and the [legal page](legal.md)
+  apply to them as much as to the audio.

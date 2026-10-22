@@ -87,6 +87,7 @@ import type {
   BackupDto,
   Warning,
   AiTestResult,
+  TranscriptDto,
 } from '@selfphoneng/shared';
 
 export class ApiError extends Error {
@@ -442,8 +443,12 @@ export const reportsApi = {
 };
 
 export const recordingsApi = {
-  list: (cursor?: string) =>
-    api<ListResponse<RecordingDto>>('GET', `/api/recordings${cursor ? `?cursor=${cursor}` : ''}`),
+  list: (cursor?: string, q?: string) =>
+    api<ListResponse<RecordingDto>>(
+      'GET',
+      `/api/recordings?${new URLSearchParams({ ...(cursor && { cursor }), ...(q && { q }) })}`,
+    ),
+  transcript: (id: string) => api<TranscriptDto>('GET', `/api/recordings/${id}/transcript`),
   audioUrl: (id: string, download = false) =>
     `/api/recordings/${id}/audio${download ? '?download=1' : ''}`,
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/recordings/${id}`),

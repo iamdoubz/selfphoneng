@@ -533,6 +533,12 @@ export const recordings = pgTable('recordings', {
   startedAt: tstz().notNull(),
   durationMs: integer(),
   sizeBytes: bigint({ mode: 'number' }),
+  /** Spec 10 §3: [{ side: 'caller' | 'other', at: seconds, text }], in time order. */
+  transcript: jsonb().$type<{ side: 'caller' | 'other'; at: number; text: string }[]>(),
+  summary: text(),
+  /** When the transcript job finished with it (null: not yet); aiError: why it has none. */
+  aiDoneAt: tstz(),
+  aiError: text(),
   ...timestamps,
 });
 

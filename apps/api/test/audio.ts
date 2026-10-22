@@ -22,3 +22,12 @@ export function silenceWav(seconds = 1) {
   h.writeUInt32LE(data.length, 40);
   return Buffer.concat([h, data]);
 }
+
+/** `silence` s of silence, then `seconds` s of a 440 Hz tone, as an 8 kHz mono 16-bit wav. */
+export function toneWav(seconds = 1, silence = 0) {
+  const w = silenceWav(seconds + silence);
+  const start = 44 + Math.round(silence * 8000) * 2;
+  for (let i = 0; start + i * 2 < w.length; i++)
+    w.writeInt16LE(Math.round(6000 * Math.sin((2 * Math.PI * 440 * i) / 8000)), start + i * 2);
+  return w;
+}

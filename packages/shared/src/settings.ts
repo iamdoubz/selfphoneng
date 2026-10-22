@@ -100,6 +100,10 @@ export const SettingsSchemas = {
   'ai.stt': AiEndpointSchema.nullable().default(null),
   'ai.tts': AiTtsEndpointSchema.nullable().default(null),
   'ai.voicemailTranscripts': z.boolean().default(false),
+  /** Recorded calls: each side recorded on its own, then written out (spec 10 §3). */
+  'ai.callTranscripts': z.boolean().default(false),
+  /** …and summarized by ai.llm. */
+  'ai.callSummaries': z.boolean().default(false),
   // Not in 02 §3's table but used by the generator (03 §3).
   'system.transportHash': z.string().nullable().default(null),
 };

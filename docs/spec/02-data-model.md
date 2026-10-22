@@ -422,7 +422,11 @@ create table recordings (
   file_path    text not null unique,                  -- relative to recordings root
   started_at   timestamptz not null,
   duration_ms  int,
-  size_bytes   bigint
+  size_bytes   bigint,
+  transcript   jsonb,                                 -- [{side, at, text}] (10 §3)
+  summary      text,
+  ai_done_at   timestamptz,                           -- the transcript job is done with it
+  ai_error     text                                   -- why there's no transcript/summary
 );
 
 create table voicemail_messages (                     -- index of files Asterisk wrote

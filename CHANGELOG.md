@@ -5,6 +5,14 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
+## Unreleased
+
+- **Call transcripts and summaries** (Settings → AI, admin guide: [Local AI](docs/admin-guide/ai.md)):
+  recorded calls are written out a minute or two after they end, caller and other side apart, with
+  a summary and action items from the language model. The Recordings page shows them and searches
+  what was said; the people on a call can read its transcript. Database change: four columns on
+  `recordings` (the api backs up first).
+
 ## v0.0.5 — 2026-10-21
 
 **Before you update:** this version changes the database (voicemail transcripts); the api backs

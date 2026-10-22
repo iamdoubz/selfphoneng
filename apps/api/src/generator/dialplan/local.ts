@@ -73,6 +73,8 @@ export function renderGlobals(snap: Snapshot): string {
     `SP_DEFAULT_CID=${defaultCid}`,
     `SP_DEFAULT_E911_CID=${didNumber(st['emergency.defaultCallerIdDidId']) || defaultCid}`,
     `SP_REC_ANNOUNCE=${snap.recordingAnnouncement ? s.sound(snap.recordingAnnouncement) : ''}`,
+    // Spec 10 §3: also record each side on its own, for the transcript job.
+    `SP_REC_SIDES=${st['ai.callTranscripts'] && st['ai.stt'] ? '1' : ''}`,
   ];
   const exts = [...snap.extensions].sort(byNumber);
   for (const e of exts) lines.push(`SP_CLASS_${s.digits(e.number)}=${CLASS_RANK[e.outboundClass]}`);

@@ -70,6 +70,11 @@ export type RecordingDto = {
   startedAt: string;
   durationMs: number | null;
   sizeBytes: number | null;
+  /** Spec 10 §3, when call transcripts (and summaries) are on. */
+  summary: string | null;
+  hasTranscript: boolean;
+  /** Why there's no transcript or summary. */
+  aiError: string | null;
   call: {
     id: string;
     direction: CallDirection;
@@ -77,6 +82,13 @@ export type RecordingDto = {
     fromName: string | null;
     toNumber: string | null;
   } | null;
+};
+
+/** GET /api/recordings/:id/transcript: who said what, from which second of the recording. */
+export type TranscriptDto = {
+  lines: { side: 'caller' | 'other'; at: number; text: string }[];
+  summary: string | null;
+  aiError: string | null;
 };
 
 /** GET /api/reports/summary and /api/reports/queues (04 §7.3). Both default to the last 30 days. */
