@@ -5,7 +5,12 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
-## Unreleased
+## v0.0.6 — 2026-10-21
+
+**Before you update:** this version changes the database (call transcripts); the api backs up
+first, by itself. Portainer: change both tags to `0.0.6` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.6`. Call transcripts are off until you turn them on in Settings → AI;
+calls recorded before that get no transcript.
 
 - **Call transcripts and summaries** (Settings → AI, admin guide: [Local AI](docs/admin-guide/ai.md)):
   recorded calls are written out a minute or two after they end, caller and other side apart, with
