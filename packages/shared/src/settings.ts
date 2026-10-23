@@ -104,6 +104,18 @@ export const SettingsSchemas = {
   'ai.callTranscripts': z.boolean().default(false),
   /** …and summarized by ai.llm. */
   'ai.callSummaries': z.boolean().default(false),
+  /** Contacts (spec 11): the builtin books, or Contrack. */
+  'contacts.provider': z.enum(['builtin', 'contrack']).default('builtin'),
+  /** Contrack (11 §4.2): `url` the api calls (local only), `publicUrl` the one people open. */
+  'contacts.contrack': z
+    .object({
+      url: z.string().min(1),
+      publicUrl: z.string().nullable(),
+      /** The company account's personal token (11 §4.3), encrypted; '' = none. */
+      companyTokenEnc: z.string(),
+    })
+    .nullable()
+    .default(null),
   // Not in 02 §3's table but used by the generator (03 §3).
   'system.transportHash': z.string().nullable().default(null),
 };
@@ -122,11 +134,26 @@ export const SmtpInputSchema = z.object({
 });
 export type SmtpInput = z.input<typeof SmtpInputSchema>;
 
-/** GET /api/settings: every key, secrets replaced by hasPassword. */
+/** PATCH /api/settings `contacts.contrack`: the company token is write-only (empty keeps it). */
+export const ContrackInputSchema = z.object({
+  url: z.url({ protocol: /^https?$/ }).trim(),
+  publicUrl: z
+    .url({ protocol: /^https?$/ })
+    .trim()
+    .nullish()
+    .or(z.literal(''))
+    .transform((s) => s?.replace(/\/+$/, '') || null),
+  companyToken: z.string().trim().max(200).optional(),
+  clearCompanyToken: z.boolean().optional(),
+});
+export type ContrackInput = z.input<typeof ContrackInputSchema>;
+
+/** GET /api/settings: every key, secrets replaced by hasPassword / hasCompanyToken. */
 export type SettingsDto = {
-  [K in Exclude<SettingKey, 'smtp' | 'sms.webhookToken'>]: SettingValue<K>;
+  [K in Exclude<SettingKey, 'smtp' | 'sms.webhookToken' | 'contacts.contrack'>]: SettingValue<K>;
 } & {
   smtp: (Omit<SmtpInput, 'password'> & { hasPassword: boolean }) | null;
+  'contacts.contrack': { url: string; publicUrl: string | null; hasCompanyToken: boolean } | null;
 };
 
 /** POST /api/ai/test: one endpoint tried with a tiny request. `audio`: the TTS test, a data: URL. */

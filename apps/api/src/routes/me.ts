@@ -27,8 +27,16 @@ import {
   queueMembers,
   queues,
   userRuntimeState,
+  users,
   voicemailMessages,
 } from '../db/schema.ts';
+import {
+  contrackBook,
+  contrackCheck,
+  contrackSettings,
+  forgetBook,
+  tokenFor,
+} from '../contacts/contrack.ts';
 import { setPaused } from '../services/queues.ts';
 import { badRequest, conflict, HttpError, notFound } from '../errors.ts';
 import { AudioError, MAX_UPLOAD_BYTES, toPcmWav } from '../media/audio.ts';
@@ -115,8 +123,52 @@ export async function meRoutes(app: FastifyInstance) {
       callReportTime: e.callReportTime,
       callReportWeekday: e.callReportWeekday,
       callReportSummaries: e.callReportSummaries,
+      contrack: await myContrack(userId),
     };
   }
+
+  /** Contrack mode: is my token set, and does it work (11 §4.3). Null in builtin mode. */
+  async function myContrack(userId: string): Promise<MeDto['contrack']> {
+    const c = await contrackSettings(db);
+    if (!c) return null;
+    const token = await tokenFor(db, c, userId);
+    const book = token ? await contrackBook(db, c, userId) : null;
+    return {
+      connected: !!book && !book.error,
+      tokenPrefix: token ? `${token.slice(0, 12)}…` : null,
+      publicUrl: c.publicUrl,
+    };
+  }
+
+  /** Connect my Contrack account: the token must read my contacts before it's kept. */
+  app.put('/api/me/contrack', async (req) => {
+    const { token } = z.object({ token: z.string().trim().min(8).max(200) }).parse(req.body);
+    const c = await contrackSettings(db);
+    if (!c) throw conflict('Contacts are not in Contrack (Settings → Contacts)');
+    await contrackCheck(c.url, token).catch((err: Error) => {
+      throw badRequest(err.message);
+    });
+    await db
+      .update(users)
+      .set({ contrackTokenEnc: encrypt(token) })
+      .where(eq(users.id, req.user!.id));
+    forgetBook(req.user!.id);
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'update',
+      entityType: 'user',
+      entityId: req.user!.id,
+      summary: 'Connected their Contrack account',
+    });
+    return myState(req.user!.id);
+  });
+
+  app.delete('/api/me/contrack', async (req) => {
+    await db.update(users).set({ contrackTokenEnc: null }).where(eq(users.id, req.user!.id));
+    forgetBook(req.user!.id);
+    return myState(req.user!.id);
+  });
 
   app.get('/api/me', async (req) => myState(req.user!.id));
 

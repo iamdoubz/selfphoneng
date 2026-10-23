@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // What a vendor template gets (07 §1). Templates are pure functions of this; no I/O there.
-import { asc, eq, inArray, isNull } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import { phoneTimezone, type PhoneTimezone, type PhoneVendor } from '@selfphoneng/shared';
 import type { Config } from '../config.ts';
 import { decrypt } from '../crypto/secrets.ts';
 import type { Db } from '../db/client.ts';
-import { contacts, devices, extensions } from '../db/schema.ts';
+import { devices, extensions } from '../db/schema.ts';
+import { readBooks } from '../contacts/book.ts';
 import { getSetting } from '../services/settings.ts';
 import { loadDialRules, type DialRule } from './dialplan.ts';
 
@@ -87,17 +88,14 @@ export async function loadContext(
 
 export type PhonebookEntry = { name: string; numbers: { label: string; number: string }[] };
 
-/** The company phonebook (07 §2): every extension, then the company contacts, by name. */
+/** The company phonebook (07 §2): every extension, then the company contacts, by name (from
+ * Contrack's company account in Contrack mode, 11 §4.3). */
 export async function loadPhonebook(db: Db): Promise<PhonebookEntry[]> {
   const exts = await db
     .select({ name: extensions.name, number: extensions.number })
     .from(extensions)
     .orderBy(asc(extensions.name));
-  const company = await db
-    .select({ name: contacts.name, numbers: contacts.numbers })
-    .from(contacts)
-    .where(isNull(contacts.ownerUserId))
-    .orderBy(asc(contacts.name));
+  const company = (await readBooks(db, null)).items;
   return [
     ...exts.map((x) => ({ name: x.name, numbers: [{ label: 'Extension', number: x.number }] })),
     ...company.map((c) => ({

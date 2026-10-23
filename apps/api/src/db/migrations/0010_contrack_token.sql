@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "contrack_token_enc" text;

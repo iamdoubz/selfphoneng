@@ -11,6 +11,7 @@ keeping the system safe, legal and up to date.
 6. [Updating, backups and monitoring](maintenance.md)
 7. [Analog phones (ATAs)](ata.md)
 8. [Local AI](ai.md): voicemail transcripts
+9. [Contacts](contacts.md): the builtin phonebook, or Contrack
 
 ---
 

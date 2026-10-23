@@ -55,4 +55,6 @@ export type MeDto = {
   callReportTime: string;
   callReportWeekday: number;
   callReportSummaries: boolean;
+  /** Contacts in Contrack mode (11 §4.3): my token, never shown again; null in builtin mode. */
+  contrack: { connected: boolean; tokenPrefix: string | null; publicUrl: string | null } | null;
 };

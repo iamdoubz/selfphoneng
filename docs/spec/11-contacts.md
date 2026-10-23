@@ -170,8 +170,10 @@ against the pinned version's `openapi.json`.
   volume, and `AUTH_REQUIRED=true`, `TRUST_PROXY_HOPS=1`, `PUBLIC_URL=https://${CONTRACK_HOSTNAME}`.
 - People open Contrack on **its own host name** (`PUBLIC_URL` takes no path), e.g.
   `contacts.example.com`. The Caddyfile gets a second site block when `CONTRACK_HOSTNAME` is set;
-  the nginx example gets a second server block.
-- The PBX reaches it at `http://127.0.0.1:3210`. `contacts.contrackUrl` must pass the same
+  the nginx example gets a second server block. As built: both are commented blocks to uncomment
+  (a Caddy site with an empty name would fail), and `docker compose --env-file .env -f
+  deploy/contrack/compose.yml up -d` (a compose file in a subfolder reads no `.env` by itself).
+- The PBX reaches it at `http://127.0.0.1:3210`. `contacts.contrack.url` must pass the same
   local-address check as the AI endpoints (10 §1), so contact data and tokens stay on the network.
 - Backups: Contrack keeps its own snapshots in its volume. The SelfPhoneNG backup (pg_dump) does
   not include it; the admin guide says to back up the volume too.
@@ -182,25 +184,35 @@ against the pinned version's `openapi.json`.
 
 ### 4.3 Connecting users
 
-- Admin, Settings → Contacts: provider, Contrack URL, **Test** (`/healthz`, then the token below
-  against `/api/contacts?view=slim&limit=1`).
+- Admin, Settings → Contacts (`contacts.provider`, `contacts.contrack` { url, publicUrl,
+  companyTokenEnc }): **Test** (`POST /api/contacts/contrack/test`: `/healthz`, then the token
+  against `/api/contacts?view=slim`; Contrack's `/api/auth/me` refuses tokens, so a token is
+  checked by reading contacts).
 - Admin, same page: the **company Contrack account's token** (read-only is enough; read-write lets
-  "Add to company contacts" work), in `contacts.companyToken` {enc}. The admin makes that account
-  in Contrack (e.g. `company@…`) and fills it like any other.
+  "Add to company contacts" work), write-only like the SMTP password (`hasCompanyToken` in GET).
+  The admin makes that account in Contrack (e.g. `company@…`) and fills it like any other.
+- Contrack tokens expire in 90 days unless made with **Never**: the guide and the forms say to pick
+  Never (or a year).
 - Each user, My settings → Contacts: **paste a Contrack personal token** (read-write; read-only
-  allowed, then nothing is written to the timeline). Stored with `encrypt()` in
-  `extensions.contrack_token_enc`. Never logged, never returned (only "connected as …, token
-  ctk_AbCd…").
+  allowed, then nothing is written to the timeline). `PUT /api/me/contrack { token }` checks it
+  reads contacts, then stores it with `encrypt()` in `users.contrack_token_enc` (contacts are a
+  person's, not an extension's); `DELETE` disconnects. Never logged, never returned: `GET /api/me`
+  has `contrack: { connected, tokenPrefix: "ctk_AbCdEfGh…", publicUrl }`.
   - Why not have the PBX create Contrack accounts: Contrack's admin routes refuse tokens
     (`SESSION_REQUIRED`), so the PBX would have to keep an admin password. A pasted token is
     explicit, revocable from Contrack, and scoped to one person.
-- **Lookup cache**: per connected user and for the company account, `GET /api/contacts?view=slim`, every phone through
-  `normalizeNumber`, held in memory as `Map<number, ContactHit>`. Refreshed every 5 minutes, at
-  start, and right after SelfPhoneNG creates a contact. A user whose token fails (401) is marked
-  "disconnected" in My settings and skipped; no error email.
+- **Lookup cache** (`contacts/contrack.ts`): per connected user and for the company account,
+  `GET /api/contacts?view=slim`, every phone through `normalizeNumber` (text that isn't a number
+  is left out), held in memory. As built: fetched on use when older than 5 minutes (no timer),
+  forgotten when SelfPhoneNG adds a contact or the token changes. A failing Contrack keeps the
+  last good list and the error, and is tried again 5 minutes later; a refused token (401) shows as
+  "doesn't work any more" in My settings. No error email.
 - `/me/contacts` in this mode: search and list from Contrack (read-only rows, "Open in Contrack"
-  link to `${PUBLIC_URL}/contacts/:id`), plus the company book. "Add to contacts" does
-  `POST /api/contacts { name, phones: [number] }`. Editing happens in Contrack.
+  link to `${publicUrl}/contact/:id`), plus the company book. "Add to contacts" does
+  `POST /api/contacts { name, company, emails, phones: [{ phone, label }] }`. Editing, deleting
+  and importing answer 409 in this mode: they happen in Contrack. Desk phone directories (07) get
+  the company account's contacts. Accepting a share creates the copy with the recipient's token;
+  without one it answers 409 and the offer waits.
 
 ### 4.4 Calls on the Contrack timeline
 

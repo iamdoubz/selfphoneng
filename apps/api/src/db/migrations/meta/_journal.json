@@ -71,6 +71,13 @@
       "when": 1792784242837,
       "tag": "0009_contact_shares",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792785318384,
+      "tag": "0010_contrack_token",
+      "breakpoints": true
     }
   ]
 }

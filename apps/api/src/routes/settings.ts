@@ -6,6 +6,7 @@ import { z } from 'zod';
 import {
   AiEndpointSchema,
   AiTtsEndpointSchema,
+  ContrackInputSchema,
   SettingsSchemas,
   SmtpInputSchema,
   type AiTestResult,
@@ -28,6 +29,7 @@ import { backupMissed } from '../services/backup.ts';
 import { detectPublicIp } from '../jobs.ts';
 import type { SendMail } from '../services/mail.ts';
 import { AiError, assertLocalUrl, testEndpoint } from '../ai/client.ts';
+import { forgetBook } from '../contacts/contrack.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -45,9 +47,14 @@ const READ_ONLY = new Set<string>([
 ]);
 
 async function toDto(db: Db): Promise<SettingsDto> {
-  const { smtp, ...rest } = await getAllSettings(db);
+  const { smtp, 'contacts.contrack': ctk, ...rest } = await getAllSettings(db);
   return {
     ...rest,
+    'contacts.contrack': ctk && {
+      url: ctk.url,
+      publicUrl: ctk.publicUrl,
+      hasCompanyToken: ctk.companyTokenEnc !== '',
+    },
     smtp: smtp && {
       host: smtp.host,
       port: smtp.port,
@@ -115,6 +122,26 @@ export async function settingsRoutes(app: FastifyInstance) {
           from: input.from,
           passwordEnc: input.password ? encrypt(input.password) : (old?.passwordEnc ?? ''),
         };
+      } else if (key === 'contacts.contrack') {
+        // The company token is write-only too (11 §4.3).
+        const input = ContrackInputSchema.nullable().parse(raw);
+        const old = await getSetting(db, 'contacts.contrack');
+        if (input)
+          try {
+            assertLocalUrl(input.url);
+          } catch (err) {
+            throw badRequest(`Contrack address: ${(err as Error).message}`);
+          }
+        values[key] = input && {
+          url: input.url.replace(/\/+$/, ''),
+          publicUrl: input.publicUrl,
+          companyTokenEnc: input.companyToken
+            ? encrypt(input.companyToken)
+            : input.clearCompanyToken
+              ? ''
+              : (old?.companyTokenEnc ?? ''),
+        };
+        forgetBook(null);
       } else values[key] = SettingsSchemas[key as SettingKey].parse(raw);
     }
     await checkRefs(db, values);

@@ -87,6 +87,7 @@ services:
     network_mode: host
     environment:
       PUBLIC_HOSTNAME: ${PUBLIC_HOSTNAME:?set in .env}
+      CONTRACK_HOSTNAME: ${CONTRACK_HOSTNAME:-} # deploy/caddy/Caddyfile, when Contrack runs
     volumes:
       - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - ./data/caddy:/data

@@ -8,6 +8,7 @@ import {
   ContactInputSchema,
   ContactShareDecisionSchema,
   ContactShareSchema,
+  type ContactBookDto,
   type ContactData,
   type ContactDto,
   type ContactImportResult,
@@ -17,9 +18,10 @@ import {
 import { requireAdmin, requireAuth } from '../auth/guards.ts';
 import {
   addToBook,
+  assertBuiltin,
   cleanNumbers,
-  listBook,
-  listBooks,
+  createContact,
+  readBooks,
   toDto,
   type Owner,
 } from '../contacts/book.ts';
@@ -28,6 +30,9 @@ import { parseVcards } from '../contacts/vcard.ts';
 import { contactShares, contacts, extensions, users } from '../db/schema.ts';
 import { badRequest, notFound } from '../errors.ts';
 import { audit } from '../services/audit.ts';
+import { getSetting } from '../services/settings.ts';
+import { decrypt } from '../crypto/secrets.ts';
+import { contrackCheck } from '../contacts/contrack.ts';
 
 const IdParams = z.object({ id: z.uuid() });
 const CommitQuery = z.object({ commit: z.enum(['0', '1']).default('0') });
@@ -92,16 +97,14 @@ export async function contactRoutes(app: FastifyInstance) {
 
     app.post(prefix, { preHandler: guard }, async (req, reply) => {
       const c = ContactInputSchema.parse(req.body);
-      const [row] = await db
-        .insert(contacts)
-        .values({ ...c, numbers: cleanNumbers(c), ownerUserId: ownerOf(req.user!) })
-        .returning();
-      await log(req, 'create', row!.id, `Added ${c.name} to the company contacts`);
-      return reply.code(201).send(toDto(row!));
+      const dto = await createContact(db, ownerOf(req.user!), c);
+      await log(req, 'create', dto.id, `Added ${c.name} to the company contacts`);
+      return reply.code(201).send(dto);
     });
 
     app.patch(`${prefix}/:id`, { preHandler: guard }, async (req): Promise<ContactDto> => {
       const { id } = IdParams.parse(req.params);
+      await assertBuiltin(db);
       await mine(req.user!, id);
       const c = ContactInputSchema.parse(req.body);
       const [row] = await db
@@ -115,6 +118,7 @@ export async function contactRoutes(app: FastifyInstance) {
 
     app.delete(`${prefix}/:id`, { preHandler: guard }, async (req) => {
       const { id } = IdParams.parse(req.params);
+      await assertBuiltin(db);
       const r = await mine(req.user!, id);
       await db.delete(contacts).where(eq(contacts.id, id));
       await log(req, 'delete', id, `Deleted the company contact ${r.name}`);
@@ -125,6 +129,7 @@ export async function contactRoutes(app: FastifyInstance) {
       `${prefix}/import`,
       { preHandler: guard, bodyLimit: IMPORT_BODY },
       async (req): Promise<ContactImportResult> => {
+        await assertBuiltin(db); // Contrack has its own importer (11 §3.1)
         const { files } = ContactImportSchema.parse(req.body);
         const commit = CommitQuery.parse(req.query).commit === '1';
         const { list, errors } = readFiles(files);
@@ -138,36 +143,40 @@ export async function contactRoutes(app: FastifyInstance) {
 
   // ───── my book ─────
   /** Mine and the company's: the page filters, and the browser looks up names from it. */
-  app.get(
-    '/api/me/contacts',
-    { preHandler: requireAuth },
-    async (req): Promise<ListResponse<ContactDto>> => ({
-      items: await listBooks(db, req.user!.id),
-      nextCursor: null,
-    }),
+  app.get('/api/me/contacts', { preHandler: requireAuth }, async (req): Promise<ContactBookDto> =>
+    readBooks(db, req.user!.id),
   );
   book('/api/me/contacts', requireAuth, (u) => u.id);
 
   // ───── the company book ─────
-  app.get(
-    '/api/contacts',
-    { preHandler: requireAdmin },
-    async (): Promise<ListResponse<ContactDto>> => ({
-      items: await listBook(db, null),
-      nextCursor: null,
-    }),
+  app.get('/api/contacts', { preHandler: requireAdmin }, async (): Promise<ContactBookDto> =>
+    readBooks(db, null),
   );
   book('/api/contacts', requireAdmin, () => null);
+
+  /** Settings → Contacts → Test (11 §4.3): the form's address, and its token or the saved one. */
+  app.post('/api/contacts/contrack/test', { preHandler: requireAdmin }, async (req) => {
+    const b = z
+      .object({ url: z.string().trim().min(1), companyToken: z.string().trim().optional() })
+      .parse(req.body);
+    const saved = await getSetting(db, 'contacts.contrack');
+    const token =
+      b.companyToken || (saved?.companyTokenEnc ? decrypt(saved.companyTokenEnc) : null);
+    try {
+      return { ok: true, detail: await contrackCheck(b.url, token) };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  });
 
   // ───── sharing: an offer each, accepted or denied by the recipient (11 §2.1) ─────
   app.post('/api/me/contacts/share', { preHandler: requireAuth }, async (req) => {
     const s = ContactShareSchema.parse(req.body);
     const me = req.user!.id;
-    const picked = await db
-      .select()
-      .from(contacts)
-      .where(and(eq(contacts.ownerUserId, me), inArray(contacts.id, s.contactIds)));
-    if (picked.length !== s.contactIds.length) throw notFound('Contact not found');
+    const picked = (await readBooks(db, me)).items.filter(
+      (c) => c.book === 'mine' && s.contactIds.includes(c.id),
+    );
+    if (picked.length !== new Set(s.contactIds).size) throw notFound('Contact not found');
     const to = s.everyone
       ? await db
           .select({ id: users.id })
@@ -202,10 +211,12 @@ export async function contactRoutes(app: FastifyInstance) {
       );
       await tx.insert(contactShares).values(
         to.flatMap((u) =>
-          picked.map((c) => {
-            const { id: _i, book: _b, ...contact } = toDto(c);
-            return { fromUserId: me, toUserId: u.id, sourceId: c.id, contact };
-          }),
+          picked.map(({ id, name, company, email, numbers, notes }) => ({
+            fromUserId: me,
+            toUserId: u.id,
+            sourceId: id,
+            contact: { name, company, email, numbers, notes },
+          })),
         ),
       );
     });
@@ -238,27 +249,35 @@ export async function contactRoutes(app: FastifyInstance) {
     app.post(`/api/me/contacts/shares/${decision}`, { preHandler: requireAuth }, async (req) => {
       const { ids } = ContactShareDecisionSchema.parse(req.body);
       const me = req.user!.id;
-      return db.transaction(async (tx) => {
-        const offers = await tx
-          .update(contactShares)
-          .set({ status: decision === 'accept' ? 'accepted' : 'denied', decidedAt: new Date() })
-          .where(
-            and(
-              eq(contactShares.toUserId, me),
-              eq(contactShares.status, 'pending'),
-              inArray(contactShares.id, ids),
+      const mineAndPending = and(
+        eq(contactShares.toUserId, me),
+        eq(contactShares.status, 'pending'),
+        inArray(contactShares.id, ids),
+      );
+      const offers = await db.select().from(contactShares).where(mineAndPending);
+      // Added first, then marked: Contrack being down (or not connected) leaves the offers waiting.
+      const r =
+        decision === 'accept'
+          ? await addToBook(
+              db,
+              me,
+              offers.map((o) => o.contact as ContactData),
+              true,
+            )
+          : null;
+      await db
+        .update(contactShares)
+        .set({ status: decision === 'accept' ? 'accepted' : 'denied', decidedAt: new Date() })
+        .where(
+          and(
+            mineAndPending,
+            inArray(
+              contactShares.id,
+              offers.map((o) => o.id),
             ),
-          )
-          .returning();
-        if (decision === 'deny') return { denied: offers.length };
-        const r = await addToBook(
-          tx,
-          me,
-          offers.map((o) => o.contact as ContactData),
-          true,
+          ),
         );
-        return { added: r.added, duplicates: r.duplicates };
-      });
+      return r ? { added: r.added, duplicates: r.duplicates } : { denied: offers.length };
     });
 }
 

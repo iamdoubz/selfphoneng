@@ -23,6 +23,7 @@ const EXPECTED: Record<string, Record<string, string>> = {
     totp_last_step: 'bigint|YES|',
     must_change_password: 'boolean|NO|false',
     last_login_at: 'timestamp with time zone|YES|',
+    contrack_token_enc: 'text|YES|',
     ...ts,
   },
   extensions: {

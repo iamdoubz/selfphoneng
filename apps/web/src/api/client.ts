@@ -22,6 +22,7 @@ import type {
   CallDetailDto,
   CallDto,
   CallFilter,
+  ContactBookDto,
   ContactDto,
   ContactImportResult,
   ContactInput,
@@ -270,6 +271,8 @@ export const meApi = {
   get: () => api<MeDto>('GET', '/api/me'),
   softphoneQr: () => api<SoftphoneQr>('GET', '/api/me/softphone-qr'),
   update: (m: MeUpdate) => api<MeDto>('PATCH', '/api/me', m),
+  connectContrack: (token: string) => api<MeDto>('PUT', '/api/me/contrack', { token }),
+  disconnectContrack: () => api<MeDto>('DELETE', '/api/me/contrack'),
   webrtc: () => api<WebRtcCreds>('GET', '/api/me/webrtc'),
   /** Log in to (unpause) or out of (pause) a queue I'm an agent of. */
   setQueuePaused: (queueId: string, paused: boolean) =>
@@ -293,7 +296,13 @@ export const meApi = {
 export type ContactBase = '/api/me/contacts' | '/api/contacts';
 
 export const contactsApi = {
-  list: (base: ContactBase) => api<ListResponse<ContactDto>>('GET', base).then((r) => r.items),
+  list: (base: ContactBase) => api<ContactBookDto>('GET', base),
+  testContrack: (url: string, companyToken?: string) =>
+    api<{ ok: true; detail: string } | { ok: false; error: string }>(
+      'POST',
+      '/api/contacts/contrack/test',
+      { url, companyToken },
+    ),
   create: (base: ContactBase, c: ContactInput) => api<ContactDto>('POST', base, c),
   update: (base: ContactBase, id: string, c: ContactInput) =>
     api<ContactDto>('PATCH', `${base}/${id}`, c),

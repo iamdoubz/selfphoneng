@@ -19,7 +19,7 @@ import { DestinationPicker } from '../components/DestinationPicker.tsx';
 import { ThemeToggle } from '../components/ThemeToggle.tsx';
 import { Alert, Button, Field, inputClass } from '../components/ui.tsx';
 import { subscribeLive, useLive } from '../live/store.ts';
-import { EmailTab, EmergencyTab } from './admin/SettingsPage.tsx';
+import { ContactsTab, EmailTab, EmergencyTab } from './admin/SettingsPage.tsx';
 import { ImportNumbers, TrunkForm, trunkStatus } from './admin/TrunksPage.tsx';
 
 const STEPS = [
@@ -30,6 +30,7 @@ const STEPS = [
   'Trunk',
   'Phone numbers',
   'Users',
+  'Contacts',
   'Main number',
   'Emergency',
   'Done',
@@ -87,9 +88,10 @@ export function SetupPage() {
         {step === 5 && <TrunkStep next={next} />}
         {step === 6 && <NumbersStep next={next} />}
         {step === 7 && <UsersStep next={next} />}
-        {step === 8 && <RoutingStep next={next} />}
-        {step === 9 && <SettingsStep tab="emergency" next={next} />}
-        {step === 10 && <DoneStep onFinish={() => finish.mutate()} busy={finish.isPending} />}
+        {step === 8 && <SettingsStep tab="contacts" next={next} skippable />}
+        {step === 9 && <RoutingStep next={next} />}
+        {step === 10 && <SettingsStep tab="emergency" next={next} />}
+        {step === 11 && <DoneStep onFinish={() => finish.mutate()} busy={finish.isPending} />}
       </section>
     </div>
   );
@@ -355,7 +357,7 @@ function SettingsStep({
   next,
   skippable,
 }: {
-  tab: 'email' | 'emergency';
+  tab: 'email' | 'emergency' | 'contacts';
   next: () => void;
   skippable?: boolean;
 }) {
@@ -369,7 +371,13 @@ function SettingsStep({
     !s.data['emergency.defaultCallerIdDidId'];
   return (
     <>
-      {tab === 'email' ? <EmailTab s={s.data} /> : <EmergencyTab s={s.data} />}
+      {tab === 'email' ? (
+        <EmailTab s={s.data} />
+      ) : tab === 'contacts' ? (
+        <ContactsTab s={s.data} />
+      ) : (
+        <EmergencyTab s={s.data} />
+      )}
       <Nav
         next={next}
         canNext={!needCid}
@@ -450,7 +458,7 @@ function NumbersStep({ next }: { next: () => void }) {
   return (
     <>
       <p className="text-sm text-zinc-500">
-        Add the phone numbers (DIDs) you have at voip.ms. You choose where their calls go in step 8.
+        Add the phone numbers (DIDs) you have at voip.ms. You choose where their calls go in step 9.
       </p>
       {trunks.data[0]!.hasApiPassword && <ImportNumbers trunk={trunks.data[0]!} />}
       {dids.data.length > 0 && (
@@ -728,7 +736,7 @@ function DoneStep({ onFinish, busy }: { onFinish: () => void; busy: boolean }) {
           Set up each desk phone or softphone app with the SIP details under Users &amp; Extensions
           → Credentials.
         </li>
-        <li>Call your main number from a mobile phone: the phone you chose in step 8 rings.</li>
+        <li>Call your main number from a mobile phone: the phone you chose in step 9 rings.</li>
         <li>From a desk phone, call your mobile: it shows your main number as caller ID.</li>
         <li>Everything here can be changed later in the admin pages.</li>
       </ul>

@@ -40,9 +40,20 @@ export type ContactData = {
 };
 
 export type ContactDto = ContactData & {
+  /** A uuid, or a Contrack contact id such as jane-smith-f60e8536. */
   id: string;
   /** mine: I edit it; company: read-only for users (admins edit it in Admin → Contacts). */
   book: 'mine' | 'company';
+  /** Contrack: the contact's page there (editing happens in Contrack). */
+  url: string | null;
+};
+
+/** GET /api/me/contacts and /api/contacts: the book(s), and where they live. */
+export type ContactBookDto = {
+  items: ContactDto[];
+  provider: 'builtin' | 'contrack';
+  /** Contrack mode: the address people open, and whether this book's token works. */
+  contrack: { publicUrl: string | null; connected: boolean; error: string | null } | null;
 };
 
 /** POST …/contacts/import: the files' text, read in the browser. */
@@ -66,7 +77,7 @@ export type ContactImportResult = {
 
 export const ContactShareSchema = z
   .object({
-    contactIds: z.array(z.uuid()).min(1).max(500),
+    contactIds: z.array(z.string().min(1).max(100)).min(1).max(500),
     /** Colleagues by extension number. */
     extensions: z.array(z.string().max(20)).max(500).default([]),
     everyone: z.boolean().default(false),

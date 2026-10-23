@@ -28,7 +28,7 @@ export function useContactName() {
   const list = useQuery({ queryKey: key(MINE), queryFn: () => contactsApi.list(MINE) });
   const names = useMemo(() => {
     const m = new Map<string, string>();
-    for (const c of list.data ?? [])
+    for (const c of list.data?.items ?? [])
       for (const n of c.numbers) if (!m.has(n.number)) m.set(n.number, c.name);
     return m;
   }, [list.data]);
@@ -94,14 +94,16 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
   const words = q.trim().toLowerCase();
   const digits = q.replace(/\D/g, '');
   // ponytail: the whole book is loaded and filtered here; page it on the server if books get huge.
-  const shown = (list.data ?? []).filter(
+  const ctk = list.data?.contrack ?? null;
+  const shown = (list.data?.items ?? []).filter(
     (c) =>
       !words ||
       `${c.name} ${c.company ?? ''} ${c.email ?? ''}`.toLowerCase().includes(words) ||
       (digits.length >= 3 && c.numbers.some((n) => n.number.includes(digits))),
   );
   const canShare = base === MINE;
-  const mine = (c: ContactDto) => base === COMPANY || c.book === 'mine';
+  // Contrack mode: contacts are changed in Contrack, so rows link there (11 §4.3).
+  const mine = (c: ContactDto) => !c.url && (base === COMPANY || c.book === 'mine');
 
   return (
     <section aria-labelledby="contacts-h" className="flex flex-col gap-3">
@@ -123,7 +125,20 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
         >
           Add contact
         </Button>
-        <Button onClick={() => setImporting(true)}>Import</Button>
+        {!ctk ? (
+          <Button onClick={() => setImporting(true)}>Import</Button>
+        ) : (
+          ctk.publicUrl && (
+            <a
+              href={ctk.publicUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            >
+              Import in Contrack
+            </a>
+          )
+        )}
         {canShare && (
           <Button disabled={!picked.size} onClick={() => setSharing(true)}>
             Share{picked.size ? ` (${picked.size})` : ''}
@@ -136,6 +151,14 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
         </p>
       )}
       {list.error && <Alert>{list.error.message}</Alert>}
+      {ctk && !ctk.connected && (
+        <Alert>
+          {ctk.error ??
+            (base === MINE
+              ? 'Your contacts are in Contrack: connect your account in Settings → Contacts to see and add them.'
+              : 'The company Contrack account has no token yet: Settings → Contacts.')}
+        </Alert>
+      )}
       {list.data && shown.length === 0 && (
         <p className="text-sm text-zinc-500">
           {q ? 'No contact matches that.' : 'No contacts yet.'}
@@ -181,6 +204,16 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
                 </button>
               ))}
             </span>
+            {c.url && (
+              <a
+                href={c.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sky-700 underline dark:text-sky-400"
+              >
+                Open in Contrack
+              </a>
+            )}
             {mine(c) && (
               <span className="flex gap-1">
                 <Button variant="ghost" className="px-2 py-1" onClick={() => setEditing(c)}>

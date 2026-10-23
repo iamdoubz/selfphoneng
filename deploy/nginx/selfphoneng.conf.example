@@ -45,3 +45,19 @@ server {
         proxy_read_timeout 3600s;
     }
 }
+
+# Contrack (spec 11 §4), when you run deploy/contrack: its own name (it can't live under a path).
+# server {
+#     listen 443 ssl;
+#     http2 on;
+#     server_name contacts.example.com;
+#     ssl_certificate     /etc/letsencrypt/live/contacts.example.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/contacts.example.com/privkey.pem;
+#     client_max_body_size 50m;     # contact imports and attachments
+#     location / {
+#         proxy_pass http://127.0.0.1:3210;
+#         proxy_set_header Host $host;
+#         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#         proxy_set_header X-Forwarded-Proto $scheme;
+#     }
+# }

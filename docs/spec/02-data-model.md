@@ -76,7 +76,8 @@ create table users (
   totp_recovery_hashes text[] not null default '{}', -- sha256 of unused recovery codes (M11)
   totp_last_step   bigint,                        -- last 30 s step signed in with: no replay (M11)
   must_change_password boolean not null default false,
-  last_login_at    timestamptz
+  last_login_at    timestamptz,
+  contrack_token_enc text                        -- their Contrack personal token (11 §4.3)
 );
 
 create table sessions (

@@ -63,6 +63,8 @@ export const users = pgTable('users', {
   totpLastStep: bigint({ mode: 'number' }),
   mustChangePassword: boolean().notNull().default(false),
   lastLoginAt: tstz(),
+  /** Contrack mode (11 §4.3): this person's own Contrack personal token, encrypted. */
+  contrackTokenEnc: text(),
   ...timestamps,
 });
 
