@@ -75,6 +75,9 @@ export function renderGlobals(snap: Snapshot): string {
     `SP_REC_ANNOUNCE=${snap.recordingAnnouncement ? s.sound(snap.recordingAnnouncement) : ''}`,
     // Spec 10 §3: also record each side on its own, for the transcript job.
     `SP_REC_SIDES=${st['ai.callTranscripts'] && st['ai.stt'] ? '1' : ''}`,
+    // 11 §6 C4: where sp-sub-cnam asks for a caller's name in the ringing user's contacts.
+    `SP_CNAM_URL=${snap.callerNames ? s.localUrl(snap.callerNames.url) : ''}`,
+    `SP_CNAM_TOKEN=${snap.callerNames ? s.secret(snap.callerNames.token) : ''}`,
   ];
   const exts = [...snap.extensions].sort(byNumber);
   for (const e of exts) lines.push(`SP_CLASS_${s.digits(e.number)}=${CLASS_RANK[e.outboundClass]}`);

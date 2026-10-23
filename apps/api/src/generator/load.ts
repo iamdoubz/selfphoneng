@@ -205,6 +205,8 @@ export type Snapshot = {
   recordingAnnouncement: string | null;
   /** Call audio ports from the environment (RTP_PORT_START/END), not the database. */
   rtpPorts?: { start: number; end: number };
+  /** Caller names on ringing phones (11 §6 C4): the api's lookup URL and its key. */
+  callerNames?: { url: string; token: string };
 };
 
 export const DEFAULT_RTP_PORTS = { start: 10000, end: 20000 };

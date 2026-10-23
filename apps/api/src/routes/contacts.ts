@@ -20,6 +20,7 @@ import {
   addToBook,
   assertBuiltin,
   cleanNumbers,
+  contactNames,
   createContact,
   readBooks,
   toDto,
@@ -33,6 +34,7 @@ import { audit } from '../services/audit.ts';
 import { getSetting } from '../services/settings.ts';
 import { decrypt } from '../crypto/secrets.ts';
 import { contrackCheck } from '../contacts/contrack.ts';
+import { callerNameToken, phoneSafeName, sameToken } from '../contacts/callername.ts';
 
 const IdParams = z.object({ id: z.uuid() });
 const CommitQuery = z.object({ commit: z.enum(['0', '1']).default('0') });
@@ -153,6 +155,38 @@ export async function contactRoutes(app: FastifyInstance) {
     readBooks(db, null),
   );
   book('/api/contacts', requireAdmin, () => null);
+
+  /**
+   * The dialplan's caller-name lookup (11 §6 C4): only Asterisk on this machine (no proxy in
+   * between) with the token. Never waits on Contrack. Not logged: the token is in the query.
+   */
+  app.get('/api/internal/caller-name', { logLevel: 'silent' }, async (req, reply) => {
+    const q = z
+      .object({
+        ext: z.string().regex(/^\d{1,10}$/),
+        number: z.string().regex(/^\d{3,20}$/),
+        token: z.string().max(100),
+      })
+      .safeParse(req.query);
+    const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '');
+    if (
+      !local ||
+      req.headers['x-forwarded-for'] ||
+      !q.success ||
+      !sameToken(q.data.token, callerNameToken(app.config.APP_SECRET))
+    )
+      return reply.code(404).send('');
+    const [e] = await db
+      .select({ userId: extensions.userId })
+      .from(extensions)
+      .where(eq(extensions.number, q.data.ext));
+    const names = await contactNames(db, e?.userId ?? null, [q.data.number], { wait: false }).catch(
+      () => new Map<string, string>(),
+    );
+    return reply
+      .type('text/plain; charset=utf-8')
+      .send(phoneSafeName(names.get(q.data.number) ?? ''));
+  });
 
   /** Settings → Contacts → Test (11 §4.3): the form's address, and its token or the saved one. */
   app.post('/api/contacts/contrack/test', { preHandler: requireAdmin }, async (req) => {

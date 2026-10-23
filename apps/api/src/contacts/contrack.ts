@@ -119,21 +119,42 @@ const TTL = 5 * 60_000;
 /** Forget a book (after we add to it, or a token changes). */
 export const forgetBook = (owner: string | null) => cache.delete(owner ?? '');
 
+const inflight = new Map<string, Promise<Book>>();
+
 /**
  * A Contrack book, from the cache when it's under 5 minutes old. Null: no token. A failing
- * Contrack keeps the last good list and says why.
+ * Contrack keeps the last good list and says why. `wait: false` (a phone ringing, 11 §6 C4)
+ * never waits on Contrack: it answers what the cache has and refreshes in the background.
  */
 export async function contrackBook(
   db: Db,
   c: Contrack,
   owner: string | null,
-  now = Date.now(),
+  { now = Date.now(), wait = true }: { now?: number; wait?: boolean } = {},
 ): Promise<Book | null> {
   const token = await tokenFor(db, c, owner);
   if (!token) return null;
   const key = owner ?? '';
   const hit = cache.get(key);
-  if (hit && hit.token === token && now - hit.at < TTL) return hit;
+  const usable = hit && hit.token === token ? hit : undefined;
+  if (usable && now - usable.at < TTL) return usable;
+  if (!inflight.has(key))
+    inflight.set(
+      key,
+      fetchBook(c, owner, token, usable, now).finally(() => inflight.delete(key)),
+    );
+  if (!wait) return usable ?? null;
+  return inflight.get(key)!;
+}
+
+async function fetchBook(
+  c: Contrack,
+  owner: string | null,
+  token: string,
+  hit: Book | undefined,
+  now: number,
+): Promise<Book> {
+  const key = owner ?? '';
   const book = owner === null ? 'company' : 'mine';
   try {
     const rows = await ctk<Slim[]>(c.url, token, 'api/contacts?view=slim');
@@ -142,7 +163,7 @@ export async function contrackBook(
     return fresh;
   } catch (err) {
     const stale = {
-      contacts: hit?.token === token ? hit.contacts : [],
+      contacts: hit?.contacts ?? [],
       at: now, // tried now: the next try is in 5 minutes, not on every lookup
       error: (err as Error).message,
       token,

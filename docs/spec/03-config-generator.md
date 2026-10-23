@@ -389,14 +389,36 @@ exten => s,1,Set(N=${FILTER(0123456789+,${ARG1})})
 
 ; ─── Ring every registered device of a user. ARG1 = ext, ARG2 = seconds.
 ; Sets DIALSTATUS. Rings desk/softphone contacts (PJSIP/101) and browser (PJSIP/101-web).
+; A call from outside shows the caller's name from this user's contacts (11 §6 C4): set on each
+; ringing leg only (sp-predial-cnam), never on the call itself, so a forward or the next member
+; never sees someone else's contact name.
 [sp-sub-dial-user]
 exten => s,1,Set(DS=)
  same => n,Gosub(sp-sub-contacts,s,1(${ARG1}))
  same => n,Gosub(sp-sub-contacts,s,1(${ARG1}-web))
  same => n,GotoIf($["${DS}" = ""]?unavail)
- same => n,Dial(${DS},${ARG2},tx)
+ same => n,GotoIf($["${SP_DIRECTION}" != "inbound" | "${SP_CNAM_URL}" = ""]?plain)
+ same => n,Gosub(sp-sub-cnam,s,1(${ARG1}))
+ same => n,GotoIf($["${GOSUB_RETVAL}" = ""]?plain)
+ same => n,Set(_SP_CNAM=${SP_CNAM_PREFIX}${GOSUB_RETVAL})
+ same => n,Dial(${DS},${ARG2},txb(sp-predial-cnam^s^1))
+ same => n,Set(_SP_CNAM=)
+ same => n,Return()
+ same => n(plain),Dial(${DS},${ARG2},tx)
  same => n,Return()
  same => n(unavail),Set(DIALSTATUS=CHANUNAVAIL)
+ same => n,Return()
+
+; ─── The caller's name in user ARG1's contacts, or "" (none, or the api didn't answer in 2 s).
+; The api only answers this machine with the key, and only letters, digits and . ' & @ - come back.
+[sp-sub-cnam]
+exten => s,1,Set(CURLOPT(conntimeout)=1)
+ same => n,Set(CURLOPT(httptimeout)=2)
+ same => n,Return(${CURL(${SP_CNAM_URL}?ext=${FILTER(0-9,${ARG1})}&number=${FILTER(0-9,${CALLERID(num)})}&token=${SP_CNAM_TOKEN})})
+
+; ─── Pre-dial handler on each ringing leg: the name its phone shows.
+[sp-predial-cnam]
+exten => s,1,Set(CONNECTEDLINE(name,i)=${SP_CNAM})
  same => n,Return()
 
 ; ─── Add AOR ARG1's reachable contacts to DS as PJSIP/<ARG1>/<uri>. Not PJSIP_DIAL_CONTACTS: iOS

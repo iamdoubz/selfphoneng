@@ -3,6 +3,7 @@
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { contactNames } from '../src/contacts/book.ts';
+import { callerNameToken, phoneSafeName } from '../src/contacts/callername.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
 
@@ -200,5 +201,28 @@ describe.skipIf(!hasTestDb)('contacts', () => {
     });
     const company = await contactNames(t.db, null, ['13125551234']);
     expect(company.get('13125551234')).toBe('Front desk');
+  });
+
+  it('the dialplan lookup (C4): only with the key, never through the proxy, phone-safe names', async () => {
+    const token = callerNameToken(t.app.config.APP_SECRET);
+    const look = (q: string, headers: Record<string, string> = {}) =>
+      t.app.inject({ method: 'GET', url: `/api/internal/caller-name?${q}`, headers });
+    const mine = await look(`ext=101&number=13125551234&token=${token}`);
+    expect([mine.statusCode, mine.body]).toEqual([200, 'My Jane']);
+    expect((await look(`ext=102&number=13125551234&token=${token}`)).body).toBe('Jane Doe'); // Sue's own copy, from the accepted share
+    expect((await look(`ext=999&number=13125551234&token=${token}`)).body).toBe('Front desk'); // no user
+    expect((await look(`ext=101&number=19995550000&token=${token}`)).body).toBe('');
+    expect((await look('ext=101&number=13125551234&token=wrong')).statusCode).toBe(404);
+    expect(
+      (
+        await look(`ext=101&number=13125551234&token=${token}`, {
+          'x-forwarded-for': '203.0.113.9',
+        })
+      ).statusCode,
+    ).toBe(404);
+    expect(phoneSafeName(String.raw`Jane "J" <Doe>, Inc.; (x)^|\ Ünïcode-Smith`)).toBe(
+      'Jane J Doe Inc. x Ünïcode-Smith',
+    );
+    expect(phoneSafeName('A'.repeat(60))).toHaveLength(40);
   });
 });

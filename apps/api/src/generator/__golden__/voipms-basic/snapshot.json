@@ -117,5 +117,9 @@
       "trunkIds": ["7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37"]
     }
   ],
-  "recordingAnnouncement": "custom/44444444-4444-4444-8444-444444444448"
+  "recordingAnnouncement": "custom/44444444-4444-4444-8444-444444444448",
+  "callerNames": {
+    "url": "http://127.0.0.1:8080/api/internal/caller-name",
+    "token": "0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f"
+  }
 }

@@ -21,6 +21,7 @@ import { watchPinChanges } from './services/vmpin.ts';
 import { startJobs } from './jobs.ts';
 import { watchWebhooks } from './services/webhooks.ts';
 import { watchEvents } from './services/events.ts';
+import { callerNameToken } from './contacts/callername.ts';
 
 let config;
 try {
@@ -47,6 +48,10 @@ const generator = createGenerator({
   ami,
   dir: resolve(config.ASTERISK_CONFIG_DIR),
   rtpPorts: { start: config.RTP_PORT_START, end: config.RTP_PORT_END },
+  callerNames: {
+    url: `http://127.0.0.1:${config.API_PORT}/api/internal/caller-name`,
+    token: callerNameToken(config.APP_SECRET),
+  },
   log: app.log,
   onApplied: (r) => {
     live.emit('message', {

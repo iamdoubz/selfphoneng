@@ -270,9 +270,30 @@ New per-user options (My settings → Contacts, shown when connected):
 | C1 | Seam + Simple: migration, builtin provider, routes, `/me/contacts`, `/admin/contacts`, CSV and vCard import (§3.1), sharing (§2.1), "Add to contacts", lookup everywhere in §1 except desk phones | a contact's name shows in call history, voicemail, call report and the ringing softphone; an iPhone and a Google .vcf export import |
 | C2 | Company book on desk phones (07) | a Yealink shows company contacts in its directory. Already built in M10-T2 (`loadPhonebook`, the builtin company book); C3 adds the Contrack company account to it |
 | C3 | Contrack: decision 0003, `deploy/contrack`, Caddy/nginx blocks, Settings → Contacts, company token, per-user tokens, contrack provider + cache, sharing, setup wizard step | with the owner's Contrack, a call from a Contrack contact shows their name |
-| C4 | Caller name on desk phones while ringing (owner, 2026-10-23: its own task after C3): the dialplan asks the api (AGI or `func_curl`) and sets `CALLERID(name)` | a desk phone rings with the contact's name, from either kind of book |
+| C4 | Caller name on desk phones while ringing (owner, 2026-10-23: its own task after C3): the dialplan asks the api (AGI or `func_curl`) and sets `CALLERID(name)` | a desk phone rings with the contact's name, from either kind of book. Done, see §6.1 |
 | C5 | Calls on the Contrack timeline (§4.4), summaries opt-in | an answered, recorded call shows up on the contact's Contrack timeline with its summary |
 | C6 | Copy builtin contacts to Contrack; personal and shared contacts in desk phone directories | optional |
+
+### 6.1 As built: C4
+
+- `sp-sub-dial-user` (03 §6.2), for calls from outside only: `sp-sub-cnam` asks
+  `GET /api/internal/caller-name?ext=&number=&token=` with `func_curl` (connect 1 s, answer 2 s).
+  A name goes on each ringing leg with a pre-dial handler, `CONNECTEDLINE(name,i)` (what a
+  PJSIP phone shows in the INVITE's From), not on the call: the next ring group member, a queue
+  agent or a forward does its own lookup in its own user's book, and never sees another's.
+- The prefix of a number, ring group or queue ("Sales:") is kept in front:
+  `__SP_CNAM_PREFIX` grows the same way `CALLERID(name)` does.
+- Globals `SP_CNAM_URL` (http://127.0.0.1:API_PORT/…) and `SP_CNAM_TOKEN` (HMAC-SHA256 of
+  APP_SECRET, so it survives restarts). The route answers 404 unless the request comes from this
+  machine without `X-Forwarded-For` (not through the reverse proxy) and with the key, and isn't
+  logged (the key is in the query). Names come back as letters, digits, spaces and `. ' & @ -`,
+  at most 40 characters, so nothing can be read as dialplan or SIP syntax.
+- It never waits on Contrack: a stale book answers what it has and refreshes in the background,
+  and the `contactsWarm` job refreshes every connected book every 5 minutes.
+- `apps/api/test/asterisk/cnam-test.ts` proves it on real Asterisk with a baresip phone: a
+  contact's name, a stranger's provider name, "Sales: Jane Doe" through a ring group, 101's
+  contact name not reaching 102 after a no-answer forward, and the phone still ringing (with the
+  provider's name) when the api hangs.
 
 Tests: builtin lookup/search/import against the test DB; contrack provider against a fake HTTP
 server built from the pinned `openapi.json`; one e2e script against a real Contrack container.

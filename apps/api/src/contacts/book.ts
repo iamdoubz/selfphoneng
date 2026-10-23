@@ -177,6 +177,7 @@ export async function contactNames(
   db: Db,
   userId: string | null,
   numbers: (string | null)[],
+  opts: { wait?: boolean } = {},
 ): Promise<Map<string, string>> {
   const want = [...new Set(numbers.filter((n): n is string => !!n))];
   const out = new Map<string, string>();
@@ -184,8 +185,8 @@ export async function contactNames(
   const c = await contrackSettings(db);
   if (c) {
     const books = [
-      userId ? await contrackBook(db, c, userId) : null,
-      await contrackBook(db, c, null),
+      userId ? await contrackBook(db, c, userId, opts) : null,
+      await contrackBook(db, c, null, opts),
     ];
     for (const b of books)
       for (const ct of b?.contacts ?? [])
