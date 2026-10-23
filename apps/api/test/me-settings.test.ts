@@ -62,6 +62,10 @@ describe.skipIf(!hasTestDb)('/api/me settings and phone toggles', () => {
       voicemailEmail: true,
       voicemailAttachAudio: true,
       voicemailDeleteAfterEmail: false,
+      callReport: 'off',
+      callReportTime: '08:00',
+      callReportWeekday: 1,
+      callReportSummaries: false,
     });
   });
 

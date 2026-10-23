@@ -103,10 +103,10 @@ Implementation notes (M3):
 |---|---|---|
 | Home | `/me` | Status card (DND toggle, forwarding summary, queue login toggles), missed calls, new voicemails, colleagues presence list. M4 ships only new voicemails; the rest arrives with DND/forwarding (M6), call history (M7) and presence (M5-T3) |
 | Calls | `/me/calls` | Own call history, click a number to call back, add to contacts |
-| Voicemail | `/me/voicemail` | List (new bold), play (marks read), download, delete. Greetings section: record in the browser (MediaRecorder → upload), upload, or delete for unavail/busy/name |
+| Voicemail | `/me/voicemail` | List (new bold), play (marks read), download, delete, search (transcript, caller). Greetings section: record in the browser (MediaRecorder → upload), upload, or delete for unavail/busy/name |
 | Contacts | `/me/contacts` | Personal + company (read-only) with search, click to call |
 | Messages | `/me/sms` | Threads per DID + remote number, chat bubbles, composer with 160-char segment counter, unread badges (06 §5) |
-| Settings | `/me/settings` | Forwarding rules (always/busy/no answer with number fields), voicemail PIN, email options, softphone audio devices, notification permission, change password, "Set up a phone app" (QR, 07 §5) |
+| Settings | `/me/settings` | Forwarding rules (always/busy/no answer with number fields), voicemail PIN, email options, call report email (off / hourly / daily at a time / weekly on a day at a time, company time zone; optional summaries of recorded calls, 10 §3; nothing sent for a period without calls), softphone audio devices, notification permission, change password, "Set up a phone app" (QR, 07 §5) |
 
 ### 4.1 Presence panel
 Right column on wide screens, a tab on mobile. Lists every extension with its

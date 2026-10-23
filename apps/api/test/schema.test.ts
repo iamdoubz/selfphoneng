@@ -48,6 +48,11 @@ const EXPECTED: Record<string, Record<string, string>> = {
     language: "text|NO|'en'::text",
     moh_class: "text|NO|'default'::text",
     blf_numbers: "ARRAY:_text|NO|'{}'::text[]",
+    call_report: "USER-DEFINED:call_report|NO|'off'::call_report",
+    call_report_time: "text|NO|'08:00'::text",
+    call_report_weekday: 'integer|NO|1',
+    call_report_summaries: 'boolean|NO|false',
+    call_report_sent_at: 'timestamp with time zone|YES|',
     ...ts,
   },
   trunks: {

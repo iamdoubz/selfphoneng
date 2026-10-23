@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// /api/me/voicemail and /api/me/greetings (04 §5.6, §7.3): the signed-in user's own mailbox.
+// /api/me (settings, call report), /api/me/voicemail and /api/me/greetings (04 §5.6, §7.3).
 import { existsSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -111,6 +111,10 @@ export async function meRoutes(app: FastifyInstance) {
       voicemailEmail: e.voicemailEmail,
       voicemailAttachAudio: e.voicemailAttachAudio,
       voicemailDeleteAfterEmail: e.voicemailDeleteAfterEmail,
+      callReport: e.callReport,
+      callReportTime: e.callReportTime,
+      callReportWeekday: e.callReportWeekday,
+      callReportSummaries: e.callReportSummaries,
     };
   }
 
@@ -144,6 +148,11 @@ export async function meRoutes(app: FastifyInstance) {
     if (body.voicemailPin && isTrivialPin(body.voicemailPin, ext.number))
       throw badRequest('That PIN is too easy to guess (repeated, sequential or your extension)');
     const { dnd: _d, cfu: _u, cfb: _b, cfna: _n, voicemailPin, ...vm } = body;
+    // A new call report schedule starts with its next period, not one that just ended.
+    const rescheduled =
+      body.callReport !== undefined ||
+      body.callReportTime !== undefined ||
+      body.callReportWeekday !== undefined;
     await db.transaction(async (tx) => {
       if (Object.keys(runtime).length)
         await tx
@@ -153,7 +162,11 @@ export async function meRoutes(app: FastifyInstance) {
       if (Object.keys(vm).length || voicemailPin)
         await tx
           .update(extensions)
-          .set({ ...vm, ...(voicemailPin ? { voicemailPinEnc: encrypt(voicemailPin) } : {}) })
+          .set({
+            ...vm,
+            ...(voicemailPin ? { voicemailPinEnc: encrypt(voicemailPin) } : {}),
+            ...(rescheduled ? { callReportSentAt: new Date() } : {}),
+          })
           .where(eq(extensions.id, ext.id));
     });
     // Offline Asterisk catches up from PostgreSQL on its next connect.

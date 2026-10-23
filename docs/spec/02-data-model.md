@@ -101,6 +101,7 @@ create table api_tokens (
 -- ───────────── extensions (telephony identity of a user) ─────────────
 create type outbound_class as enum ('internal', 'local', 'national', 'international');
 create type record_mode   as enum ('never', 'inbound', 'outbound', 'all');
+create type call_report   as enum ('off', 'hourly', 'daily', 'weekly');
 
 create table extensions (
   id                        uuid primary key default gen_random_uuid(),
@@ -124,7 +125,12 @@ create table extensions (
   pickup_group              text,                          -- e.g. 'sales'; same group can pick each other up
   language                  text not null default 'en',
   moh_class                 text not null default 'default',
-  blf_numbers               text[] not null default '{}'   -- internal numbers shown as BLF keys on their phones/web
+  blf_numbers               text[] not null default '{}',  -- internal numbers shown as BLF keys on their phones/web
+  call_report               call_report not null default 'off',  -- the call report email (05 §4)
+  call_report_time          text not null default '08:00', -- HH:MM company time, daily and weekly
+  call_report_weekday       int not null default 1,        -- 0 = Sunday, weekly
+  call_report_summaries     boolean not null default false, -- each recorded call's summary too (10 §3)
+  call_report_sent_at       timestamptz                    -- end of the last period reported on
 );
 -- * dids is created below; in the migration create dids first or add these FKs after.
 

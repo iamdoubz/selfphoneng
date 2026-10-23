@@ -1,16 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// My voicemail (05 §4): messages (play marks read, download, delete) and greetings.
+// My voicemail (05 §4): messages (play marks read, download, delete, search) and greetings.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { formatNumber, type GreetingKind, type VoicemailDto } from '@selfphoneng/shared';
 import { meApi } from '../../api/client.ts';
 import { ConfirmDialog } from '../../components/Dialog.tsx';
-import { Alert, Button } from '../../components/ui.tsx';
+import { Alert, Button, inputClass } from '../../components/ui.tsx';
 
 export const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 export const callerOf = (m: VoicemailDto) =>
   m.callerName ?? (m.callerNumber ? formatNumber(m.callerNumber) : 'Unknown caller');
 export const isNew = (m: VoicemailDto) => m.folder !== 'Old';
+/** Words in the transcript, caller name or number, ignoring case. */
+export const matches = (m: VoicemailDto, q: string) =>
+  [m.transcript, m.callerName, m.callerNumber].some((f) =>
+    f?.toLowerCase().includes(q.trim().toLowerCase()),
+  );
 
 export function VoicemailPage() {
   return (
@@ -25,6 +30,10 @@ function Messages() {
   const qc = useQueryClient();
   const list = useQuery({ queryKey: ['me', 'voicemail'], queryFn: meApi.voicemail });
   const [deleting, setDeleting] = useState<VoicemailDto | null>(null);
+  const [q, setQ] = useState('');
+  // ponytail: the whole mailbox is already loaded, so search filters it here; move to the API if
+  // mailboxes ever get paged.
+  const shown = q.trim() ? list.data?.filter((m) => matches(m, q)) : list.data;
   const refresh = () => qc.invalidateQueries({ queryKey: ['me', 'voicemail'] });
   const markRead = useMutation({
     mutationFn: (id: string) => meApi.moveVoicemail(id, 'Old'),
@@ -44,9 +53,22 @@ function Messages() {
         Voicemail
       </h2>
       {list.error && <Alert>{list.error.message}</Alert>}
+      {!!list.data?.length && (
+        <input
+          type="search"
+          aria-label="Search voicemail"
+          placeholder="Search what was said, or the caller"
+          className={`${inputClass} max-w-72`}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+      )}
       {list.data?.length === 0 && <p className="text-sm text-zinc-500">No messages.</p>}
+      {!!list.data?.length && shown?.length === 0 && (
+        <p className="text-sm text-zinc-500">No message mentions that.</p>
+      )}
       <ul className="flex flex-col gap-2">
-        {list.data?.map((m) => (
+        {shown?.map((m) => (
           <li
             key={m.id}
             className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-3 sm:flex-row sm:items-center dark:border-zinc-800"

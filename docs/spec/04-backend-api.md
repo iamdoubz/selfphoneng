@@ -457,6 +457,7 @@ Provisioning and inbound hooks (outside `/api`, no session):
 | `webhookDelivery` | every 10 s | send pending deliveries (§9) |
 | `trunkWatch` | every 60 s | if a trunk is unregistered for more than 5 min → email admins once per outage |
 | `diskWatch` | hourly | if free disk < 10% → email admins once a day |
+| `callReports` | every 60 s | each user whose call report period (05 §4) ended over 5 min ago and isn't reported yet: email their calls of that period (by hang-up time) if there were any; `extensions.call_report_sent_at` = the period's end. Changing the schedule sets it to now, so the first report is the next period's |
 
 Jobs must never overlap with themselves (use a running flag).
 
