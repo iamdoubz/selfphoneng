@@ -102,6 +102,7 @@ export const outboundClass = pgEnum('outbound_class', [
   'international',
 ]);
 export const recordMode = pgEnum('record_mode', ['never', 'inbound', 'outbound', 'all']);
+export const callReport = pgEnum('call_report', ['off', 'hourly', 'daily', 'weekly']);
 
 export const extensions = pgTable('extensions', {
   id: id(),
@@ -128,6 +129,13 @@ export const extensions = pgTable('extensions', {
   language: text().notNull().default('en'),
   mohClass: text().notNull().default('default'),
   blfNumbers: emptyTextArray(),
+  /** The call report email (05 §4): how often, at what local time (HH:MM) and weekday (0 = Sunday). */
+  callReport: callReport().notNull().default('off'),
+  callReportTime: text().notNull().default('08:00'),
+  callReportWeekday: integer().notNull().default(1),
+  callReportSummaries: boolean().notNull().default(false),
+  /** The end of the last period reported on (or when the schedule last changed). */
+  callReportSentAt: tstz(),
   ...timestamps,
 });
 

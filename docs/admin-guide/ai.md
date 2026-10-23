@@ -73,7 +73,7 @@ on, each recorded call is also recorded one side at a time, and a minute or two 
 
 On the **Recordings** page each call shows its summary, **Show transcript**, and the search box
 finds calls by what was said. People who were on a call can read its transcript too, like they can
-play its recording.
+play its recording, and get its summary in their call report email (My settings → Call report).
 
 - Only calls that are recorded are written out (user record modes, phone numbers, queues and
   conference rooms set to record), and only those recorded while it's on.

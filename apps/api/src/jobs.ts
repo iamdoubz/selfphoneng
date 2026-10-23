@@ -23,6 +23,7 @@ import { cleanupRecordings } from './routes/recordings.ts';
 import { transcribeCalls } from './ai/calls.ts';
 import { audit } from './services/audit.ts';
 import { backupDue, runBackup } from './services/backup.ts';
+import { sendCallReports } from './services/callreport.ts';
 import { logEvent } from './services/events.ts';
 import { deliverDue } from './services/webhooks.ts';
 import type { SendMail } from './services/mail.ts';
@@ -237,7 +238,11 @@ export function createJobs(d: JobDeps) {
     );
   };
 
-  return { daily, backup, publicIpWatch, trunkWatch, diskWatch };
+  const callReports = async () => {
+    await sendCallReports({ db: d.db, send: d.send, log: d.log, now: now() });
+  };
+
+  return { daily, backup, publicIpWatch, trunkWatch, diskWatch, callReports };
 }
 
 /** Starts the jobs; returns a stop function. */
@@ -259,6 +264,7 @@ export function startJobs(d: JobDeps): () => void {
     run('trunkWatch', j.trunkWatch);
     if (minute % 5 === 0) run('publicIpWatch', j.publicIpWatch);
     if (minute % 60 === 0) run('diskWatch', j.diskWatch);
+    run('callReports', j.callReports);
     run('callTranscripts', async () => {
       await transcribeCalls({ db: d.db, dir: resolve(d.config.RECORDINGS_DIR), log: d.log });
     });
