@@ -37,7 +37,7 @@ type ProvisionContext = {
 | `GET /prov/<mac>.cfg` | Yealink (also Polycom master, see §3.3) | MAC lowercase. Decide by `devices.vendor` |
 | `GET /prov/y0000000000<xx>.cfg` | Yealink common file | Return an empty valid file `#!version:1.0.0.1\n` |
 | `GET /prov/cfg<mac>.xml` | Grandstream | |
-| `GET /prov/phonebook/<mac>.xml` | both | company phonebook + extensions, vendor-specific XML |
+| `GET /prov/phonebook/<mac>.xml` | both | extensions + the phone owner's contacts + company phonebook (11 §6.2), vendor-specific XML |
 | `GET /prov/linphone/<token>.xml` | Linphone (§5) | token auth instead of Basic |
 
 Rules:

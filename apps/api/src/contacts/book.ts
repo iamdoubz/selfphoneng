@@ -6,6 +6,7 @@ import { asc, eq, isNull, or, sql } from 'drizzle-orm';
 import {
   normalizeNumber,
   type ContactBookDto,
+  type ContactCopyResult,
   type ContactData,
   type ContactDto,
   type ContactImportResult,
@@ -17,6 +18,7 @@ import {
   ContrackError,
   contrackBook,
   contrackCreate,
+  contrackBulk,
   contrackSettings,
   needToken,
   type Contrack,
@@ -101,8 +103,36 @@ export async function readBooks(db: Db, userId: string | null): Promise<ContactB
       publicUrl: c.publicUrl,
       connected: !!own.book && !own.book.error,
       error: own.book?.error ?? null,
+      toCopy:
+        own.book && !own.book.error
+          ? (await notInContrack(db, userId, own.book.contacts)).length
+          : 0,
     },
   };
+}
+
+/** This book's builtin contacts that its Contrack account doesn't have yet. */
+async function notInContrack(db: Db, owner: Owner, have: ContactDto[]): Promise<ContactData[]> {
+  const rows = (await db.select().from(contacts).where(inBook(owner))).map(toDto);
+  return rows.filter((r) => !have.some((h) => isDuplicate(h, r)));
+}
+
+/**
+ * "Copy my contacts to Contrack" (11 §5, C6): the builtin book's contacts that aren't there yet,
+ * in one Contrack import. The builtin ones stay, for switching back.
+ */
+export async function copyToContrack(db: Db, owner: Owner): Promise<ContactCopyResult> {
+  const c = await contrackSettings(db);
+  if (!c)
+    throw new HttpError(409, 'contrack', 'Contacts are not in Contrack (Settings → Contacts)');
+  const b = await contrackBook(db, c, owner);
+  if (!b) asHttp(needToken(owner));
+  if (b!.error) throw new HttpError(502, 'contrack', b!.error);
+  const all = (await db.select().from(contacts).where(inBook(owner))).length;
+  const fresh = await notInContrack(db, owner, b!.contacts);
+  if (!fresh.length) return { added: 0, duplicates: all, failed: 0 };
+  const r = await contrackBulk(db, c, owner, fresh).catch(asHttp);
+  return { added: r.count, duplicates: all - fresh.length, failed: r.failed };
 }
 
 /** One contact added by hand (or from a call): a row, or a Contrack contact. */

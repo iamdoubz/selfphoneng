@@ -9,6 +9,7 @@ import {
   ContactShareDecisionSchema,
   ContactShareSchema,
   type ContactBookDto,
+  type ContactCopyResult,
   type ContactData,
   type ContactDto,
   type ContactImportResult,
@@ -21,6 +22,7 @@ import {
   assertBuiltin,
   cleanNumbers,
   contactNames,
+  copyToContrack,
   createContact,
   readBooks,
   toDto,
@@ -187,6 +189,29 @@ export async function contactRoutes(app: FastifyInstance) {
       .type('text/plain; charset=utf-8')
       .send(phoneSafeName(names.get(q.data.number) ?? ''));
   });
+
+  /** Copy the builtin book into Contrack (11 §5, C6): mine, or (admin) the company's. */
+  app.post(
+    '/api/me/contacts/copy-to-contrack',
+    { preHandler: requireAuth },
+    async (req): Promise<ContactCopyResult> => copyToContrack(db, req.user!.id),
+  );
+  app.post(
+    '/api/contacts/copy-to-contrack',
+    { preHandler: requireAdmin },
+    async (req): Promise<ContactCopyResult> => {
+      const r = await copyToContrack(db, null);
+      if (r.added)
+        await audit(db, {
+          actorUserId: req.user!.id,
+          actorIp: req.ip,
+          action: 'create',
+          entityType: 'contact',
+          summary: `Copied ${r.added} company contacts to Contrack`,
+        });
+      return r;
+    },
+  );
 
   /** Settings → Contacts → Test (11 §4.3): the form's address, and its token or the saved one. */
   app.post('/api/contacts/contrack/test', { preHandler: requireAdmin }, async (req) => {

@@ -1,7 +1,8 @@
 # Contacts
 
-Contacts put names on numbers: in call history, voicemail, the browser phone while it rings, the
-call report email, and the directory on desk phones (the company contacts). Pick where they live
+Contacts put names on numbers: in call history, voicemail, the browser phone and desk phones
+while they ring, the call report email, and the directory on desk phones (each phone has its
+owner's contacts and the company's). Pick where they live
 in the setup wizard or in **Settings → Contacts**:
 
 - **Simple**: a phonebook inside SelfPhoneNG. Nothing else to run.
@@ -88,6 +89,12 @@ Administration → AI**.
 
 SelfPhoneNG's backup doesn't include Contrack. Contrack makes its own snapshots in its
 `contrack-data` volume (its **Settings → Backups**); back up that volume too.
+
+### Moving to Contrack with contacts already in SelfPhoneNG
+
+Switching from Simple keeps everyone's contacts. Each person (and an admin, for the company
+contacts) sees **Copy them to Contrack** on their Contacts page until they're copied; contacts
+Contrack already has are skipped.
 
 ### Going back to Simple
 

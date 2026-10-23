@@ -2,6 +2,7 @@
 // Contrack (11 §4): a self-hosted contact manager beside the PBX. We call a handful of its REST
 // routes with a person's (or the company account's) personal token, and keep each book in memory
 // for 5 minutes, so name lookups don't wait on it.
+import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { normalizeNumber, type ContactData, type ContactDto } from '@selfphoneng/shared';
 import { AiError, assertLocalUrl } from '../ai/client.ts';
@@ -36,6 +37,7 @@ async function ctk<T>(
     r = await fetch(url, {
       ...init,
       headers: {
+        ...(init.headers as Record<string, string> | undefined),
         Authorization: `Bearer ${token}`,
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
       },
@@ -202,6 +204,31 @@ export async function contrackCreate(
   });
   forgetBook(owner);
   return toDto(c, row, owner === null ? 'company' : 'mine');
+}
+
+/** Many contacts into a Contrack book in one import (11 §5, C6); 5,000 at most. */
+export async function contrackBulk(
+  db: Db,
+  c: Contrack,
+  owner: string | null,
+  list: ContactData[],
+): Promise<{ count: number; failed: number }> {
+  const token = await tokenFor(db, c, owner);
+  if (!token) throw needToken(owner);
+  const r = await ctk<{ count: number; failed: number }>(c.url, token, 'api/contacts/bulk', {
+    method: 'POST',
+    headers: { 'X-Import-Id': randomUUID() },
+    body: JSON.stringify(
+      list.slice(0, 5000).map((d) => ({
+        name: d.name,
+        ...(d.company ? { company: d.company } : {}),
+        ...(d.email ? { emails: [{ email: d.email }] } : {}),
+        phones: d.numbers.map((n) => ({ phone: n.number, ...(n.label ? { label: n.label } : {}) })),
+      })),
+    ),
+  });
+  forgetBook(owner);
+  return { count: r.count, failed: typeof r.failed === 'number' ? r.failed : 0 };
 }
 
 /** A timeline entry on a contact (11 §4.4); answers its id. */

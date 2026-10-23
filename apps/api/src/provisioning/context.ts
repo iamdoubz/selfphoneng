@@ -27,6 +27,8 @@ export type ProvisionContext = {
   provPassword: string;
   /** The phonebook with this phone's credentials in it (phones fetch it like the config). */
   phonebookUrl: string;
+  /** Whose phone: their own contacts go in its directory (11 §6 C6). */
+  ownerUserId: string | null;
   ntpServer: string;
   /** What's dialable (dialplan.ts), so phones can send complete numbers at once. */
   dialRules: DialRule[];
@@ -80,6 +82,7 @@ export async function loadContext(
       provUser: d.mac,
       provPassword,
       phonebookUrl: `https://${d.mac}:${provPassword}@${config.PUBLIC_HOSTNAME}/prov/phonebook/${d.mac}.xml`,
+      ownerUserId: e.userId,
       ntpServer: NTP_SERVER,
       dialRules: await loadDialRules(db),
     },
@@ -88,14 +91,17 @@ export async function loadContext(
 
 export type PhonebookEntry = { name: string; numbers: { label: string; number: string }[] };
 
-/** The company phonebook (07 §2): every extension, then the company contacts, by name (from
- * Contrack's company account in Contrack mode, 11 §4.3). */
-export async function loadPhonebook(db: Db): Promise<PhonebookEntry[]> {
+/** A phone's directory (07 §2): every extension, then its owner's own contacts (11 §6 C6), then
+ * the company's, each by name. Contrack's books in Contrack mode (11 §4.3). */
+export async function loadPhonebook(
+  db: Db,
+  ownerUserId: string | null = null,
+): Promise<PhonebookEntry[]> {
   const exts = await db
     .select({ name: extensions.name, number: extensions.number })
     .from(extensions)
     .orderBy(asc(extensions.name));
-  const company = (await readBooks(db, null)).items;
+  const company = (await readBooks(db, ownerUserId)).items; // mine first, then the company's
   return [
     ...exts.map((x) => ({ name: x.name, numbers: [{ label: 'Extension', number: x.number }] })),
     ...company.map((c) => ({

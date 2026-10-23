@@ -53,8 +53,17 @@ export type ContactBookDto = {
   items: ContactDto[];
   provider: 'builtin' | 'contrack';
   /** Contrack mode: the address people open, and whether this book's token works. */
-  contrack: { publicUrl: string | null; connected: boolean; error: string | null } | null;
+  contrack: {
+    publicUrl: string | null;
+    connected: boolean;
+    error: string | null;
+    /** Contacts still only in the builtin book (from before Contrack): "Copy them" (11 §5). */
+    toCopy: number;
+  } | null;
 };
+
+/** POST …/contacts/copy-to-contrack (11 §5, C6). */
+export type ContactCopyResult = { added: number; duplicates: number; failed: number };
 
 /** POST …/contacts/import: the files' text, read in the browser. */
 export const ContactImportSchema = z.object({

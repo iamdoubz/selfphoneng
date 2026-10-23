@@ -267,7 +267,6 @@ As built (C5, `contacts/timeline.ts`):
 
 ### 4.5 Not in Contrack mode
 
-- Personal contacts are not on desk-phone phonebooks at first (company book only). Phase C6.
 - Editing a Contrack contact from SelfPhoneNG.
 - A contact in several books is shown once per book; lookup takes the first in §1's order.
 
@@ -292,7 +291,7 @@ As built (C5, `contacts/timeline.ts`):
 | C3 | Contrack: decision 0003, `deploy/contrack`, Caddy/nginx blocks, Settings → Contacts, company token, per-user tokens, contrack provider + cache, sharing, setup wizard step | with the owner's Contrack, a call from a Contrack contact shows their name |
 | C4 | Caller name on desk phones while ringing (owner, 2026-10-23: its own task after C3): the dialplan asks the api (AGI or `func_curl`) and sets `CALLERID(name)` | a desk phone rings with the contact's name, from either kind of book. Done, see §6.1 |
 | C5 | Calls on the Contrack timeline (§4.4), summaries opt-in | an answered, recorded call shows up on the contact's Contrack timeline with its summary. Done, see §4.4 as built |
-| C6 | Copy builtin contacts to Contrack; personal and shared contacts in desk phone directories | optional |
+| C6 | Copy builtin contacts to Contrack; personal and shared contacts in desk phone directories | optional. Done, see §6.2 |
 
 ### 6.1 As built: C4
 
@@ -314,6 +313,20 @@ As built (C5, `contacts/timeline.ts`):
   contact's name, a stranger's provider name, "Sales: Jane Doe" through a ring group, 101's
   contact name not reaching 102 after a no-answer forward, and the phone still ringing (with the
   provider's name) when the api hangs.
+
+### 6.2 As built: C6
+
+- A phone's directory (`/prov/phonebook/<mac>.xml`, 07) is the extensions, then **its owner's own
+  contacts** (accepted shares are among them), then the company's, each by name, from the
+  builtin books or Contrack. A phone whose extension has no user gets the extensions and the
+  company only.
+- Contrack mode: `GET /api/me/contacts` (and `/api/contacts`) says in `contrack.toCopy` how many
+  builtin contacts that book's Contrack account doesn't have yet (same name and number), and the
+  page offers **Copy them to Contrack**: `POST /api/me/contacts/copy-to-contrack` (admin:
+  `/api/contacts/copy-to-contrack`, audited) sends them in one `POST /api/contacts/bulk` (with an
+  `X-Import-Id`). The builtin rows stay, for switching back; once copied the offer is gone.
+  Contrack's own duplicate check then runs on the import as usual.
+- Proven against Contrack 2.0.2 (`contrack-live.test.ts`).
 
 Tests: builtin lookup/search/import against the test DB; contrack provider against a fake HTTP
 server built from the pinned `openapi.json`; one e2e script against a real Contrack container.

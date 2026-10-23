@@ -11,6 +11,7 @@ import { logCallsToContrack } from '../src/contacts/timeline.ts';
 import {
   callExtensions,
   calls,
+  contacts,
   contrackCallLog,
   extensions,
   recordings,
@@ -67,6 +68,30 @@ function fakeContrack() {
     const token = (req.headers.authorization ?? '').replace(/^Bearer /, '');
     const book = books[token];
     if (!book) return send(401, { error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } });
+    if (req.method === 'POST' && req.url === '/api/contacts/bulk') {
+      if (!/^[0-9a-f-]{36}$/.test(String(req.headers['x-import-id'])))
+        return send(400, { error: { code: 'VALIDATION_ERROR', message: 'X-Import-Id' } });
+      let raw = '';
+      req.on('data', (c) => (raw += c));
+      req.on('end', () => {
+        const rows = JSON.parse(raw) as { name: string; phones: { phone: string }[] }[];
+        for (const r of rows)
+          book.push({
+            id: `bulk-${++n}`,
+            name: r.name,
+            company: null,
+            emails: [],
+            phones: r.phones,
+          });
+        send(201, {
+          success: true,
+          count: rows.length,
+          failed: 0,
+          importId: req.headers['x-import-id'],
+        });
+      });
+      return;
+    }
     const into = /^\/api\/contacts\/([^/]+)\/interactions$/.exec(req.url ?? '');
     if (req.method === 'POST' && into) {
       if (state.readOnly.has(token))
@@ -217,6 +242,7 @@ describe.skipIf(!hasTestDb)('contacts in Contrack', () => {
       publicUrl: 'https://contacts.example.com',
       connected: true,
       error: null,
+      toCopy: 0,
     });
     expect(book.items).toEqual([
       {
@@ -436,10 +462,63 @@ describe.skipIf(!hasTestDb)('contacts in Contrack', () => {
     expect(jane).toHaveLength(8);
   });
 
+  it('contacts from before Contrack are copied once, the builtin ones kept (C6)', async () => {
+    await t.db.insert(contacts).values([
+      {
+        name: 'Jane Doe',
+        ownerUserId: danId,
+        numbers: [{ label: 'mobile', number: '13125551234' }],
+      }, // in Contrack
+      {
+        name: 'Old Friend',
+        ownerUserId: danId,
+        numbers: [{ label: 'home', number: '13125550202' }],
+      },
+      { name: 'Plumber', numbers: [{ label: '', number: '13125557777' }] }, // in the company account
+      { name: 'Locksmith', numbers: [{ label: 'work', number: '13125550303' }] },
+    ]);
+    expect((await dan('GET', '/api/me/contacts')).json().contrack.toCopy).toBe(1);
+    expect((await dan('POST', '/api/me/contacts/copy-to-contrack')).json()).toEqual({
+      added: 1,
+      duplicates: 1,
+      failed: 0,
+    });
+    expect(fake.books.ctk_dan_0001!.at(-1)).toMatchObject({
+      name: 'Old Friend',
+      phones: [{ phone: '13125550202', label: 'home' }],
+    });
+    expect((await dan('GET', '/api/me/contacts')).json().contrack.toCopy).toBe(0);
+    expect((await dan('POST', '/api/me/contacts/copy-to-contrack')).json()).toEqual({
+      added: 0,
+      duplicates: 2,
+      failed: 0,
+    });
+    // The company book, by an admin only.
+    expect((await dan('POST', '/api/contacts/copy-to-contrack')).statusCode).toBe(403);
+    expect((await admin('GET', '/api/contacts')).json().contrack.toCopy).toBe(1);
+    expect((await admin('POST', '/api/contacts/copy-to-contrack')).json()).toEqual({
+      added: 1,
+      duplicates: 1,
+      failed: 0,
+    });
+    expect(fake.books.ctk_company!.map((c) => c.name)).toEqual(['Plumber', 'Locksmith']);
+    // Dan's desk phone: his Contrack contacts, then the company's.
+    const names = (await loadPhonebook(t.db, danId)).map((e) => e.name);
+    expect(names.indexOf('Old Friend')).toBeGreaterThan(-1);
+    expect(names.indexOf('Old Friend')).toBeLessThan(names.indexOf('Locksmith'));
+    expect((await loadPhonebook(t.db, null)).map((e) => e.name)).not.toContain('Old Friend');
+  });
+
   it('back to builtin: the table again, tokens kept for later', async () => {
     await admin('PATCH', '/api/settings', { 'contacts.provider': 'builtin' });
     const book = (await dan('GET', '/api/me/contacts')).json();
-    expect(book).toEqual({ items: [], provider: 'builtin', contrack: null });
+    expect([book.provider, book.contrack]).toEqual(['builtin', null]);
+    expect(book.items.map((c: { name: string }) => c.name)).toEqual([
+      'Jane Doe',
+      'Old Friend',
+      'Locksmith',
+      'Plumber',
+    ]);
     expect((await dan('GET', '/api/me')).json().contrack).toBeNull();
   });
 });

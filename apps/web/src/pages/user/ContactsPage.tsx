@@ -159,6 +159,7 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
               : 'The company Contrack account has no token yet: Settings → Contacts.')}
         </Alert>
       )}
+      {ctk?.connected && ctk.toCopy > 0 && <CopyToContrack base={base} count={ctk.toCopy} />}
       {list.data && shown.length === 0 && (
         <p className="text-sm text-zinc-500">
           {q ? 'No contact matches that.' : 'No contacts yet.'}
@@ -258,6 +259,31 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
         onConfirm={() => deleting && remove.mutate(deleting.id)}
       />
     </section>
+  );
+}
+
+/** Contacts from before Contrack (11 §5, C6): copied once, kept here for switching back. */
+function CopyToContrack({ base, count }: { base: ContactBase; count: number }) {
+  const qc = useQueryClient();
+  const copy = useMutation({
+    mutationFn: () => contactsApi.copyToContrack(base),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['contacts'] }),
+  });
+  return (
+    <div
+      role="status"
+      className="flex flex-wrap items-center gap-2 rounded-md bg-sky-50 p-3 text-sm dark:bg-sky-950"
+    >
+      <span className="flex-1">
+        {count} contact{count === 1 ? '' : 's'} from before Contrack{' '}
+        {count === 1 ? "isn't" : "aren't"} in {base === COMPANY ? "the company's" : 'your'} Contrack
+        yet.
+      </span>
+      <Button variant="primary" disabled={copy.isPending} onClick={() => copy.mutate()}>
+        Copy {count === 1 ? 'it' : 'them'} to Contrack
+      </Button>
+      {copy.error && <Alert>{copy.error.message}</Alert>}
+    </div>
   );
 }
 

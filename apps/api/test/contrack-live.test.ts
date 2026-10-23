@@ -11,7 +11,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { contactNames } from '../src/contacts/book.ts';
 import { logCallsToContrack } from '../src/contacts/timeline.ts';
-import { callExtensions, calls, extensions, recordings, users } from '../src/db/schema.ts';
+import {
+  callExtensions,
+  calls,
+  contacts,
+  extensions,
+  recordings,
+  users,
+} from '../src/db/schema.ts';
 import { setSetting } from '../src/services/settings.ts';
 import { loadPhonebook } from '../src/provisioning/context.ts';
 import { hasTestDb } from './db.ts';
@@ -188,6 +195,7 @@ describe.skipIf(!hasTestDb || !LIVE)('contacts in a real Contrack', () => {
       publicUrl: 'https://contacts.example.com',
       connected: true,
       error: null,
+      toCopy: 0,
     });
     expect(book.items).toEqual([
       expect.objectContaining({
@@ -307,6 +315,26 @@ describe.skipIf(!hasTestDb || !LIVE)('contacts in a real Contrack', () => {
     expect(content).not.toContain('<quote>');
   });
 
+  it('contacts from before Contrack copy into the account in one import (C6)', async () => {
+    await t.db.insert(contacts).values([
+      {
+        name: 'Old Friend',
+        ownerUserId: danId,
+        numbers: [{ label: 'home', number: '13125550202' }],
+      },
+      { name: 'Jane Doe', ownerUserId: danId, numbers: [{ label: '', number: '13125551234' }] },
+    ]);
+    expect((await dan('GET', '/api/me/contacts')).json().contrack.toCopy).toBe(1);
+    const r = await dan('POST', '/api/me/contacts/copy-to-contrack');
+    expect(r.json(), r.body).toEqual({ added: 1, duplicates: 1, failed: 0 });
+    const rows = (await ctk('/api/contacts?view=slim', { token: tok.dan })).body as unknown as {
+      name: string;
+      phones: { phone: string }[];
+    }[];
+    expect(rows.find((x) => x.name === 'Old Friend')?.phones).toEqual([{ phone: '13125550202' }]);
+    expect((await dan('GET', '/api/me/contacts')).json().contrack.toCopy).toBe(0);
+  });
+
   it('a share is accepted into the recipient’s own Contrack account', async () => {
     const jane = (await dan('GET', '/api/me/contacts'))
       .json()
@@ -328,6 +356,6 @@ describe.skipIf(!hasTestDb || !LIVE)('contacts in a real Contrack', () => {
     const dans = (await ctk('/api/contacts?view=slim', { token: tok.dan })).body as unknown as {
       name: string;
     }[];
-    expect(dans.map((c) => c.name).sort()).toEqual(['Bob Smith', 'Jane Doe']);
+    expect(dans.map((c) => c.name).sort()).toEqual(['Bob Smith', 'Jane Doe', 'Old Friend']);
   });
 });

@@ -66,7 +66,7 @@ export async function provisioningRoutes(app: FastifyInstance) {
   /** The config, or (phonebook) the directory in the phone's vendor's format. */
   async function render(c: ProvisionContext, phonebook = false): Promise<string> {
     if (!phonebook) return c.vendor === 'yealink' ? yealink(c) : grandstream(c);
-    const entries = await loadPhonebook(db);
+    const entries = await loadPhonebook(db, c.ownerUserId);
     return c.vendor === 'yealink' ? yealinkPhonebook(entries) : grandstreamPhonebook(entries);
   }
 

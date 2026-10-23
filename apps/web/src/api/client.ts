@@ -23,6 +23,7 @@ import type {
   CallDto,
   CallFilter,
   ContactBookDto,
+  ContactCopyResult,
   ContrackOptions,
   ContactDto,
   ContactImportResult,
@@ -299,6 +300,7 @@ export type ContactBase = '/api/me/contacts' | '/api/contacts';
 
 export const contactsApi = {
   list: (base: ContactBase) => api<ContactBookDto>('GET', base),
+  copyToContrack: (base: ContactBase) => api<ContactCopyResult>('POST', `${base}/copy-to-contrack`),
   testContrack: (url: string, companyToken?: string) =>
     api<{ ok: true; detail: string } | { ok: false; error: string }>(
       'POST',
