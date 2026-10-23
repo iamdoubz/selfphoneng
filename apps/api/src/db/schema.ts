@@ -63,6 +63,13 @@ export const users = pgTable('users', {
   totpLastStep: bigint({ mode: 'number' }),
   mustChangePassword: boolean().notNull().default(false),
   lastLoginAt: tstz(),
+  /** Contrack mode (11 §4.3): this person's own Contrack personal token, encrypted. */
+  contrackTokenEnc: text(),
+  /** 11 §4.4: my calls on my Contrack contacts' timelines, from contrackLogSince on. */
+  contrackLogCalls: boolean().notNull().default(true),
+  /** …with each recorded call's summary (10 §3). */
+  contrackLogSummaries: boolean().notNull().default(false),
+  contrackLogSince: tstz(),
   ...timestamps,
 });
 
@@ -619,6 +626,49 @@ export const contacts = pgTable('contacts', {
   notes: text(),
   ...timestamps,
 });
+
+/** A call put on (or checked for) a person's Contrack timeline (11 §4.4): never twice. */
+export const contrackCallLog = pgTable(
+  'contrack_call_log',
+  {
+    callId: uuid()
+      .notNull()
+      .references(() => calls.id, { onDelete: 'cascade' }),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Contrack's interaction id; null: no contact has that number, or it couldn't be written. */
+    interactionId: text(),
+    error: text(),
+    loggedAt: tstz().notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.callId, t.userId] })],
+);
+
+/** A contact offered to a colleague, waiting for Accept or Deny (11 §2.1). */
+export const contactShares = pgTable(
+  'contact_shares',
+  {
+    id: id(),
+    fromUserId: uuid().references(() => users.id, { onDelete: 'set null' }),
+    toUserId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** The shared contact's id in the sender's book: offering it again replaces a pending offer. */
+    sourceId: text().notNull(),
+    /** A copy taken when shared: { name, company, email, numbers, notes }. */
+    contact: jsonb().notNull(),
+    status: text().notNull().default('pending'),
+    decidedAt: tstz(),
+    ...timestamps,
+  },
+  (t) => [
+    index()
+      .on(t.toUserId)
+      .where(sql`${t.status} = 'pending'`),
+    check('contact_shares_status_check', sql`${t.status} in ('pending', 'accepted', 'denied')`),
+  ],
+);
 
 export const smsMessages = pgTable(
   'sms_messages',

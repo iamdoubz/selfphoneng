@@ -3,10 +3,11 @@
 import { existsSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
+  ContrackOptionsSchema,
   GREETINGS,
   MeUpdateSchema,
   type ListResponse,
@@ -27,8 +28,16 @@ import {
   queueMembers,
   queues,
   userRuntimeState,
+  users,
   voicemailMessages,
 } from '../db/schema.ts';
+import {
+  contrackBook,
+  contrackCheck,
+  contrackSettings,
+  forgetBook,
+  tokenFor,
+} from '../contacts/contrack.ts';
 import { setPaused } from '../services/queues.ts';
 import { badRequest, conflict, HttpError, notFound } from '../errors.ts';
 import { AudioError, MAX_UPLOAD_BYTES, toPcmWav } from '../media/audio.ts';
@@ -115,8 +124,83 @@ export async function meRoutes(app: FastifyInstance) {
       callReportTime: e.callReportTime,
       callReportWeekday: e.callReportWeekday,
       callReportSummaries: e.callReportSummaries,
+      contrack: await myContrack(userId),
     };
   }
+
+  /** Contrack mode: is my token set, and does it work (11 §4.3). Null in builtin mode. */
+  async function myContrack(userId: string): Promise<MeDto['contrack']> {
+    const c = await contrackSettings(db);
+    if (!c) return null;
+    const token = await tokenFor(db, c, userId);
+    const book = token ? await contrackBook(db, c, userId) : null;
+    const [u] = await db
+      .select({ logCalls: users.contrackLogCalls, logSummaries: users.contrackLogSummaries })
+      .from(users)
+      .where(eq(users.id, userId));
+    return {
+      connected: !!book && !book.error,
+      tokenPrefix: token ? `${token.slice(0, 12)}…` : null,
+      publicUrl: c.publicUrl,
+      logCalls: u?.logCalls ?? true,
+      logSummaries: u?.logSummaries ?? false,
+      summariesAvailable:
+        (await getSetting(db, 'ai.callTranscripts')) && (await getSetting(db, 'ai.callSummaries')),
+    };
+  }
+
+  /** Connect my Contrack account: the token must read my contacts before it's kept. */
+  app.put('/api/me/contrack', async (req) => {
+    const { token } = z.object({ token: z.string().trim().min(8).max(200) }).parse(req.body);
+    const c = await contrackSettings(db);
+    if (!c) throw conflict('Contacts are not in Contrack (Settings → Contacts)');
+    await contrackCheck(c.url, token).catch((err: Error) => {
+      throw badRequest(err.message);
+    });
+    // Calls are logged from now on, not the ones before (11 §4.4).
+    await db
+      .update(users)
+      .set({
+        contrackTokenEnc: encrypt(token),
+        contrackLogSince: sql`coalesce(${users.contrackLogSince}, now())`,
+      })
+      .where(eq(users.id, req.user!.id));
+    forgetBook(req.user!.id);
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'update',
+      entityType: 'user',
+      entityId: req.user!.id,
+      summary: 'Connected their Contrack account',
+    });
+    return myState(req.user!.id);
+  });
+
+  /** Log my calls in Contrack, with or without their summaries (11 §4.4). */
+  app.patch('/api/me/contrack', async (req) => {
+    const o = ContrackOptionsSchema.parse(req.body);
+    const [u] = await db
+      .select({ logCalls: users.contrackLogCalls })
+      .from(users)
+      .where(eq(users.id, req.user!.id));
+    await db
+      .update(users)
+      .set({
+        ...(o.logCalls !== undefined ? { contrackLogCalls: o.logCalls } : {}),
+        ...(o.logSummaries !== undefined ? { contrackLogSummaries: o.logSummaries } : {}),
+        // Turned back on: from now, not the calls while it was off.
+        ...(o.logCalls && !u?.logCalls ? { contrackLogSince: new Date() } : {}),
+      })
+      .where(eq(users.id, req.user!.id));
+    return myState(req.user!.id);
+  });
+
+  app.delete('/api/me/contrack', async (req) => {
+    await db.update(users).set({ contrackTokenEnc: null }).where(eq(users.id, req.user!.id));
+    forgetBook(req.user!.id);
+    return myState(req.user!.id);
+  });
 
   app.get('/api/me', async (req) => myState(req.user!.id));
 

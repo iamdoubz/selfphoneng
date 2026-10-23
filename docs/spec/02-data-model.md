@@ -76,7 +76,11 @@ create table users (
   totp_recovery_hashes text[] not null default '{}', -- sha256 of unused recovery codes (M11)
   totp_last_step   bigint,                        -- last 30 s step signed in with: no replay (M11)
   must_change_password boolean not null default false,
-  last_login_at    timestamptz
+  last_login_at    timestamptz,
+  contrack_token_enc text,                       -- their Contrack personal token (11 §4.3)
+  contrack_log_calls boolean not null default true,     -- calls on their Contrack timelines (11 §4.4)
+  contrack_log_summaries boolean not null default false, -- …with recorded calls' summaries
+  contrack_log_since timestamptz                 -- calls that ended after this
 );
 
 create table sessions (
@@ -448,6 +452,26 @@ create table voicemail_messages (                     -- index of files Asterisk
   deleted_at     timestamptz,
   transcript     text                                 -- speech to text (10), when it's on
 );
+
+create table contrack_call_log (                         -- a call put on a Contrack timeline (11 §4.4)
+  call_id        uuid not null references calls(id) on delete cascade,
+  user_id        uuid not null references users(id) on delete cascade,
+  interaction_id text,                                   -- null: no contact has the number, or refused
+  error          text,
+  logged_at      timestamptz not null default now(),
+  primary key (call_id, user_id)
+);
+
+create table contact_shares (                            -- a contact offered to a colleague (11 §2.1)
+  id            uuid primary key default gen_random_uuid(),
+  from_user_id  uuid references users(id) on delete set null,
+  to_user_id    uuid not null references users(id) on delete cascade,
+  source_id     text not null,                           -- the contact's id in the sender's book
+  contact       jsonb not null,                          -- a copy: { name, company, email, numbers, notes }
+  status        text not null default 'pending' check (status in ('pending', 'accepted', 'denied')),
+  decided_at    timestamptz
+);
+create index on contact_shares (to_user_id) where status = 'pending';
 
 create table contacts (
   id            uuid primary key default gen_random_uuid(),

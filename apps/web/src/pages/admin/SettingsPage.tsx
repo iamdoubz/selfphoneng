@@ -15,6 +15,7 @@ import {
 import {
   aiApi,
   apiTokensApi,
+  contactsApi,
   didsApi,
   extensionsApi,
   settingsApi,
@@ -36,6 +37,7 @@ const TABS = [
   { id: 'webhooks', label: 'Webhooks' },
   { id: 'tokens', label: 'API tokens' },
   { id: 'ai', label: 'AI' },
+  { id: 'contacts', label: 'Contacts' },
 ] as const;
 
 export function SettingsPage() {
@@ -71,6 +73,7 @@ export function SettingsPage() {
       {settings.data && tab === 'webhooks' && <WebhooksTab s={settings.data} />}
       {tab === 'tokens' && <TokensTab />}
       {settings.data && tab === 'ai' && <AiTab s={settings.data} />}
+      {settings.data && tab === 'contacts' && <ContactsTab s={settings.data} />}
     </section>
   );
 }
@@ -1213,5 +1216,148 @@ function TokensTab() {
         error={revoke.error?.message}
       />
     </div>
+  );
+}
+
+/** Contacts (spec 11): the builtin books, or Contrack running beside the PBX. Also a setup step. */
+export function ContactsTab({ s }: { s: SettingsDto }) {
+  const save = useSave();
+  const ctk = s['contacts.contrack'];
+  const [provider, setProvider] = useState(s['contacts.provider']);
+  const [v, setV] = useState({
+    url: ctk?.url ?? 'http://127.0.0.1:3210',
+    publicUrl: ctk?.publicUrl ?? '',
+    companyToken: '',
+  });
+  const test = useMutation({
+    mutationFn: () => contactsApi.testContrack(v.url, v.companyToken || undefined),
+  });
+  const set = (k: keyof typeof v) => (e: { target: { value: string } }) =>
+    setV({ ...v, [k]: e.target.value });
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate({
+          'contacts.provider': provider,
+          ...(provider === 'contrack'
+            ? {
+                'contacts.contrack': {
+                  url: v.url,
+                  publicUrl: v.publicUrl,
+                  companyToken: v.companyToken || undefined,
+                },
+              }
+            : {}),
+        });
+        setV({ ...v, companyToken: '' });
+      }}
+    >
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 font-medium">Where contacts live</legend>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="radio"
+            name="provider"
+            checked={provider === 'builtin'}
+            onChange={() => setProvider('builtin')}
+          />
+          <span>
+            <span className="font-medium">Simple</span>: a phonebook inside SelfPhoneNG. Names,
+            numbers, .vcf and CSV import, sharing. Nothing else to run.
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="radio"
+            name="provider"
+            checked={provider === 'contrack'}
+            onChange={() => setProvider('contrack')}
+          />
+          <span>
+            <span className="font-medium">Contrack</span>: a full contact and relationship manager
+            next to the phone system (notes, reminders, relationship tracking, imports from Google,
+            Apple and LinkedIn, CardDAV sync). Each person has their own Contrack account, and the
+            company has one everyone sees. It runs as its own container:{' '}
+            <code>docker compose --env-file .env -f deploy/contrack/compose.yml up -d</code>.
+          </span>
+        </label>
+      </fieldset>
+      {provider === 'contrack' && (
+        <fieldset className="flex flex-col gap-3">
+          <legend className="mb-1 font-medium">Contrack</legend>
+          <Field
+            label="Address the phone system uses"
+            hint="On this server or the local network: localhost or a local IP"
+          >
+            {(a) => <input {...a} className={inputClass} value={v.url} onChange={set('url')} />}
+          </Field>
+          <Field
+            label="Address people open"
+            hint="Its own host name, such as https://contacts.example.com (CONTRACK_HOSTNAME in .env)"
+          >
+            {(a) => (
+              <input
+                {...a}
+                className={inputClass}
+                placeholder="https://contacts.example.com"
+                value={v.publicUrl}
+                onChange={set('publicUrl')}
+              />
+            )}
+          </Field>
+          <Field
+            label="Company account token"
+            hint={
+              ctk?.hasCompanyToken
+                ? 'Saved. Paste a new one to replace it.'
+                : 'Make a Contrack account for the company (such as company@…), then in its Settings → Account → API tokens, create one that never expires.'
+            }
+          >
+            {(a) => (
+              <input
+                {...a}
+                type="password"
+                autoComplete="off"
+                placeholder={ctk?.hasCompanyToken ? '••••••••' : 'ctk_…'}
+                className={inputClass}
+                value={v.companyToken}
+                onChange={set('companyToken')}
+              />
+            )}
+          </Field>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => test.mutate()} disabled={test.isPending}>
+              Test
+            </Button>
+            {test.data && (
+              <span
+                role="status"
+                className={`text-sm ${test.data.ok ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}
+              >
+                {test.data.ok ? test.data.detail : test.data.error}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-zinc-500">
+            Each person then connects their own Contrack account in My settings, Contacts. If the AI
+            inside Contrack uses a cloud provider, what is stored there reaches that provider: turn
+            it off in Contrack, or point it at your local AI.
+          </p>
+        </fieldset>
+      )}
+      {save.isError && <Alert>{save.error.message}</Alert>}
+      {save.isSuccess && (
+        <p role="status" className="text-sm text-green-700 dark:text-green-400">
+          Saved.
+        </p>
+      )}
+      <div>
+        <Button type="submit" variant="primary" disabled={save.isPending}>
+          Save
+        </Button>
+      </div>
+    </form>
   );
 }

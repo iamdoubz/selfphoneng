@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // My settings (05 §4): call forwarding, do not disturb, voicemail PIN and email options, the call
-// report email.
+// report email, my Contrack account (11 §4.3).
 // Softphone devices and notifications live in the softphone panel. "Set up a phone app" (07 §5).
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -63,6 +63,7 @@ function SettingsForms({ me }: { me: MeDto }) {
       </section>
       {me.voicemailEnabled && <Voicemail me={me} />}
       <CallReportForm me={me} />
+      {me.contrack && <ContrackConnect contrack={me.contrack} />}
       <section aria-labelledby="app-h" className="flex flex-col gap-3">
         <h2 id="app-h" className="text-lg font-semibold">
           Set up a phone app
@@ -299,6 +300,119 @@ function CallReportForm({ me }: { me: MeDto }) {
         </div>
         {save.error && <Alert>{save.error.message}</Alert>}
       </form>
+    </section>
+  );
+}
+
+/** Contrack mode (11 §4.3): my own Contrack account, through a personal token I make there. */
+function ContrackConnect({ contrack }: { contrack: NonNullable<MeDto['contrack']> }) {
+  const qc = useQueryClient();
+  const [token, setToken] = useState('');
+  const done = (me: MeDto) => {
+    qc.setQueryData(['me', 'settings'], me);
+    setToken('');
+    void qc.invalidateQueries({ queryKey: ['contacts'] });
+  };
+  const connect = useMutation({ mutationFn: () => meApi.connectContrack(token), onSuccess: done });
+  const disconnect = useMutation({ mutationFn: meApi.disconnectContrack, onSuccess: done });
+  const options = useMutation({ mutationFn: meApi.contrackOptions, onSuccess: done });
+  const where = contrack.publicUrl ? (
+    <a
+      className="text-sky-700 underline dark:text-sky-400"
+      href={contrack.publicUrl}
+      target="_blank"
+      rel="noreferrer"
+    >
+      Contrack
+    </a>
+  ) : (
+    'Contrack'
+  );
+  return (
+    <section aria-labelledby="ctk-h" className="flex flex-col gap-3">
+      <h2 id="ctk-h" className="text-lg font-semibold">
+        Contacts
+      </h2>
+      {contrack.tokenPrefix && (
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <span>
+            {contrack.connected ? 'Connected to your' : 'Your token for'} {where} account (
+            {contrack.tokenPrefix})
+            {!contrack.connected && (
+              <span className="text-red-700 dark:text-red-400">: it doesn't work any more</span>
+            )}
+          </span>
+          <Button onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
+            Disconnect
+          </Button>
+        </div>
+      )}
+      {contrack.tokenPrefix && (
+        <div className="flex flex-col gap-2 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={contrack.logCalls}
+              disabled={options.isPending}
+              onChange={(e) => options.mutate({ logCalls: e.target.checked })}
+            />
+            Put my calls on my contacts' timelines in Contrack
+          </label>
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={contrack.logSummaries && contrack.summariesAvailable}
+              disabled={!contrack.logCalls || !contrack.summariesAvailable || options.isPending}
+              onChange={(e) => options.mutate({ logSummaries: e.target.checked })}
+            />
+            <span>
+              With the summary and action items of each recorded call
+              {!contrack.summariesAvailable && (
+                <span className="text-zinc-500"> (when your admin turns on call summaries)</span>
+              )}
+              <span className="block text-xs text-zinc-500">
+                What was said goes into Contrack. If Contrack's own AI uses a cloud provider, it can
+                reach that provider.
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
+      {!contrack.tokenPrefix && (
+        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          Your contacts live in your own {where} account. There, open Settings → Account → API
+          tokens → Create token, with Read and write (so contacts shared with you can be added) and
+          Expires: Never, and paste it here. Only you see your contacts unless you share them.
+        </p>
+      )}
+      <form
+        className="flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          connect.mutate();
+        }}
+      >
+        <Field label={contrack.tokenPrefix ? 'Replace the token' : 'Contrack token'}>
+          {(p) => (
+            <input
+              {...p}
+              type="password"
+              autoComplete="off"
+              placeholder="ctk_…"
+              className={`${inputClass} w-72`}
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+            />
+          )}
+        </Field>
+        <Button type="submit" variant="primary" disabled={!token.trim() || connect.isPending}>
+          Connect
+        </Button>
+      </form>
+      {(connect.error ?? disconnect.error ?? options.error) && (
+        <Alert>{(connect.error ?? disconnect.error)!.message}</Alert>
+      )}
     </section>
   );
 }

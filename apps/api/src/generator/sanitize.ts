@@ -29,6 +29,12 @@ export const sound = check(/^[a-z0-9/_-]+$/, 'sound', 100);
 /** Context-name parts (uuids), MOH class names. */
 export const ident = check(/^[a-z0-9-]+$/, 'ident', 64);
 /** Generated SIP passwords. */
+/** The api on this machine, e.g. http://127.0.0.1:8080/api/internal/caller-name. */
+export const localUrl = check(
+  /^http:\/\/(?:127\.0\.0\.1|localhost):[0-9]{1,5}\/[a-z0-9/_-]+$/,
+  'local url',
+  100,
+);
 export const secret = check(/^[A-Za-z0-9]+$/, 'secret', 64);
 /** Trunk usernames (voip.ms sub-accounts like 123456_pbx). */
 export const sipUser = check(/^[A-Za-z0-9_.-]+$/, 'sip user', 64);

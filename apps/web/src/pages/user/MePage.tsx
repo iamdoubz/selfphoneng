@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// My Phone (05 §4). M4: Home and Voicemail. Calls, contacts, settings and the softphone follow
-// with their milestones (M5–M7).
+// My Phone (05 §4): Home, Calls, Voicemail, Contacts (11), Settings, People, and the softphone.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Link, NavLink, Route, Routes, useNavigate } from 'react-router';
@@ -16,6 +15,7 @@ import { MyCallsPage, otherParty, useCallBack } from './MyCallsPage.tsx';
 import { fmtNumber } from '../admin/CallsPage.tsx';
 import { ParkedCalls } from '../../components/ParkedCalls.tsx';
 import { DndSwitch, MeSettingsPage, showTarget, useMe } from './MeSettingsPage.tsx';
+import { ContactsPage, useContactName, useContactShares } from './ContactsPage.tsx';
 
 const link = 'text-sky-700 underline dark:text-sky-400';
 
@@ -34,6 +34,7 @@ export function MePage({ user }: { user: AuthUser }) {
     void qc.invalidateQueries({ queryKey: ['me', 'settings'] });
   }, [myDnd, qc]);
   const toasts = useLive((s) => s.toasts);
+  const offers = useContactShares().data?.length ?? 0;
 
   const tab = ({ isActive }: { isActive: boolean }) =>
     `rounded-md px-3 py-2 text-sm font-medium ${isActive ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'}`;
@@ -78,6 +79,15 @@ export function MePage({ user }: { user: AuthUser }) {
         <NavLink to="/me/voicemail" className={tab}>
           Voicemail
         </NavLink>
+        <NavLink to="/me/contacts" className={tab}>
+          Contacts
+          {offers > 0 && (
+            <span className="ml-1 rounded-full bg-sky-600 px-1.5 text-xs text-white">
+              <span className="sr-only">, shared with you: </span>
+              {offers}
+            </span>
+          )}
+        </NavLink>
         <NavLink to="/me/settings" className={tab}>
           Settings
         </NavLink>
@@ -111,6 +121,7 @@ export function MePage({ user }: { user: AuthUser }) {
             <Route index element={<Home user={user} />} />
             <Route path="calls" element={<MyCallsPage />} />
             <Route path="voicemail" element={<VoicemailPage />} />
+            <Route path="contacts" element={<ContactsPage />} />
             <Route path="settings" element={<MeSettingsPage />} />
             <Route path="people" element={<PresencePanel me={me} />} />
           </Routes>
@@ -127,9 +138,11 @@ export function MePage({ user }: { user: AuthUser }) {
 function Home({ user }: { user: AuthUser }) {
   const list = useQuery({ queryKey: ['me', 'voicemail'], queryFn: meApi.voicemail });
   const fresh = list.data?.filter(isNew) ?? [];
+  const nameOf = useContactName();
   return (
     <div className="flex flex-col gap-6">
       <p>Hi {user.displayName}.</p>
+      <SharedNotice />
       {user.extension && <StatusCard ext={user.extension.number} />}
       {user.extension && <MissedCalls />}
       {user.extension && <ParkedOnHome />}
@@ -142,7 +155,7 @@ function Home({ user }: { user: AuthUser }) {
         <ul className="flex flex-col gap-1">
           {fresh.slice(0, 5).map((m) => (
             <li key={m.id} className="text-sm">
-              <span className="font-semibold">{callerOf(m)}</span>{' '}
+              <span className="font-semibold">{nameOf(m.callerNumber) ?? callerOf(m)}</span>{' '}
               <span className="text-zinc-500">
                 {new Date(m.receivedAt).toLocaleString()} · {mmss(m.durationS)}
               </span>
@@ -161,6 +174,21 @@ function Home({ user }: { user: AuthUser }) {
         </Link>
       </p>
     </div>
+  );
+}
+
+/** "Dan shared 2 contacts with you": they wait in Contacts for Accept or Deny (11 §2.1). */
+function SharedNotice() {
+  const offers = useContactShares().data ?? [];
+  if (!offers.length) return null;
+  const from = [...new Set(offers.map((o) => o.from?.name ?? 'Someone'))].join(', ');
+  return (
+    <p role="status" className="rounded-md bg-sky-50 p-3 text-sm dark:bg-sky-950">
+      {from} shared {offers.length} contact{offers.length === 1 ? '' : 's'} with you.{' '}
+      <Link className={link} to="/me/contacts">
+        Accept or deny
+      </Link>
+    </p>
   );
 }
 
@@ -243,6 +271,7 @@ function MissedCalls() {
   const calls = useQuery({ queryKey: ['me', 'calls', 'home'], queryFn: () => meApi.calls() });
   const { call, note } = useCallBack();
   const missed = calls.data?.items.filter((c) => c.missedByMe).slice(0, 5) ?? [];
+  const nameOf = useContactName();
   return (
     <section aria-labelledby="missed-h" className="flex flex-col gap-2">
       <h2 id="missed-h" className="text-lg font-semibold">
@@ -259,7 +288,9 @@ function MissedCalls() {
           const o = otherParty(c);
           return (
             <li key={c.id}>
-              <span className="font-semibold">{o.name ?? fmtNumber(o.number)}</span>{' '}
+              <span className="font-semibold">
+                {nameOf(o.number) ?? o.name ?? fmtNumber(o.number)}
+              </span>{' '}
               <span className="text-zinc-500">{new Date(c.startedAt).toLocaleString()}</span>{' '}
               {o.number && (
                 <button

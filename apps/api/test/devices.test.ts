@@ -245,6 +245,32 @@ describe.skipIf(!hasTestDb)('/api/devices and /prov', () => {
     await setSetting(t.db, 'general.timezone', 'America/Chicago');
   });
 
+  it("11 §6 C6: a phone's directory has its owner's own contacts, after the extensions", async () => {
+    const owner = await t.addUser('dan@example.com', 'dan-password-123');
+    const other = await t.addUser('sue@example.com', 'sue-password-123');
+    await req('PATCH', `/api/extensions/${extId}`, { userId: owner.id });
+    await t.db.insert(contacts).values([
+      { name: 'Mom', ownerUserId: owner.id, numbers: [{ label: 'mobile', number: '13125550101' }] },
+      {
+        name: 'Sue Secret',
+        ownerUserId: other.id,
+        numbers: [{ label: '', number: '13125550102' }],
+      },
+    ]);
+    const book = (
+      await prov(`phonebook/${device.mac}.xml`, '192.168.1.60', device.provisioningPassword)
+    ).body;
+    expect(book).toContain('<Telephone label="mobile">13125550101</Telephone>');
+    expect(book).not.toContain('Sue Secret');
+    expect(book.indexOf('Ann Lee')).toBeLessThan(book.indexOf('Mom'));
+    expect(book.indexOf('Mom')).toBeLessThan(book.indexOf('Acme')); // mine before the company's
+    await req('PATCH', `/api/extensions/${extId}`, { userId: null });
+    const unowned = (
+      await prov(`phonebook/${device.mac}.xml`, '192.168.1.60', device.provisioningPassword)
+    ).body;
+    expect(unowned).not.toContain('Mom');
+  });
+
   it('M10-T3: Linphone QR (admin and me), the token is the credential, audited', async () => {
     const r = await req('GET', `/api/extensions/${extId}/softphone-qr`);
     expect(r.statusCode, r.body).toBe(200);

@@ -377,7 +377,7 @@ Auth & self:
 | GET | `/api/me/greetings/:kind/audio` | user | the wav |
 | PUT/DELETE | `/api/me/greetings/:kind` | user | PUT body is the raw audio (a MediaRecorder Blob or a picked File, any `Content-Type`, max 20 MB), not multipart: no extra dependency. ffmpeg converts it (§6) |
 | GET | `/api/me/voicemail/:id/audio?download=1` | user | same, as an attachment |
-| GET/POST/PATCH/DELETE | `/api/me/contacts[/:id]` | user | personal contacts |
+| GET/POST/PATCH/DELETE | `/api/me/contacts[/:id]` | user | my contacts; GET lists the company's too (11 §3). `POST /import`, `POST /share`, `GET /shares`, `POST /shares/accept\|deny` (11 §2.1, §3.1), `POST /copy-to-contrack` (11 §6.2) |
 | POST | `/api/me/queues/:id/pause`, `/unpause` | user | log out of / in to a queue I'm an agent of (Home, 05 §4), same as `*45<queue>` |
 | POST | `/api/me/click-to-call` | user | `{number}` → AMI `Originate Channel: PJSIP/<ext>, Context: sp-from-ext, Exten: <normalized>, Priority: 1, CallerID: "<number>" <<ext>>, Async: true`. The user's phone rings first, then the call goes out |
 
@@ -401,7 +401,7 @@ Admin resources (all `requireAdmin`; standard CRUD = `GET /x`, `POST /x`, `GET /
 | `/api/moh-classes` | `POST {name}` (slug, not `default`), `DELETE /:id` (409 with `usedBy` while an extension or queue uses it), `POST /:id/files?name=&filename=` (raw file body, like sounds), `GET /:id/files/:fileId/audio`, `DELETE /:id/files/:fileId`. No rename: the name is the folder and is stored on extensions and queues. Extensions and queues may only pick `default` or an existing class (400) |
 | `/api/devices` | `GET /:id/config-preview` (rendered provisioning file, passwords masked). As built (M10-T1): body `{mac (any format), vendor, model, label, extensionId}`; the DTO carries `provisioningUrl` and the `provisioningPassword` (admins type it into the phone); MAC taken → 409; preview of a generic phone → 400 |
 | `/api/blocked-numbers` | |
-| `/api/contacts` | company phonebook; `POST /import` CSV (`name,company,email,label1,number1,...`) |
+| `/api/contacts` | company phonebook; `POST /import` CSV (`name,company,email,label1,number1,...`) or vCard (11 §3.1) |
 | `/api/webhooks` | `POST /:id/test`, `GET /:id/deliveries` |
 | `/api/api-tokens` | POST returns the token once |
 
@@ -457,6 +457,8 @@ Provisioning and inbound hooks (outside `/api`, no session):
 | `webhookDelivery` | every 10 s | send pending deliveries (§9) |
 | `trunkWatch` | every 60 s | if a trunk is unregistered for more than 5 min → email admins once per outage |
 | `diskWatch` | hourly | if free disk < 10% → email admins once a day |
+| `contactsWarm` | every 5 min, Contrack mode | refresh the company's and each connected person's Contrack book, so a ringing phone's caller-name lookup (11 §6.1) finds them |
+| `contrackLog` | every 60 s, Contrack mode | calls ended over 1 min ago (and within 2 days) of people logging calls: one `call` interaction on the matching contact's Contrack timeline (11 §4.4) |
 | `callReports` | every 60 s | each user whose call report period (05 §4) ended over 5 min ago and isn't reported yet: email their calls of that period (by hang-up time) if there were any; `extensions.call_report_sent_at` = the period's end. Changing the schedule sets it to now, so the first report is the next period's |
 
 Jobs must never overlap with themselves (use a running flag).

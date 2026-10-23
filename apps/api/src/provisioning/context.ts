@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // What a vendor template gets (07 §1). Templates are pure functions of this; no I/O there.
-import { asc, eq, inArray, isNull } from 'drizzle-orm';
+import { asc, eq, inArray } from 'drizzle-orm';
 import { phoneTimezone, type PhoneTimezone, type PhoneVendor } from '@selfphoneng/shared';
 import type { Config } from '../config.ts';
 import { decrypt } from '../crypto/secrets.ts';
 import type { Db } from '../db/client.ts';
-import { contacts, devices, extensions } from '../db/schema.ts';
+import { devices, extensions } from '../db/schema.ts';
+import { readBooks } from '../contacts/book.ts';
 import { getSetting } from '../services/settings.ts';
 import { loadDialRules, type DialRule } from './dialplan.ts';
 
@@ -26,6 +27,8 @@ export type ProvisionContext = {
   provPassword: string;
   /** The phonebook with this phone's credentials in it (phones fetch it like the config). */
   phonebookUrl: string;
+  /** Whose phone: their own contacts go in its directory (11 §6 C6). */
+  ownerUserId: string | null;
   ntpServer: string;
   /** What's dialable (dialplan.ts), so phones can send complete numbers at once. */
   dialRules: DialRule[];
@@ -79,6 +82,7 @@ export async function loadContext(
       provUser: d.mac,
       provPassword,
       phonebookUrl: `https://${d.mac}:${provPassword}@${config.PUBLIC_HOSTNAME}/prov/phonebook/${d.mac}.xml`,
+      ownerUserId: e.userId,
       ntpServer: NTP_SERVER,
       dialRules: await loadDialRules(db),
     },
@@ -87,17 +91,17 @@ export async function loadContext(
 
 export type PhonebookEntry = { name: string; numbers: { label: string; number: string }[] };
 
-/** The company phonebook (07 §2): every extension, then the company contacts, by name. */
-export async function loadPhonebook(db: Db): Promise<PhonebookEntry[]> {
+/** A phone's directory (07 §2): every extension, then its owner's own contacts (11 §6 C6), then
+ * the company's, each by name. Contrack's books in Contrack mode (11 §4.3). */
+export async function loadPhonebook(
+  db: Db,
+  ownerUserId: string | null = null,
+): Promise<PhonebookEntry[]> {
   const exts = await db
     .select({ name: extensions.name, number: extensions.number })
     .from(extensions)
     .orderBy(asc(extensions.name));
-  const company = await db
-    .select({ name: contacts.name, numbers: contacts.numbers })
-    .from(contacts)
-    .where(isNull(contacts.ownerUserId))
-    .orderBy(asc(contacts.name));
+  const company = (await readBooks(db, ownerUserId)).items; // mine first, then the company's
   return [
     ...exts.map((x) => ({ name: x.name, numbers: [{ label: 'Extension', number: x.number }] })),
     ...company.map((c) => ({

@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+# Contrack (spec 11 §4, admin guide: Contacts): the "Robust" contacts, its own stack beside the PBX
+# on the same server. Contrack is a separate open source program (AGPL-3.0) we talk to over HTTP.
+#
+#   docker compose --env-file .env -f deploy/contrack/compose.yml up -d
+#
+# It listens on 127.0.0.1 only: the PBX (host networking) reaches it there, and people reach it
+# through the reverse proxy at CONTRACK_HOSTNAME (deploy/caddy/Caddyfile, deploy/nginx).
+# Then Settings → Contacts → Contrack, address http://127.0.0.1:3210.
+services:
+  contrack:
+    # Pinned: SelfPhoneNG is tested against this version's API (decision 0003).
+    image: ghcr.io/arvarik/contrack:2.0.2
+    restart: unless-stopped
+    ports: ['127.0.0.1:3210:3210']
+    environment:
+      AUTH_REQUIRED: 'true' # everyone signs in; tokens need it
+      TRUST_PROXY_HOPS: '1'
+      PUBLIC_URL: https://${CONTRACK_HOSTNAME:?set CONTRACK_HOSTNAME in .env}
+      # Contrack's own AI and address lookups are outside SelfPhoneNG's "nothing leaves the
+      # server" rule. Uncomment to keep everything here (or point its AI at your local Ollama in
+      # Contrack's Settings → AI):
+      # AI_DISABLED: 'true'
+      # GEOCODING_DISABLED: 'true'
+    volumes:
+      - contrack-data:/app/data # its database, uploads and its own backups: back this up too
+    logging:
+      driver: json-file
+      options: { max-size: 10m, max-file: '3' }
+
+volumes:
+  contrack-data:

@@ -22,7 +22,13 @@ export function renderRingGroups(snap: Snapshot): string {
         `; ─── Ring group ${num} "${s.name(g.name)}" (${g.strategy})`,
         `[sp-rg-${s.ident(g.id)}]`,
         `exten => s,1,Set(__SP_TARGET=${num})`,
-        ...(prefix ? [` same => n,Set(CALLERID(name)=${prefix} \${CALLERID(name)})`] : []),
+        ...(prefix
+          ? [
+              ` same => n,Set(CALLERID(name)=${prefix} \${CALLERID(name)})`,
+              // …and before a contact's name on ringing phones (sp-sub-dial-user, 11 §6 C4).
+              ` same => n,Set(__SP_CNAM_PREFIX=${prefix} \${SP_CNAM_PREFIX})`,
+            ]
+          : []),
         ...(g.members.length === 0
           ? []
           : g.strategy === 'ringall'

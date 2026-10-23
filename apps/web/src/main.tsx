@@ -27,6 +27,7 @@ import { OfficeHoursPage } from './pages/admin/OfficeHoursPage.tsx';
 import { BlockedPage } from './pages/admin/BlockedPage.tsx';
 import { CallsPage } from './pages/admin/CallsPage.tsx';
 import { RecordingsPage } from './pages/admin/RecordingsPage.tsx';
+import { CompanyContactsPage } from './pages/user/ContactsPage.tsx';
 import { ReportsPage } from './pages/admin/ReportsPage.tsx';
 import { SystemPage } from './pages/admin/SystemPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
@@ -75,6 +76,8 @@ const router = createBrowserRouter([
             <OfficeHoursPage />
           ) : p.path === 'blocked' ? (
             <BlockedPage />
+          ) : p.path === 'contacts' ? (
+            <CompanyContactsPage />
           ) : p.path === 'calls' ? (
             <CallsPage />
           ) : p.path === 'recordings' ? (

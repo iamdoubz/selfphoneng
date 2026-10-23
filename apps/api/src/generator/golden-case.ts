@@ -26,6 +26,7 @@ export function loadCase(name: string): Snapshot {
     holidays?: Snapshot['holidays'];
     announcements?: Snapshot['announcements'];
     mohClasses?: { name: string; shuffle?: boolean; files: string[] }[];
+    callerNames?: Snapshot['callerNames'];
   };
   const settings = Object.fromEntries(
     (Object.keys(SettingsSchemas) as SettingKey[])
@@ -34,6 +35,7 @@ export function loadCase(name: string): Snapshot {
   ) as Snapshot['settings'];
   return {
     today: raw.today ?? '2026-10-17',
+    ...(raw.callerNames ? { callerNames: raw.callerNames } : {}),
     settings,
     dids: (raw.dids ?? []).map((d) => ({
       trunkId: '7d3e9a52-1c4b-4f6e-9a0d-2b8c5e1f4a37',

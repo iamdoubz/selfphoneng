@@ -3,7 +3,7 @@
 // ponytail: setInterval instead of croner: every schedule in 04 §8 is a whole number of minutes.
 import { statfs } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { and, eq, isNull, lt, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, lt, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from './config.ts';
 import type { Db } from './db/client.ts';
@@ -19,11 +19,14 @@ import {
 import type { Generator } from './generator/index.ts';
 import { todayIn } from './generator/load.ts';
 import type { LiveState } from './live/state.ts';
+import { cleanupContactShares } from './routes/contacts.ts';
 import { cleanupRecordings } from './routes/recordings.ts';
 import { transcribeCalls } from './ai/calls.ts';
 import { audit } from './services/audit.ts';
 import { backupDue, runBackup } from './services/backup.ts';
 import { sendCallReports } from './services/callreport.ts';
+import { contrackBook, contrackSettings } from './contacts/contrack.ts';
+import { logCallsToContrack } from './contacts/timeline.ts';
 import { logEvent } from './services/events.ts';
 import { deliverDue } from './services/webhooks.ts';
 import type { SendMail } from './services/mail.ts';
@@ -108,6 +111,7 @@ export async function retentionCleanup(d: JobDeps) {
   await d.db
     .delete(systemEvents)
     .where(lt(systemEvents.createdAt, sql`now() - interval '90 days'`));
+  await cleanupContactShares(d.db);
   if (recordings || voicemail) d.log.info({ recordings, voicemail }, 'old messages deleted');
 }
 
@@ -238,11 +242,35 @@ export function createJobs(d: JobDeps) {
     );
   };
 
+  /** Contrack books warmed every 5 minutes, so a ringing phone's lookup finds them (11 §6 C4). */
+  const contactsWarm = async () => {
+    const c = await contrackSettings(d.db);
+    if (!c) return;
+    const owners = await d.db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(eq(users.isActive, true), isNotNull(users.contrackTokenEnc)));
+    for (const owner of [null, ...owners.map((o) => o.id)]) await contrackBook(d.db, c, owner);
+  };
+
   const callReports = async () => {
     await sendCallReports({ db: d.db, send: d.send, log: d.log, now: now() });
   };
 
-  return { daily, backup, publicIpWatch, trunkWatch, diskWatch, callReports };
+  const contrackLog = async () => {
+    await logCallsToContrack({ db: d.db, log: d.log, now: now() });
+  };
+
+  return {
+    daily,
+    backup,
+    publicIpWatch,
+    trunkWatch,
+    diskWatch,
+    callReports,
+    contactsWarm,
+    contrackLog,
+  };
 }
 
 /** Starts the jobs; returns a stop function. */
@@ -265,6 +293,8 @@ export function startJobs(d: JobDeps): () => void {
     if (minute % 5 === 0) run('publicIpWatch', j.publicIpWatch);
     if (minute % 60 === 0) run('diskWatch', j.diskWatch);
     run('callReports', j.callReports);
+    if (minute % 5 === 0) run('contactsWarm', j.contactsWarm);
+    run('contrackLog', j.contrackLog);
     run('callTranscripts', async () => {
       await transcribeCalls({ db: d.db, dir: resolve(d.config.RECORDINGS_DIR), log: d.log });
     });

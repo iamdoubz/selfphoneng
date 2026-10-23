@@ -9,6 +9,9 @@ Legend: 📖 read · 🔨 build · ✅ done when
 ---
 
 ## Backlog (owner's order, 2026-10-21)
+0. **Contacts** (owner, 2026-10-23: needed next), tasks C1–C6 in [11 §6](11-contacts.md#6-order-of-work):
+   Simple (builtin phonebook) or Robust (Contrack), picked in the setup wizard. The owner uses
+   Contrack.
 1. **Grandstream HT802 V2 set up automatically** (step 3 of
    [Analog phone adapters](#analog-phone-adapters-owner-2026-10-21-wanted-the-owner-is-buying-an-ht802-v2)):
    several lines on one device and the `grandstream-ata.ts` template with the dial plan. Starts

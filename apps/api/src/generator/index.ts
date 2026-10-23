@@ -103,6 +103,8 @@ export type GeneratorDeps = {
   debounceMs?: number;
   /** RTP_PORT_START/END (config.ts). */
   rtpPorts?: { start: number; end: number };
+  /** The caller-name lookup (11 §6 C4). */
+  callerNames?: { url: string; token: string };
 };
 
 const sha256 = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -167,7 +169,11 @@ export function createGenerator(deps: GeneratorDeps) {
       restartRequired: false,
     };
     try {
-      const snap = { ...(await loadSnapshot(db)), rtpPorts: deps.rtpPorts };
+      const snap = {
+        ...(await loadSnapshot(db)),
+        rtpPorts: deps.rtpPorts,
+        callerNames: deps.callerNames,
+      };
       const files = render(snap);
       await mkdir(join(dir, '.prev'), { recursive: true });
       const current = new Map<GeneratedFileName, string | null>();

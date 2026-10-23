@@ -5,15 +5,16 @@ import { useRef, useState } from 'react';
 import { formatNumber, type GreetingKind, type VoicemailDto } from '@selfphoneng/shared';
 import { meApi } from '../../api/client.ts';
 import { ConfirmDialog } from '../../components/Dialog.tsx';
+import { AddToContacts, useContactName } from './ContactsPage.tsx';
 import { Alert, Button, inputClass } from '../../components/ui.tsx';
 
 export const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 export const callerOf = (m: VoicemailDto) =>
   m.callerName ?? (m.callerNumber ? formatNumber(m.callerNumber) : 'Unknown caller');
 export const isNew = (m: VoicemailDto) => m.folder !== 'Old';
-/** Words in the transcript, caller name or number, ignoring case. */
-export const matches = (m: VoicemailDto, q: string) =>
-  [m.transcript, m.callerName, m.callerNumber].some((f) =>
+/** Words in the transcript, caller name (or contact name) or number, ignoring case. */
+export const matches = (m: VoicemailDto, q: string, contact?: string) =>
+  [m.transcript, m.callerName, m.callerNumber, contact].some((f) =>
     f?.toLowerCase().includes(q.trim().toLowerCase()),
   );
 
@@ -33,7 +34,11 @@ function Messages() {
   const [q, setQ] = useState('');
   // ponytail: the whole mailbox is already loaded, so search filters it here; move to the API if
   // mailboxes ever get paged.
-  const shown = q.trim() ? list.data?.filter((m) => matches(m, q)) : list.data;
+  const nameOf = useContactName();
+  const who = (m: VoicemailDto) => nameOf(m.callerNumber) ?? callerOf(m);
+  const shown = q.trim()
+    ? list.data?.filter((m) => matches(m, q, nameOf(m.callerNumber)))
+    : list.data;
   const refresh = () => qc.invalidateQueries({ queryKey: ['me', 'voicemail'] });
   const markRead = useMutation({
     mutationFn: (id: string) => meApi.moveVoicemail(id, 'Old'),
@@ -75,7 +80,7 @@ function Messages() {
           >
             <div className="min-w-0 flex-1">
               <p className={isNew(m) ? 'font-semibold' : ''}>
-                {callerOf(m)}
+                {who(m)}
                 {isNew(m) && (
                   <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800 dark:bg-sky-900 dark:text-sky-200">
                     New
@@ -96,7 +101,7 @@ function Messages() {
               controls
               preload="none"
               src={meApi.audioUrl(m.id)}
-              aria-label={`Voicemail from ${callerOf(m)}`}
+              aria-label={`Voicemail from ${who(m)}`}
               className="w-full sm:w-64"
               onPlay={() => isNew(m) && !markRead.isPending && markRead.mutate(m.id)}
             />
@@ -110,6 +115,9 @@ function Messages() {
               <Button variant="ghost" onClick={() => setDeleting(m)}>
                 Delete
               </Button>
+              {m.callerNumber && !nameOf(m.callerNumber) && (
+                <AddToContacts number={m.callerNumber} name={m.callerName} />
+              )}
             </div>
           </li>
         ))}
@@ -117,9 +125,7 @@ function Messages() {
       <ConfirmDialog
         open={deleting !== null}
         title="Delete voicemail"
-        message={
-          <p>Delete the message from {deleting && callerOf(deleting)}? This can't be undone.</p>
-        }
+        message={<p>Delete the message from {deleting && who(deleting)}? This can't be undone.</p>}
         confirmLabel="Delete"
         busy={remove.isPending}
         error={remove.error?.message}

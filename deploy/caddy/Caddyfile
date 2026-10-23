@@ -8,3 +8,10 @@
 		reverse_proxy 127.0.0.1:8080
 	}
 }
+
+# Contrack (spec 11 §4), when you run deploy/contrack: uncomment, and set CONTRACK_HOSTNAME in .env
+# (its own DNS name; Contrack can't live under a path).
+# {$CONTRACK_HOSTNAME} {
+# 	encode zstd gzip
+# 	reverse_proxy 127.0.0.1:3210
+# }

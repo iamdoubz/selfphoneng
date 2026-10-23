@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // My calls (05 §4): my call history; click the other number to call back (the softphone when it's
-// on, else my desk phone rings first). "Add to contacts" arrives with contacts (M10).
+// on, else my desk phone rings first). Names from my contacts (11 §1), "Add to contacts".
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { MyCallDto } from '@selfphoneng/shared';
@@ -8,6 +8,7 @@ import { meApi, recordingsApi } from '../../api/client.ts';
 import { Alert, Button } from '../../components/ui.tsx';
 import { softphone } from '../../softphone/SoftphoneEngine.ts';
 import { DIRECTION_TEXT, StatusBadge, fmtDuration, fmtNumber } from '../admin/CallsPage.tsx';
+import { AddToContacts, useContactName } from './ContactsPage.tsx';
 
 /** The other side of the call, from where I sit. */
 export const otherParty = (c: MyCallDto) =>
@@ -36,6 +37,7 @@ export function MyCallsPage() {
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
   const { call, note } = useCallBack();
+  const nameOf = useContactName();
   const calls = list.data?.pages.flatMap((p) => p.items) ?? [];
   return (
     <section aria-labelledby="calls-h" className="flex flex-col gap-3">
@@ -52,6 +54,7 @@ export function MyCallsPage() {
       <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
         {calls.map((c) => {
           const other = otherParty(c);
+          const known = nameOf(other.number);
           return (
             <li
               key={c.id}
@@ -62,7 +65,7 @@ export function MyCallsPage() {
               <span
                 className={`min-w-0 flex-1 ${c.missedByMe ? 'font-semibold text-red-700 dark:text-red-400' : ''}`}
               >
-                {other.name && <span>{other.name} </span>}
+                {(known ?? other.name) && <span>{known ?? other.name} </span>}
                 {other.number ? (
                   <button
                     type="button"
@@ -77,6 +80,9 @@ export function MyCallsPage() {
                 )}
                 {c.direction !== 'internal' && (
                   <span className="text-zinc-500"> · {DIRECTION_TEXT[c.direction]}</span>
+                )}
+                {!known && other.number && c.direction !== 'internal' && (
+                  <AddToContacts number={other.number} name={other.name} />
                 )}
               </span>
               {c.recordingId && (

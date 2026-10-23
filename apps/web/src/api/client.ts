@@ -22,6 +22,14 @@ import type {
   CallDetailDto,
   CallDto,
   CallFilter,
+  ContactBookDto,
+  ContactCopyResult,
+  ContrackOptions,
+  ContactDto,
+  ContactImportResult,
+  ContactInput,
+  ContactShare,
+  ContactShareDto,
   MyCallDto,
   RecordingDto,
   AuthUser,
@@ -265,6 +273,9 @@ export const meApi = {
   get: () => api<MeDto>('GET', '/api/me'),
   softphoneQr: () => api<SoftphoneQr>('GET', '/api/me/softphone-qr'),
   update: (m: MeUpdate) => api<MeDto>('PATCH', '/api/me', m),
+  connectContrack: (token: string) => api<MeDto>('PUT', '/api/me/contrack', { token }),
+  disconnectContrack: () => api<MeDto>('DELETE', '/api/me/contrack'),
+  contrackOptions: (o: ContrackOptions) => api<MeDto>('PATCH', '/api/me/contrack', o),
   webrtc: () => api<WebRtcCreds>('GET', '/api/me/webrtc'),
   /** Log in to (unpause) or out of (pause) a queue I'm an agent of. */
   setQueuePaused: (queueId: string, paused: boolean) =>
@@ -282,6 +293,36 @@ export const meApi = {
   putGreeting: (kind: GreetingKind, audio: Blob) =>
     upload<{ ok: true }>('PUT', `/api/me/greetings/${kind}`, audio),
   deleteGreeting: (kind: GreetingKind) => api<{ ok: true }>('DELETE', `/api/me/greetings/${kind}`),
+};
+
+/** My book is /api/me/contacts (it lists the company's too); the company's is /api/contacts. */
+export type ContactBase = '/api/me/contacts' | '/api/contacts';
+
+export const contactsApi = {
+  list: (base: ContactBase) => api<ContactBookDto>('GET', base),
+  copyToContrack: (base: ContactBase) => api<ContactCopyResult>('POST', `${base}/copy-to-contrack`),
+  testContrack: (url: string, companyToken?: string) =>
+    api<{ ok: true; detail: string } | { ok: false; error: string }>(
+      'POST',
+      '/api/contacts/contrack/test',
+      { url, companyToken },
+    ),
+  create: (base: ContactBase, c: ContactInput) => api<ContactDto>('POST', base, c),
+  update: (base: ContactBase, id: string, c: ContactInput) =>
+    api<ContactDto>('PATCH', `${base}/${id}`, c),
+  remove: (base: ContactBase, id: string) => api<{ ok: true }>('DELETE', `${base}/${id}`),
+  import: (base: ContactBase, files: { name: string; text: string }[], commit: boolean) =>
+    api<ContactImportResult>('POST', `${base}/import?commit=${commit ? 1 : 0}`, { files }),
+  share: (s: ContactShare) =>
+    api<{ offers: number; people: number }>('POST', '/api/me/contacts/share', s),
+  shares: () =>
+    api<ListResponse<ContactShareDto>>('GET', '/api/me/contacts/shares').then((r) => r.items),
+  decide: (decision: 'accept' | 'deny', ids: string[]) =>
+    api<{ added?: number; duplicates?: number; denied?: number }>(
+      'POST',
+      `/api/me/contacts/shares/${decision}`,
+      { ids },
+    ),
 };
 
 export const soundsApi = {

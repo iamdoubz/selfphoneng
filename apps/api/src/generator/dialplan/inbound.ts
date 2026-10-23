@@ -95,7 +95,13 @@ export function renderDids(snap: Snapshot): string {
       `; DID ${num}${d.label ? ` "${s.name(d.label)}"` : ''}`,
       `exten => ${num},1,Set(__SP_DID=${num})`,
       ` same => n,Set(CDR(SP_DID)=${num})`,
-      ...(prefix ? [` same => n,Set(CALLERID(name)=${prefix} \${CALLERID(name)})`] : []),
+      ...(prefix
+        ? [
+            ` same => n,Set(CALLERID(name)=${prefix} \${CALLERID(name)})`,
+            // …and before a contact's name on ringing phones (sp-sub-dial-user, 11 §6 C4).
+            ` same => n,Set(__SP_CNAM_PREFIX=${prefix} \${SP_CNAM_PREFIX})`,
+          ]
+        : []),
       // Recorded number: the caller hears the notice (if set) before the recording starts.
       ...(d.recordInbound && snap.recordingAnnouncement
         ? [' same => n,Answer()', ` same => n,Playback(${s.sound(snap.recordingAnnouncement)})`]

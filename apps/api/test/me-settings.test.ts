@@ -66,6 +66,7 @@ describe.skipIf(!hasTestDb)('/api/me settings and phone toggles', () => {
       callReportTime: '08:00',
       callReportWeekday: 1,
       callReportSummaries: false,
+      contrack: null,
     });
   });
 

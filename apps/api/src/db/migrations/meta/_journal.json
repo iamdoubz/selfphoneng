@@ -64,6 +64,27 @@
       "when": 1792781321577,
       "tag": "0008_call_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792784242837,
+      "tag": "0009_contact_shares",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792785318384,
+      "tag": "0010_contrack_token",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792788393381,
+      "tag": "0011_contrack_call_log",
+      "breakpoints": true
     }
   ]
 }

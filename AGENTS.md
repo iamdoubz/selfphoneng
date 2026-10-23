@@ -27,6 +27,7 @@ write the software around it: database, config generator, API, web UI.
 | `docs/spec/07-provisioning.md` | Desk phone auto-provisioning (Yealink, Grandstream, Polycom) and mobile apps | Working on provisioning |
 | `docs/spec/08-security-ops.md` | Security, backups, monitoring, legal requirements | Before any release, and when touching auth or networking |
 | `docs/spec/09-roadmap.md` | Milestones, ordered tasks, acceptance criteria | Picking your next task |
+| `docs/spec/11-contacts.md` | Contacts: the builtin phonebook or Contrack, lookup, the Contrack timeline | Working on contacts or caller names |
 
 ## Hard rules
 

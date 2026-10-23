@@ -31,6 +31,7 @@ const ctx = (over: Partial<ProvisionContext> = {}): ProvisionContext => ({
   provPassword: 'Pr0vPassw0rdXyZ12345',
   phonebookUrl:
     'https://001565abcdef:Pr0vPassw0rdXyZ12345@pbx.example.com/prov/phonebook/001565abcdef.xml',
+  ownerUserId: null,
   ntpServer: 'pool.ntp.org',
   dialRules: dialRules(['NXXNXXXXXX', '1NXXNXXXXXX'], [3]),
   ...over,
