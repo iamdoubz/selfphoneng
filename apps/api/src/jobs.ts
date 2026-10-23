@@ -19,6 +19,7 @@ import {
 import type { Generator } from './generator/index.ts';
 import { todayIn } from './generator/load.ts';
 import type { LiveState } from './live/state.ts';
+import { cleanupContactShares } from './routes/contacts.ts';
 import { cleanupRecordings } from './routes/recordings.ts';
 import { transcribeCalls } from './ai/calls.ts';
 import { audit } from './services/audit.ts';
@@ -108,6 +109,7 @@ export async function retentionCleanup(d: JobDeps) {
   await d.db
     .delete(systemEvents)
     .where(lt(systemEvents.createdAt, sql`now() - interval '90 days'`));
+  await cleanupContactShares(d.db);
   if (recordings || voicemail) d.log.info({ recordings, voicemail }, 'old messages deleted');
 }
 

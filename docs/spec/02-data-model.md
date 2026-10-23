@@ -449,6 +449,17 @@ create table voicemail_messages (                     -- index of files Asterisk
   transcript     text                                 -- speech to text (10), when it's on
 );
 
+create table contact_shares (                            -- a contact offered to a colleague (11 §2.1)
+  id            uuid primary key default gen_random_uuid(),
+  from_user_id  uuid references users(id) on delete set null,
+  to_user_id    uuid not null references users(id) on delete cascade,
+  source_id     text not null,                           -- the contact's id in the sender's book
+  contact       jsonb not null,                          -- a copy: { name, company, email, numbers, notes }
+  status        text not null default 'pending' check (status in ('pending', 'accepted', 'denied')),
+  decided_at    timestamptz
+);
+create index on contact_shares (to_user_id) where status = 'pending';
+
 create table contacts (
   id            uuid primary key default gen_random_uuid(),
   owner_user_id uuid references users(id) on delete cascade,   -- null = company phonebook

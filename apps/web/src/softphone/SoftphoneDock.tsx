@@ -12,6 +12,7 @@ import { onTakeOver, stepDown, takeOver, tryLead } from './leader.ts';
 import { CALL_DRAG, softphone, type CallInfo } from './SoftphoneEngine.ts';
 import { useSoftphone } from './useSoftphone.ts';
 import { startRinging, stopRinging } from './sounds.ts';
+import { useContactName } from '../pages/user/ContactsPage.tsx';
 
 const KEY = 'softphone.enabled';
 const remembered = () => {
@@ -52,11 +53,14 @@ const STATUS = {
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
 const clean = (s: string) => s.replace(/[^0-9*#+]/g, '');
 
-/** Caller name: extensions (live presence) → the name the caller sent → the number. */
+/** Caller name: extensions (live presence) → my contacts and the company's → the name the caller
+ * sent → the number (11 §1). */
 function useNameOf() {
   const exts = useLive((s) => s.extensions);
+  const contact = useContactName();
   return (c: { remote: string; remoteName: string | null }) =>
     exts[c.remote]?.name ??
+    contact(c.remote) ??
     c.remoteName ??
     (c.remote.length > 6 ? formatNumber(c.remote) : c.remote || 'Unknown');
 }

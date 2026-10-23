@@ -25,4 +25,5 @@ export * from './announcements.ts';
 export * from './me.ts';
 export * from './blocked.ts';
 export * from './calls.ts';
+export * from './contacts.ts';
 export * from './integrations.ts';

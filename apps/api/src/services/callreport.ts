@@ -4,6 +4,7 @@
 import { and, asc, eq, gte, inArray, lt, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { formatNumber, type CallReport } from '@selfphoneng/shared';
+import { contactNames } from '../contacts/book.ts';
 import type { Db } from '../db/client.ts';
 import { callExtensions, calls, extensions, recordings, users } from '../db/schema.ts';
 import type { SendMail } from './mail.ts';
@@ -56,6 +57,8 @@ export type ReportCall = {
   status: string;
   fromNumber: string | null;
   fromName: string | null;
+  /** The other side's name in my contacts or the company's (11 §1). */
+  contactName: string | null;
   toNumber: string | null;
   talkSeconds: number;
   answeredBy: string | null;
@@ -80,9 +83,10 @@ export function reportText(
     `${list.length} call${list.length === 1 ? '' : 's'} from ${when.format(period.from)} to ${when.format(period.to)}:`,
   ];
   for (const c of list) {
+    const name = c.contactName ?? (c.out ? null : c.fromName);
     const who = c.out
-      ? `Outgoing to ${num(c.toNumber)}`
-      : `Incoming from ${num(c.fromNumber)}${c.fromName ? ` (${c.fromName})` : ''} to ${num(c.toNumber)}`;
+      ? `Outgoing to ${num(c.toNumber)}${name ? ` (${name})` : ''}`
+      : `Incoming from ${num(c.fromNumber)}${name ? ` (${name})` : ''} to ${num(c.toNumber)}`;
     const facts = [
       c.status === 'answered' && c.answeredBy ? `answered by ${c.answeredBy}` : c.status,
       duration(c.talkSeconds),
@@ -158,12 +162,18 @@ export async function sendCallReports(d: {
       .set({ callReportSentAt: period.to })
       .where(eq(extensions.id, e.id));
     if (!rows.length) continue;
+    const names = await contactNames(
+      d.db,
+      e.userId,
+      rows.map((r) => (r.out ? r.c.toNumber : r.c.fromNumber)),
+    );
     const list = rows.map((r): ReportCall => ({
       startedAt: r.c.startedAt,
       out: r.out,
       status: r.c.status,
       fromNumber: r.c.fromNumber,
       fromName: r.c.fromName,
+      contactName: names.get((r.out ? r.c.toNumber : r.c.fromNumber) ?? '') ?? null,
       toNumber: r.c.toNumber,
       talkSeconds: r.c.talkSeconds,
       answeredBy: r.answeredById && r.answeredById !== e.id ? r.answeredBy : null,

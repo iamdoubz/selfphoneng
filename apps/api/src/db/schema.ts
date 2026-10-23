@@ -620,6 +620,31 @@ export const contacts = pgTable('contacts', {
   ...timestamps,
 });
 
+/** A contact offered to a colleague, waiting for Accept or Deny (11 §2.1). */
+export const contactShares = pgTable(
+  'contact_shares',
+  {
+    id: id(),
+    fromUserId: uuid().references(() => users.id, { onDelete: 'set null' }),
+    toUserId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** The shared contact's id in the sender's book: offering it again replaces a pending offer. */
+    sourceId: text().notNull(),
+    /** A copy taken when shared: { name, company, email, numbers, notes }. */
+    contact: jsonb().notNull(),
+    status: text().notNull().default('pending'),
+    decidedAt: tstz(),
+    ...timestamps,
+  },
+  (t) => [
+    index()
+      .on(t.toUserId)
+      .where(sql`${t.status} = 'pending'`),
+    check('contact_shares_status_check', sql`${t.status} in ('pending', 'accepted', 'denied')`),
+  ],
+);
+
 export const smsMessages = pgTable(
   'sms_messages',
   {
