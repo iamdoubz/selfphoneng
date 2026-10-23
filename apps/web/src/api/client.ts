@@ -23,6 +23,7 @@ import type {
   CallDto,
   CallFilter,
   ContactBookDto,
+  ContrackOptions,
   ContactDto,
   ContactImportResult,
   ContactInput,
@@ -273,6 +274,7 @@ export const meApi = {
   update: (m: MeUpdate) => api<MeDto>('PATCH', '/api/me', m),
   connectContrack: (token: string) => api<MeDto>('PUT', '/api/me/contrack', { token }),
   disconnectContrack: () => api<MeDto>('DELETE', '/api/me/contrack'),
+  contrackOptions: (o: ContrackOptions) => api<MeDto>('PATCH', '/api/me/contrack', o),
   webrtc: () => api<WebRtcCreds>('GET', '/api/me/webrtc'),
   /** Log in to (unpause) or out of (pause) a queue I'm an agent of. */
   setQueuePaused: (queueId: string, paused: boolean) =>

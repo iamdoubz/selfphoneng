@@ -458,6 +458,7 @@ Provisioning and inbound hooks (outside `/api`, no session):
 | `trunkWatch` | every 60 s | if a trunk is unregistered for more than 5 min → email admins once per outage |
 | `diskWatch` | hourly | if free disk < 10% → email admins once a day |
 | `contactsWarm` | every 5 min, Contrack mode | refresh the company's and each connected person's Contrack book, so a ringing phone's caller-name lookup (11 §6.1) finds them |
+| `contrackLog` | every 60 s, Contrack mode | calls ended over 1 min ago (and within 2 days) of people logging calls: one `call` interaction on the matching contact's Contrack timeline (11 §4.4) |
 | `callReports` | every 60 s | each user whose call report period (05 §4) ended over 5 min ago and isn't reported yet: email their calls of that period (by hang-up time) if there were any; `extensions.call_report_sent_at` = the period's end. Changing the schedule sets it to now, so the first report is the next period's |
 
 Jobs must never overlap with themselves (use a running flag).

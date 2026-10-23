@@ -3,10 +3,11 @@
 import { existsSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { and, desc, eq, isNull } from 'drizzle-orm';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
+  ContrackOptionsSchema,
   GREETINGS,
   MeUpdateSchema,
   type ListResponse,
@@ -133,10 +134,18 @@ export async function meRoutes(app: FastifyInstance) {
     if (!c) return null;
     const token = await tokenFor(db, c, userId);
     const book = token ? await contrackBook(db, c, userId) : null;
+    const [u] = await db
+      .select({ logCalls: users.contrackLogCalls, logSummaries: users.contrackLogSummaries })
+      .from(users)
+      .where(eq(users.id, userId));
     return {
       connected: !!book && !book.error,
       tokenPrefix: token ? `${token.slice(0, 12)}…` : null,
       publicUrl: c.publicUrl,
+      logCalls: u?.logCalls ?? true,
+      logSummaries: u?.logSummaries ?? false,
+      summariesAvailable:
+        (await getSetting(db, 'ai.callTranscripts')) && (await getSetting(db, 'ai.callSummaries')),
     };
   }
 
@@ -148,9 +157,13 @@ export async function meRoutes(app: FastifyInstance) {
     await contrackCheck(c.url, token).catch((err: Error) => {
       throw badRequest(err.message);
     });
+    // Calls are logged from now on, not the ones before (11 §4.4).
     await db
       .update(users)
-      .set({ contrackTokenEnc: encrypt(token) })
+      .set({
+        contrackTokenEnc: encrypt(token),
+        contrackLogSince: sql`coalesce(${users.contrackLogSince}, now())`,
+      })
       .where(eq(users.id, req.user!.id));
     forgetBook(req.user!.id);
     await audit(db, {
@@ -161,6 +174,25 @@ export async function meRoutes(app: FastifyInstance) {
       entityId: req.user!.id,
       summary: 'Connected their Contrack account',
     });
+    return myState(req.user!.id);
+  });
+
+  /** Log my calls in Contrack, with or without their summaries (11 §4.4). */
+  app.patch('/api/me/contrack', async (req) => {
+    const o = ContrackOptionsSchema.parse(req.body);
+    const [u] = await db
+      .select({ logCalls: users.contrackLogCalls })
+      .from(users)
+      .where(eq(users.id, req.user!.id));
+    await db
+      .update(users)
+      .set({
+        ...(o.logCalls !== undefined ? { contrackLogCalls: o.logCalls } : {}),
+        ...(o.logSummaries !== undefined ? { contrackLogSummaries: o.logSummaries } : {}),
+        // Turned back on: from now, not the calls while it was off.
+        ...(o.logCalls && !u?.logCalls ? { contrackLogSince: new Date() } : {}),
+      })
+      .where(eq(users.id, req.user!.id));
     return myState(req.user!.id);
   });
 

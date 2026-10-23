@@ -77,7 +77,10 @@ create table users (
   totp_last_step   bigint,                        -- last 30 s step signed in with: no replay (M11)
   must_change_password boolean not null default false,
   last_login_at    timestamptz,
-  contrack_token_enc text                        -- their Contrack personal token (11 §4.3)
+  contrack_token_enc text,                       -- their Contrack personal token (11 §4.3)
+  contrack_log_calls boolean not null default true,     -- calls on their Contrack timelines (11 §4.4)
+  contrack_log_summaries boolean not null default false, -- …with recorded calls' summaries
+  contrack_log_since timestamptz                 -- calls that ended after this
 );
 
 create table sessions (
@@ -448,6 +451,15 @@ create table voicemail_messages (                     -- index of files Asterisk
   emailed_at     timestamptz,
   deleted_at     timestamptz,
   transcript     text                                 -- speech to text (10), when it's on
+);
+
+create table contrack_call_log (                         -- a call put on a Contrack timeline (11 §4.4)
+  call_id        uuid not null references calls(id) on delete cascade,
+  user_id        uuid not null references users(id) on delete cascade,
+  interaction_id text,                                   -- null: no contact has the number, or refused
+  error          text,
+  logged_at      timestamptz not null default now(),
+  primary key (call_id, user_id)
 );
 
 create table contact_shares (                            -- a contact offered to a colleague (11 §2.1)

@@ -315,6 +315,7 @@ function ContrackConnect({ contrack }: { contrack: NonNullable<MeDto['contrack']
   };
   const connect = useMutation({ mutationFn: () => meApi.connectContrack(token), onSuccess: done });
   const disconnect = useMutation({ mutationFn: meApi.disconnectContrack, onSuccess: done });
+  const options = useMutation({ mutationFn: meApi.contrackOptions, onSuccess: done });
   const where = contrack.publicUrl ? (
     <a
       className="text-sky-700 underline dark:text-sky-400"
@@ -332,7 +333,7 @@ function ContrackConnect({ contrack }: { contrack: NonNullable<MeDto['contrack']
       <h2 id="ctk-h" className="text-lg font-semibold">
         Contacts
       </h2>
-      {contrack.tokenPrefix ? (
+      {contrack.tokenPrefix && (
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <span>
             {contrack.connected ? 'Connected to your' : 'Your token for'} {where} account (
@@ -345,7 +346,40 @@ function ContrackConnect({ contrack }: { contrack: NonNullable<MeDto['contrack']
             Disconnect
           </Button>
         </div>
-      ) : (
+      )}
+      {contrack.tokenPrefix && (
+        <div className="flex flex-col gap-2 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={contrack.logCalls}
+              disabled={options.isPending}
+              onChange={(e) => options.mutate({ logCalls: e.target.checked })}
+            />
+            Put my calls on my contacts' timelines in Contrack
+          </label>
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={contrack.logSummaries && contrack.summariesAvailable}
+              disabled={!contrack.logCalls || !contrack.summariesAvailable || options.isPending}
+              onChange={(e) => options.mutate({ logSummaries: e.target.checked })}
+            />
+            <span>
+              With the summary and action items of each recorded call
+              {!contrack.summariesAvailable && (
+                <span className="text-zinc-500"> (when your admin turns on call summaries)</span>
+              )}
+              <span className="block text-xs text-zinc-500">
+                What was said goes into Contrack. If Contrack's own AI uses a cloud provider, it can
+                reach that provider.
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
+      {!contrack.tokenPrefix && (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
           Your contacts live in your own {where} account. There, open Settings → Account → API
           tokens → Create token, with Read and write (so contacts shared with you can be added) and
@@ -376,7 +410,7 @@ function ContrackConnect({ contrack }: { contrack: NonNullable<MeDto['contrack']
           Connect
         </Button>
       </form>
-      {(connect.error ?? disconnect.error) && (
+      {(connect.error ?? disconnect.error ?? options.error) && (
         <Alert>{(connect.error ?? disconnect.error)!.message}</Alert>
       )}
     </section>

@@ -65,6 +65,11 @@ export const users = pgTable('users', {
   lastLoginAt: tstz(),
   /** Contrack mode (11 §4.3): this person's own Contrack personal token, encrypted. */
   contrackTokenEnc: text(),
+  /** 11 §4.4: my calls on my Contrack contacts' timelines, from contrackLogSince on. */
+  contrackLogCalls: boolean().notNull().default(true),
+  /** …with each recorded call's summary (10 §3). */
+  contrackLogSummaries: boolean().notNull().default(false),
+  contrackLogSince: tstz(),
   ...timestamps,
 });
 
@@ -621,6 +626,24 @@ export const contacts = pgTable('contacts', {
   notes: text(),
   ...timestamps,
 });
+
+/** A call put on (or checked for) a person's Contrack timeline (11 §4.4): never twice. */
+export const contrackCallLog = pgTable(
+  'contrack_call_log',
+  {
+    callId: uuid()
+      .notNull()
+      .references(() => calls.id, { onDelete: 'cascade' }),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** Contrack's interaction id; null: no contact has that number, or it couldn't be written. */
+    interactionId: text(),
+    error: text(),
+    loggedAt: tstz().notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.callId, t.userId] })],
+);
 
 /** A contact offered to a colleague, waiting for Accept or Deny (11 §2.1). */
 export const contactShares = pgTable(

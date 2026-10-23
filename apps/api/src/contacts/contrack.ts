@@ -204,6 +204,22 @@ export async function contrackCreate(
   return toDto(c, row, owner === null ? 'company' : 'mine');
 }
 
+/** A timeline entry on a contact (11 §4.4); answers its id. */
+export async function contrackInteraction(
+  c: Contrack,
+  token: string,
+  contactId: string,
+  body: Record<string, unknown>,
+): Promise<string> {
+  const r = await ctk<{ id: string }>(
+    c.url,
+    token,
+    `api/contacts/${encodeURIComponent(contactId)}/interactions`,
+    { method: 'POST', body: JSON.stringify(body) },
+  );
+  return r.id;
+}
+
 /** Settings → Contacts → Test, and connecting a token: reachable, and the token reads contacts. */
 export async function contrackCheck(url: string, token: string | null): Promise<string> {
   try {

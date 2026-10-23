@@ -8,7 +8,11 @@
 //   CONTRACK_LIVE_URL=http://127.0.0.1:3210 pnpm vitest run apps/api/test/contrack-live.test.ts
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
 import { contactNames } from '../src/contacts/book.ts';
+import { logCallsToContrack } from '../src/contacts/timeline.ts';
+import { callExtensions, calls, extensions, recordings, users } from '../src/db/schema.ts';
+import { setSetting } from '../src/services/settings.ts';
 import { loadPhonebook } from '../src/provisioning/context.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
@@ -233,6 +237,74 @@ describe.skipIf(!hasTestDb || !LIVE)('contacts in a real Contrack', () => {
     expect(
       (await dan('GET', '/api/me/contacts')).json().items.map((c: { name: string }) => c.name),
     ).toContain('Bob Smith');
+  });
+
+  it('a call with Jane lands on her Contrack timeline, with the summary and a follow-up (C5)', async () => {
+    const at = (minAgo: number) => new Date(Date.now() - minAgo * 60_000);
+    await t.db
+      .update(users)
+      .set({ contrackLogSince: at(60) })
+      .where(eq(users.id, danId));
+    await setSetting(t.db, 'ai.callTranscripts', true);
+    await setSetting(t.db, 'ai.callSummaries', true);
+    expect((await dan('PATCH', '/api/me/contrack', { logSummaries: true })).statusCode).toBe(200);
+    const [ext] = await t.db.select().from(extensions).where(eq(extensions.number, '101'));
+    const [rec] = await t.db
+      .insert(recordings)
+      .values({
+        linkedid: 'live-r1',
+        filePath: 'live-r1.wav',
+        startedAt: at(20),
+        summary:
+          'Jane asked for a <quote> & delivery dates.\nAction items:\n- Dan sends the quote by Friday',
+        aiDoneAt: at(15),
+      })
+      .returning();
+    const [c] = await t.db
+      .insert(calls)
+      .values({
+        linkedid: 'live-c1',
+        direction: 'inbound',
+        status: 'answered',
+        startedAt: at(20),
+        endedAt: at(17),
+        fromNumber: '13125551234',
+        toNumber: '13125550000',
+        talkSeconds: 185,
+        answeredByExtensionId: ext!.id,
+        recordingId: rec!.id,
+      })
+      .returning();
+    await t.db
+      .insert(callExtensions)
+      .values({ callId: c!.id, extensionId: ext!.id, role: 'answered' });
+    expect(await logCallsToContrack({ db: t.db, log: t.app.log })).toBe(1);
+    expect(await logCallsToContrack({ db: t.db, log: t.app.log })).toBe(0);
+
+    const jane = (
+      (await ctk('/api/contacts?view=slim', { token: tok.dan })).body as unknown as {
+        id: string;
+        name: string;
+      }[]
+    ).find((x) => x.name === 'Jane Doe')!;
+    const timeline = (await ctk(`/api/contacts/${jane.id}/timeline`, { token: tok.dan }))
+      .body as unknown as Record<string, unknown>[];
+    expect(timeline).toHaveLength(1);
+    expect(timeline[0]).toMatchObject({
+      type: 'call',
+      title: 'Incoming call',
+      date: c!.startedAt.toISOString(),
+      duration: expect.anything(), // Contrack answers it as "4.0"
+      actionItems: [
+        expect.objectContaining({ title: 'Dan sends the quote by Friday', completedAt: null }),
+      ],
+    });
+    expect(Number(timeline[0]!.duration)).toBe(4);
+    const content = String(timeline[0]!.content);
+    expect(content).toContain('From (312) 555-1234 to (312) 555-0000 · 3:05 · recorded');
+    expect(content).toContain('Jane asked for a &lt;quote&gt; &amp; delivery dates.');
+    expect(content).toContain('<li>Dan sends the quote by Friday</li>');
+    expect(content).not.toContain('<quote>');
   });
 
   it('a share is accepted into the recipient’s own Contrack account', async () => {

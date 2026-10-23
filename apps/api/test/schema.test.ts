@@ -24,6 +24,9 @@ const EXPECTED: Record<string, Record<string, string>> = {
     must_change_password: 'boolean|NO|false',
     last_login_at: 'timestamp with time zone|YES|',
     contrack_token_enc: 'text|YES|',
+    contrack_log_calls: 'boolean|NO|true',
+    contrack_log_summaries: 'boolean|NO|false',
+    contrack_log_since: 'timestamp with time zone|YES|',
     ...ts,
   },
   extensions: {
@@ -112,11 +115,11 @@ describe.skipIf(!hasTestDb)('schema matches spec 02', () => {
   beforeAll(async () => ({ db, drop } = await createTestDb()));
   afterAll(() => drop?.());
 
-  it('creates all 42 tables', async () => {
+  it('creates all 43 tables', async () => {
     const r = await db.execute(
       sql`select count(*)::int as n from information_schema.tables where table_schema = 'public'`,
     );
-    expect(r.rows[0]).toEqual({ n: 42 });
+    expect(r.rows[0]).toEqual({ n: 43 });
   });
 
   it.each(Object.keys(EXPECTED))('%s columns', async (table) => {

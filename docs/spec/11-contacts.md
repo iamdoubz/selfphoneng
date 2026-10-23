@@ -245,6 +245,26 @@ New per-user options (My settings → Contacts, shown when connected):
 - Unknown numbers are not added to Contrack automatically; "Add to contacts" does it, and calls
   from then on are logged.
 
+As built (C5, `contacts/timeline.ts`):
+
+- Options on `users` (`contrack_log_calls`, `contrack_log_summaries`, `contrack_log_since`),
+  `PATCH /api/me/contrack { logCalls?, logSummaries? }`, shown in `GET /api/me` `contrack` with
+  `summariesAvailable`. Calls count from `contrack_log_since`: set when the token is first
+  connected, and when logging is turned back on, so connecting doesn't fill the timeline with the
+  last 2 days. Migration 0011 sets it to the migration time for people connected before.
+- Calls between colleagues (`internal`) aren't logged. Every person on the call (caller, rang,
+  answered) gets it on their own timeline, as in My calls, with their own contact.
+- Titles: "Incoming call", "Incoming call, answered by Sue", "Missed call", "Missed call, voicemail
+  left", "Outgoing call", "Outgoing call, busy" / "no answer". Content: `<p>From … to … · 3:12 ·
+  recorded</p>`, then the summary's sentences and an `<ul>` of its action items, all escaped.
+  `source: "selfphoneng"`. Contrack requires a due date on a follow-up: the day after the call,
+  in the company time zone.
+- `contrack_call_log` also has `error`: a refused write (4xx other than 401/429: a read-only
+  token, a deleted contact, a bad request) is noted once and not retried. Contrack down (5xx,
+  unreachable), or a token it refuses (401): tried again on the next run.
+- Proven against Contrack 2.0.2 (`contrack-live.test.ts`): the entry, its follow-up, and the
+  escaped content arrive. Contrack answers `duration` as a string ("4.0").
+
 ### 4.5 Not in Contrack mode
 
 - Personal contacts are not on desk-phone phonebooks at first (company book only). Phase C6.
@@ -271,7 +291,7 @@ New per-user options (My settings → Contacts, shown when connected):
 | C2 | Company book on desk phones (07) | a Yealink shows company contacts in its directory. Already built in M10-T2 (`loadPhonebook`, the builtin company book); C3 adds the Contrack company account to it |
 | C3 | Contrack: decision 0003, `deploy/contrack`, Caddy/nginx blocks, Settings → Contacts, company token, per-user tokens, contrack provider + cache, sharing, setup wizard step | with the owner's Contrack, a call from a Contrack contact shows their name |
 | C4 | Caller name on desk phones while ringing (owner, 2026-10-23: its own task after C3): the dialplan asks the api (AGI or `func_curl`) and sets `CALLERID(name)` | a desk phone rings with the contact's name, from either kind of book. Done, see §6.1 |
-| C5 | Calls on the Contrack timeline (§4.4), summaries opt-in | an answered, recorded call shows up on the contact's Contrack timeline with its summary |
+| C5 | Calls on the Contrack timeline (§4.4), summaries opt-in | an answered, recorded call shows up on the contact's Contrack timeline with its summary. Done, see §4.4 as built |
 | C6 | Copy builtin contacts to Contrack; personal and shared contacts in desk phone directories | optional |
 
 ### 6.1 As built: C4

@@ -56,5 +56,21 @@ export type MeDto = {
   callReportWeekday: number;
   callReportSummaries: boolean;
   /** Contacts in Contrack mode (11 §4.3): my token, never shown again; null in builtin mode. */
-  contrack: { connected: boolean; tokenPrefix: string | null; publicUrl: string | null } | null;
+  contrack: {
+    connected: boolean;
+    tokenPrefix: string | null;
+    publicUrl: string | null;
+    /** 11 §4.4: my calls on my contacts' Contrack timelines, and with their summaries. */
+    logCalls: boolean;
+    logSummaries: boolean;
+    /** Call summaries are on (Settings → AI), so logSummaries can do something. */
+    summariesAvailable: boolean;
+  } | null;
 };
+
+/** PATCH /api/me/contrack. */
+export const ContrackOptionsSchema = z.object({
+  logCalls: z.boolean().optional(),
+  logSummaries: z.boolean().optional(),
+});
+export type ContrackOptions = z.input<typeof ContrackOptionsSchema>;

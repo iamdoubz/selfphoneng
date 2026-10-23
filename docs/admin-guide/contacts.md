@@ -65,6 +65,16 @@ notes and the rest happen in Contrack.
 Names refresh from Contrack every 5 minutes (at once after SelfPhoneNG adds a contact). If
 Contrack is down, the last names it gave keep working.
 
+### Calls on the timeline
+
+Once connected, each person's calls with their Contrack contacts go on that contact's timeline in
+Contrack ("Incoming call", "Missed call, voicemail left", …, with the time on the phone and whether
+it was recorded), a minute or so after the call. In **My settings → Contacts** they can turn this
+off, or add each recorded call's summary and action items (when call summaries are on in
+**Settings → AI**); the first action item becomes a Contrack follow-up, due the next day. Calls
+with numbers that aren't in their Contrack aren't added; **Add to contacts** first. Only calls
+from the moment they connected are logged.
+
 ### Privacy
 
 SelfPhoneNG only talks to Contrack on this server or the local network, and keeps the tokens
