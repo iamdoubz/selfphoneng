@@ -5,6 +5,39 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
+## v0.0.7 — 2026-10-23
+
+**Before you update:** this version changes the database (call reports, contacts); the api backs
+up first, by itself. Portainer: change both tags to `0.0.7` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.7`. Contacts start in Simple mode with empty address books;
+Contrack is optional and off until you set it up (admin guide: [Contacts](docs/admin-guide/contacts.md)).
+Desk phones pick up their new directory at their next daily check (or reboot them).
+
+- **Contacts** (spec 11, admin guide: [Contacts](docs/admin-guide/contacts.md)): each person's own
+  contacts and the company's, in My Phone → Contacts and Admin → Contacts. Import `.vcf` files
+  (iPhone, Android, Google, Outlook, Apple) or CSV, with a preview; duplicates are skipped. Share
+  contacts with colleagues or everyone: they Accept or Deny each one, and nothing lands in their
+  contacts without it. Contact names show in call history, voicemail, Home, the browser phone,
+  and the call report email, with **Add to contacts** on calls and voicemails from numbers that
+  aren't contacts yet.
+- **Caller names on desk phones while they ring**: the caller's name from the ringing person's
+  own contacts (or the company's), per phone, so nobody sees a colleague's private contact names;
+  ring group and queue prefixes ("Sales:") stay in front.
+- **Desk phone directories** now have the phone owner's own contacts, after the extensions and
+  before the company's.
+- **Contrack** (optional): the setup wizard (new step 8, Contacts) and Settings → Contacts offer
+  [Contrack](https://github.com/arvarik/contrack), a self-hosted contact and relationship manager,
+  as a second container (`deploy/contrack/compose.yml`, pinned to 2.0.2). Each person connects
+  their own Contrack account in My settings → Contacts, and the company has one everyone sees.
+  Calls go on the contact's Contrack timeline, optionally with the call summary and its action
+  items (the first becomes a follow-up); contacts from before Contrack can be copied over.
+- **Call report email** (My settings → Call report): your calls every hour, day or week, at the
+  time you pick (company time zone), with whether each was recorded and, optionally, each
+  recorded call's summary. No calls, no email.
+- **Voicemail search**: search your messages by what was said (the transcript) or by the caller.
+- Database changes: call report columns on `extensions`; `contact_shares`, `contrack_call_log`,
+  and Contrack columns on `users` (the api backs up first).
+
 ## v0.0.6 — 2026-10-21
 
 **Before you update:** this version changes the database (call transcripts); the api backs up
