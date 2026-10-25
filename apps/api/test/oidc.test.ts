@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 12 S2: OpenID Connect sign-in, connect, disconnect, modes and signing out, against a fake
 // provider (test/fake-oidc.ts).
-import { and, eq } from 'drizzle-orm';
+import { and, desc, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { encrypt } from '../src/crypto/secrets.ts';
 import { sessions, userIdentities, users } from '../src/db/schema.ts';
 import { resetLoginLimiter } from '../src/auth/login-limiter.ts';
 import { setSetting } from '../src/services/settings.ts';
 import type { OidcSettings } from '../src/sso/oidc.ts';
+import { checkOidcSessions } from '../src/sso/oidcCheck.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
 import { startFakeOidc } from './fake-oidc.ts';
@@ -46,6 +47,8 @@ for (const alg of ['RS256', 'ES256'] as const)
       resetLoginLimiter();
       idp.st.tamper = {};
       idp.st.user = { sub: 'u-1', email: 'ann@example.com', email_verified: true };
+      idp.st.refreshOk = true;
+      idp.st.down = false;
     });
 
     /** The browser's round trip: start → provider → callback. */
@@ -335,5 +338,69 @@ for (const alg of ['RS256', 'ES256'] as const)
         'auth.oidc': { ...form, issuer: 'http://kc.example.com/realms/x' },
       });
       expect(remote.json().error.message).toContain('https');
+    });
+
+    /** Ann's OpenID session, connected again (an earlier test disconnects her). */
+    async function annSession() {
+      const pw = await t.login('ann@example.com', 'ann-password-12');
+      await flow(pw, '?connect=1');
+      const { callback } = await flow();
+      const cookie = session(callback!)!;
+      const [row] = await t.db
+        .select()
+        .from(sessions)
+        .where(eq(sessions.method, 'oidc'))
+        .orderBy(desc(sessions.idpCheckedAt))
+        .limit(1);
+      return { cookie, id: row!.id };
+    }
+    const later = (min: number) => new Date(Date.now() + min * 60_000);
+    const check = (min: number) => checkOidcSessions({ db: t.db, log: t.app.log, now: later(min) });
+    const row = async (id: string) =>
+      (await t.db.select().from(sessions).where(eq(sessions.id, id)))[0];
+
+    it('the session check: kept while the provider says yes, ended when it says no (§3.5)', async () => {
+      const { cookie, id } = await annSession();
+      const signedIn = (await row(id))!.idpCheckedAt!.getTime();
+      await check(5); // checked at sign-in: not due yet
+      expect((await row(id))!.idpCheckedAt!.getTime()).toBe(signedIn);
+      await check(16);
+      expect((await row(id))!.idpCheckedAt!.getTime()).toBeGreaterThan(signedIn);
+
+      idp.st.down = true; // an outage signs no one out
+      await check(40);
+      expect(await row(id)).toBeTruthy();
+      idp.st.down = false;
+
+      idp.st.user = { ...idp.st.user, groups: ['pbx-admins'] };
+      await setSetting(t.db, 'auth.oidc', { ...oidcSettings, adminGroups: ['pbx-admins'] });
+      try {
+        await check(56); // groups changed at the provider: the role follows
+        const [ann] = await t.db.select().from(users).where(eq(users.email, 'ann@example.com'));
+        expect(ann!.role).toBe('admin');
+        await t.db.update(users).set({ role: 'user' }).where(eq(users.id, ann!.id));
+      } finally {
+        await setSetting(t.db, 'auth.oidc', oidcSettings);
+      }
+
+      idp.st.refreshOk = false; // disabled at the provider
+      await check(72);
+      expect(await row(id)).toBeUndefined();
+      expect((await t.app.inject({ url: '/api/auth/me', headers: { cookie } })).statusCode).toBe(
+        401,
+      );
+    });
+
+    it('the session check ends a session no longer in the allowed groups', async () => {
+      idp.st.user = { ...idp.st.user, groups: ['pbx-users'] };
+      await setSetting(t.db, 'auth.oidc', { ...oidcSettings, allowedGroups: ['pbx-users'] });
+      try {
+        const { id } = await annSession();
+        idp.st.user.groups = [];
+        await check(20);
+        expect(await row(id)).toBeUndefined();
+      } finally {
+        await setSetting(t.db, 'auth.oidc', oidcSettings);
+      }
     });
   });

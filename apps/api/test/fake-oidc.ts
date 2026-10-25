@@ -35,6 +35,8 @@ export async function startFakeOidc(alg: 'RS256' | 'ES256' = 'RS256') {
     },
     /** false: refresh tokens are refused, as for a user disabled at the provider. */
     refreshOk: true,
+    /** true: the token endpoint answers 503, as a provider that's down. */
+    down: false,
     refreshes: 0,
   };
   const codes = new Map<string, { nonce: string; challenge: string; user: FakeUser }>();
@@ -83,6 +85,7 @@ export async function startFakeOidc(alg: 'RS256' | 'ES256' = 'RS256') {
       return res.end();
     }
     if (url.pathname === '/token' && req.method === 'POST') {
+      if (st.down) return json(503, { error: 'temporarily_unavailable' });
       // client_secret_basic: both parts form-encoded before base64 (RFC 6749 §2.3.1).
       const [id, secret] = Buffer.from(
         (req.headers.authorization ?? '').replace(/^Basic /, ''),
@@ -97,7 +100,8 @@ export async function startFakeOidc(alg: 'RS256' | 'ES256' = 'RS256') {
         const user = refresh.get(form.get('refresh_token')!);
         st.refreshes++;
         if (!user || !st.refreshOk) return json(400, { error: 'invalid_grant' });
-        return json(200, tokens(user, null));
+        // Today's claims, as a real provider gives on refresh.
+        return json(200, tokens(st.user.sub === user.sub ? { ...st.user } : user, null));
       }
       const c = codes.get(form.get('code') ?? '');
       codes.delete(form.get('code') ?? '');

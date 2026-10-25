@@ -451,7 +451,7 @@ For every active user with a directory account, one connection per run:
 |---|---|---|
 | S1 | Decision 0004; migration (§2); `auth.mode` (§1.1) with only `password` selectable; break glass; `GET /api/auth/methods`; the `login` field; Users "Signs in with" | `pnpm lint && typecheck && test` pass; sign-in works as before. Done, see §8.1 |
 | S2 | OIDC: settings + Test, start/callback, claims (§3.4), §3.3 (connect, disconnect, email match), `mixed` and `oidc` modes, sign out at the provider, login page and My account, fake provider tests | every §6 OIDC case passes against the fake provider. Done, see §8.2 |
-| S3 | OIDC session check (§3.5); Keycloak live test; admin guide page `docs/admin-guide/sign-in.md` with the §3.6 table | the owner connects their Keycloak account, signs in with it or their password, a Keycloak group makes them admin, signing out also signs out of Keycloak, and disabling them in Keycloak ends their Keycloak session here within 20 min |
+| S3 | OIDC session check (§3.5); Keycloak live test; admin guide page `docs/admin-guide/sign-in.md` with the §3.6 table | the owner connects their Keycloak account, signs in with it or their password, a Keycloak group makes them admin, signing out also signs out of Keycloak, and disabling them in Keycloak ends their Keycloak session here within 20 min. Done (against a throwaway Keycloak 26.8.1), see §8.3; the owner's own Keycloak still to try |
 | S4 | LDAP: settings + Test, presets, sign-in flow (§4.2), §4.3, unit + lldap live tests | sign-in by uid and email against lldap over LDAPS; admin by group; no user made for a stranger |
 | S5 | `directoryCheck` (§4.5), dashboard warnings; Samba AD check | a user removed from the directory is disabled within an hour; AD nested-group admin works |
 
@@ -474,8 +474,9 @@ For every active user with a directory account, one connection per run:
   HS256 (the client secret) is refused. Keycloak, Authentik, Authelia and the others default to
   RS256 or ES256.
 - `client_secret_basic` form-encodes the id and secret before base64 (RFC 6749 §2.3.1: `-` →
-  `%2D`); providers decode it (Keycloak does). If one doesn't, a secret with symbols fails with
-  `invalid_client`: `// TODO(spec)` fall back to `client_secret_post` then, if it's ever seen.
+  `%2D`); providers decode it (Keycloak does: the live test's secret has `-+/=`). If one doesn't,
+  a secret with symbols fails with `invalid_client`: fall back to `client_secret_post` then, if
+  it's ever seen.
 - Callback failures count against the IP only (`isLoginBlocked(ip, null)`); one more code,
   `too_many`.
 - `must_change_password` doesn't block OpenID sessions (guards and the live socket both use
@@ -488,6 +489,23 @@ For every active user with a directory account, one connection per run:
   drawer's connected account, sign out following `redirect`.
 - `apps/api/test/oidc.test.ts` (every case with RS256 and with ES256), `fake-oidc.ts`.
 - Not yet seen in a browser against a real provider: that's S3 with the owner's Keycloak.
+
+### 8.3 As built: S3
+
+- `sso/oidcCheck.ts`: `checkOidcSessions` (job `oidcCheck`, every 5 minutes, sessions last
+  checked over 15 minutes ago) and `applyClaims`, which the callback uses too. Refresh, then
+  userinfo with the new access token (expected subject: the identity's `sub`), then the same
+  allowed/role rules as a sign-in. `invalid_grant` ends the session; anything else (down, 5xx,
+  `invalid_client`) keeps it for the next run. Rotated refresh and ID tokens are stored.
+- `apps/api/test/oidc-live.test.ts` (`KEYCLOAK_LIVE_URL`, `KEYCLOAK_LIVE_ADMIN`): makes a
+  throwaway realm (client with a Group Membership mapper, group, user), signs in through
+  Keycloak's own login form, and deletes the realm. Passed against Keycloak 26.8.1 on 2026-10-25:
+  Test, connect, sign-in, group → admin, signing out there (302 back to `/login`, and Keycloak asks
+  for the password again), disabling the user ending our session at the next check.
+- `NODE_EXTRA_CA_CERTS` in `.env.example` and 01 §1.2: the PEM goes in `data/tls/` (already
+  mounted read-only into the api), so no compose change.
+- Admin guide: `docs/admin-guide/sign-in.md`. There is no audit log page yet, so failures are
+  found in the api log (`OpenID sign-in failed`, `reason`).
 
 ## 9. Decided
 

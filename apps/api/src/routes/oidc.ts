@@ -12,6 +12,7 @@ import { createSession, setSessionCookie } from '../auth/sessions.ts';
 import { audit } from '../services/audit.ts';
 import { getSetting } from '../services/settings.ts';
 import { decide, verifiedEmail } from '../sso/claims.ts';
+import { applyClaims } from '../sso/oidcCheck.ts';
 import {
   finishSignIn,
   oidcError,
@@ -19,7 +20,6 @@ import {
   type OidcSettings,
   type PendingSignIn,
 } from '../sso/oidc.ts';
-import { isLastAdmin } from './users.ts';
 
 export const OIDC_COOKIE = 'sp_oidc';
 const COOKIE_PATH = '/api/auth/oidc';
@@ -197,28 +197,10 @@ export async function oidcRoutes(app: FastifyInstance) {
     const [user] = await db.select().from(users).where(eq(users.id, userId));
     if (!user!.isActive) return fail('disabled', `${user!.email} is disabled`, userId);
 
-    const role = d.admin === null ? user!.role : d.admin ? 'admin' : 'user';
-    if (role !== user!.role) {
-      if (role === 'user' && (await isLastAdmin(db, userId)))
-        req.log.warn(
-          { userId },
-          `kept the last admin with a password, though ${s.label} says user`,
-        );
-      else {
-        await db.update(users).set({ role }).where(eq(users.id, userId));
-        await audit(db, {
-          actorIp: req.ip,
-          action: 'update',
-          entityType: 'user',
-          entityId: userId,
-          summary: `${user!.email} is now ${role}, from ${s.label}'s groups`,
-          diff: { before: { role: user!.role }, after: { role } },
-        });
-      }
-    }
+    await applyClaims(db, req.log, s, userId, d, email, req.ip);
     await db
       .update(userIdentities)
-      .set({ email, groups: d.groups, lastUsedAt: new Date() })
+      .set({ lastUsedAt: new Date() })
       .where(and(eq(userIdentities.userId, userId), eq(userIdentities.kind, 'oidc')));
     const token = await createSession(
       db,
