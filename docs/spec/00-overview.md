@@ -161,6 +161,8 @@ AstDB keys (family/key). This list is complete; do not add keys without updating
 | Multipart uploads | @fastify/multipart | latest |
 | Rate limiting | @fastify/rate-limit | latest |
 | Cookies | @fastify/cookie | latest (decisions/0002) |
+| OpenID Connect client | openid-client | 6.x (decisions/0004) |
+| LDAP client | ldapts | latest (decisions/0004) |
 | PostgreSQL driver | pg | latest (decisions/0002) |
 | QR codes | qrcode | latest |
 | Logging | pino | latest |
