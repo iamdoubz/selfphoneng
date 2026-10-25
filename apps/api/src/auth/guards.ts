@@ -3,7 +3,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { users } from '../db/schema.ts';
 import { forbidden, unauthorized } from '../errors.ts';
-import { COOKIE, getSessionUser, setSessionCookie } from './sessions.ts';
+import { COOKIE, getSessionUser, mustChange, setSessionCookie } from './sessions.ts';
 import { getTokenUser } from './tokens.ts';
 
 export type CurrentUser = typeof users.$inferSelect;
@@ -39,7 +39,7 @@ export async function requireAuth(req: FastifyRequest, reply: FastifyReply): Pro
   if (found.extended) setSessionCookie(reply, token!);
   req.user = found.user;
   req.sessionId = found.sessionId;
-  if (found.user.mustChangePassword && !req.url.startsWith('/api/auth/'))
+  if (mustChange(found) && !req.url.startsWith('/api/auth/'))
     throw forbidden('Change your password first', 'password_change_required');
 }
 

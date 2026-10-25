@@ -57,7 +57,11 @@ describe.skipIf(!hasTestDb)('sign-in (12 S1)', () => {
       .insert(userIdentities)
       .values({ userId: u.id, kind: 'oidc', subject: 'https://kc/realms/x abc', email: 'l@kc' });
     const r = await t.app.inject({ url: `/api/users/${u.id}`, headers: { cookie: admin } });
-    expect(r.json().signIn).toEqual({ password: true, oidc: { email: 'l@kc' }, ldap: false });
+    expect(r.json().signIn).toEqual({
+      password: true,
+      oidc: { email: 'l@kc', groups: [] },
+      ldap: false,
+    });
   });
 
   it('auth.mode can only be password until OpenID Connect is set up', async () => {

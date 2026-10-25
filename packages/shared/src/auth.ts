@@ -42,7 +42,8 @@ export type AuthUser = {
 /** The ways a user can sign in (12 §2): their password, a connected OpenID account, the directory. */
 export type SignInWays = {
   password: boolean;
-  oidc: { email: string | null } | null;
+  /** `groups`: what the provider sent at the last sign-in (12 §3.4), to copy into Settings. */
+  oidc: { email: string | null; groups: string[] } | null;
   ldap: boolean;
 };
 

@@ -9,6 +9,7 @@ import { Alert, Button } from '../../components/ui.tsx';
 import { UserDrawer } from './UserDrawer.tsx';
 import { StatusDot } from '../../components/StatusDot.tsx';
 import { useLive } from '../../live/store.ts';
+import { useAuthMethods } from '../../components/SignInCard.tsx';
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : 'Never');
 
@@ -129,6 +130,7 @@ function UsersTable({
   onDelete: (u: UserDto) => void;
 }) {
   const live = useLive((s) => s.extensions);
+  const oidcLabel = useAuthMethods().data?.oidc?.label ?? 'OpenID';
   if (users.length === 0) return <p className="text-sm text-zinc-500">No users yet.</p>;
   const ext = (u: UserDto) =>
     u.extension ? (
@@ -153,7 +155,7 @@ function UsersTable({
   );
   // 12 §5: every way this user can sign in.
   const ways = (u: UserDto) =>
-    [u.signIn.password && 'Password', u.signIn.oidc && 'OpenID', u.signIn.ldap && 'Directory']
+    [u.signIn.password && 'Password', u.signIn.oidc && oidcLabel, u.signIn.ldap && 'Directory']
       .filter(Boolean)
       .join(', ') || '–';
   const actions = (u: UserDto) => (

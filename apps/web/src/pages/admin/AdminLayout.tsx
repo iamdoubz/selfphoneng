@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { Navigate, NavLink, Outlet, useNavigate } from 'react-router';
 import type { AuthUser } from '@selfphoneng/shared';
-import { authApi, systemApi } from '../../api/client.ts';
+import { signOut, systemApi } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
 import { Brand, Button } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
@@ -43,7 +43,7 @@ export function AdminLayout({ user }: { user: AuthUser }) {
   const setup = useQuery({ queryKey: ['setup'], queryFn: systemApi.setupStatus });
 
   async function logout() {
-    await authApi.logout().catch(() => undefined);
+    await signOut(); // may leave for the OpenID provider's sign-out page (12 §3.5)
     qc.clear();
     nav('/login', { replace: true });
   }

@@ -22,6 +22,7 @@ import { Dialog } from '../../components/Dialog.tsx';
 import { MohOptions } from '../../components/MohOptions.tsx';
 import { PhoneAppSetup } from '../../components/PhoneAppSetup.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
+import { useAuthMethods } from '../../components/SignInCard.tsx';
 
 type Tab = 'general' | 'phone' | 'calling' | 'emergency' | 'credentials';
 
@@ -164,7 +165,8 @@ function GeneralTab({
           role: v.role,
         });
         userId = r.user.id;
-        created = { email: r.user.email, password: r.temporaryPassword };
+        // OpenID-only mode makes no password: they sign in with the provider (12 §3.3).
+        if (r.temporaryPassword) created = { email: r.user.email, password: r.temporaryPassword };
       }
       // The user's extension: create it, or renumber it.
       if (v.number && !ext)
@@ -238,6 +240,7 @@ function GeneralTab({
             Creates a new temporary password and signs them out everywhere.
           </p>
           {user.twoStep && <ResetTwoStep user={user} />}
+          {user.signIn.oidc && <ConnectedOidc user={user} />}
         </div>
       )}
     </form>
@@ -581,6 +584,33 @@ function EmergencyTab({ ext, onSaved }: { ext: ExtensionDto; onSaved: () => void
         {(a) => <input {...a} {...form.register('emergencyLocation')} className={inputClass} />}
       </Field>
     </form>
+  );
+}
+
+/** Their connected OpenID account (12 §5): the groups it sent, and Disconnect. */
+function ConnectedOidc({ user }: { user: UserDto }) {
+  const qc = useQueryClient();
+  const label = useAuthMethods().data?.oidc?.label ?? 'OpenID';
+  const disconnect = useMutation({
+    mutationFn: () => usersApi.disconnectOidc(user.id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+  const oidc = user.signIn.oidc!;
+  return (
+    <div className="mt-4 flex flex-col gap-1 text-sm">
+      <p>
+        <span className="font-medium">{label}</span>: {oidc.email ?? 'connected'}
+      </p>
+      <p className="text-xs text-zinc-500">
+        Groups at the last sign-in: {oidc.groups.length ? oidc.groups.join(', ') : 'none'}
+      </p>
+      <div>
+        <Button onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
+          Disconnect {label}
+        </Button>
+      </div>
+      {disconnect.error && <Alert>{disconnect.error.message}</Alert>}
+    </div>
   );
 }
 

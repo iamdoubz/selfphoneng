@@ -450,7 +450,7 @@ For every active user with a directory account, one connection per run:
 | Task | What | Done when |
 |---|---|---|
 | S1 | Decision 0004; migration (§2); `auth.mode` (§1.1) with only `password` selectable; break glass; `GET /api/auth/methods`; the `login` field; Users "Signs in with" | `pnpm lint && typecheck && test` pass; sign-in works as before. Done, see §8.1 |
-| S2 | OIDC: settings + Test, start/callback, claims (§3.4), §3.3 (connect, disconnect, email match), `mixed` and `oidc` modes, sign out at the provider, login page and My account, fake provider tests | every §6 OIDC case passes against the fake provider |
+| S2 | OIDC: settings + Test, start/callback, claims (§3.4), §3.3 (connect, disconnect, email match), `mixed` and `oidc` modes, sign out at the provider, login page and My account, fake provider tests | every §6 OIDC case passes against the fake provider. Done, see §8.2 |
 | S3 | OIDC session check (§3.5); Keycloak live test; admin guide page `docs/admin-guide/sign-in.md` with the §3.6 table | the owner connects their Keycloak account, signs in with it or their password, a Keycloak group makes them admin, signing out also signs out of Keycloak, and disabling them in Keycloak ends their Keycloak session here within 20 min |
 | S4 | LDAP: settings + Test, presets, sign-in flow (§4.2), §4.3, unit + lldap live tests | sign-in by uid and email against lldap over LDAPS; admin by group; no user made for a stranger |
 | S5 | `directoryCheck` (§4.5), dashboard warnings; Samba AD check | a user removed from the directory is disabled within an hour; AD nested-group admin works |
@@ -463,6 +463,31 @@ For every active user with a directory account, one connection per run:
 - `signIn` on `UserDto` and `AuthUser`; Users has a **Signs in with** column ("OpenID" until S2
   gives it the provider's label).
 - `apps/api/test/sign-in.test.ts`.
+
+### 8.2 As built: S2
+
+- `sso/oidc.ts` (discovery cached per settings value, client auth, start/finish, end session,
+  Test), `sso/claims.ts` (pure), `routes/oidc.ts` (start, callback, both Disconnect routes).
+- **ID token signatures are checked** (`enableNonRepudiationChecks`): openid-client by default
+  trusts TLS to the token endpoint instead (OIDC Core §3.1.3.7 allows it), and the fake provider's
+  "bad signature" test caught that. Asymmetric algorithms only: a provider signing ID tokens with
+  HS256 (the client secret) is refused. Keycloak, Authentik, Authelia and the others default to
+  RS256 or ES256.
+- `client_secret_basic` form-encodes the id and secret before base64 (RFC 6749 §2.3.1: `-` →
+  `%2D`); providers decode it (Keycloak does). If one doesn't, a secret with symbols fails with
+  `invalid_client`: `// TODO(spec)` fall back to `client_secret_post` then, if it's ever seen.
+- Callback failures count against the IP only (`isLoginBlocked(ip, null)`); one more code,
+  `too_many`.
+- `must_change_password` doesn't block OpenID sessions (guards and the live socket both use
+  `mustChange()`): it's about the password, which they didn't use.
+- `signIn.oidc` carries the `groups` too, shown in the Users drawer to copy into Settings.
+- The callback's own log line has no query; there is no automated check that Fastify's request
+  log skips it (`logLevel: 'silent'`, as the caller-name route).
+- Web: Settings → Sign-in, the login page button and `sso_error` messages, **Admin sign-in** in
+  `oidc` mode, a Sign-in card on My account and My settings (connect, disconnect), the Users
+  drawer's connected account, sign out following `redirect`.
+- `apps/api/test/oidc.test.ts` (every case with RS256 and with ES256), `fake-oidc.ts`.
+- Not yet seen in a browser against a real provider: that's S3 with the owner's Keycloak.
 
 ## 9. Decided
 

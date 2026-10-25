@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { Link, NavLink, Route, Routes, useNavigate } from 'react-router';
 import type { AuthUser } from '@selfphoneng/shared';
-import { authApi, meApi } from '../../api/client.ts';
+import { meApi, signOut } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
 import { Alert, Brand, Button } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
@@ -57,7 +57,7 @@ export function MePage({ user }: { user: AuthUser }) {
           <Button
             variant="ghost"
             onClick={async () => {
-              await authApi.logout().catch(() => undefined);
+              await signOut(); // may leave for the OpenID provider's sign-out page (12 §3.5)
               qc.clear();
               nav('/login', { replace: true });
             }}

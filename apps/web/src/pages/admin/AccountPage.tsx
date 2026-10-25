@@ -1,22 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// My account (admins): password, and two-step sign-in (TOTP, 08 §2.4) with recovery codes.
+// My account (admins): password, OpenID (12 §5), and two-step sign-in (TOTP, 08 §2.4) with recovery codes.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from 'react-router';
 import { authApi } from '../../api/client.ts';
+import { useMe } from '../../auth/RequireAuth.tsx';
+import { SignInCard } from '../../components/SignInCard.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
 export function AccountPage() {
+  const me = useMe();
   return (
     <section className="flex max-w-xl flex-col gap-6">
       <h1 className="text-xl font-semibold">My account</h1>
-      <section className="flex flex-col gap-2">
-        <h2 className="font-medium">Password</h2>
-        <Link className="text-sm text-sky-700 underline dark:text-sky-400" to="/change-password">
-          Change password
-        </Link>
-      </section>
-      <TwoStep />
+      <SignInCard />
+      {/* Two-step sign-in guards the password, so it needs one (12 §1). */}
+      {me.data?.signIn.password && <TwoStep />}
     </section>
   );
 }

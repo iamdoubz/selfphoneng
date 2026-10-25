@@ -4,6 +4,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { and, eq, gt, ne } from 'drizzle-orm';
 import type { FastifyReply } from 'fastify';
 import type { Db } from '../db/client.ts';
+import { encrypt } from '../crypto/secrets.ts';
 import { sessions, users } from '../db/schema.ts';
 
 export const COOKIE = 'sp_session';
@@ -33,6 +34,8 @@ export async function createSession(
   ip: string | null,
   userAgent: string | null,
   method: 'password' | 'ldap' | 'oidc' = 'password',
+  /** OpenID sessions (12 §3.5): kept encrypted for the leaver check and signing out there. */
+  idp?: { refreshToken: string | null; idToken: string },
 ): Promise<string> {
   const token = randomBytes(32).toString('base64url');
   await db.insert(sessions).values({
@@ -42,6 +45,9 @@ export async function createSession(
     ip,
     userAgent: userAgent?.slice(0, 500) ?? null,
     method,
+    idpRefreshEnc: idp?.refreshToken ? encrypt(idp.refreshToken) : null,
+    idpIdTokenEnc: idp ? encrypt(idp.idToken) : null,
+    idpCheckedAt: idp ? new Date() : null,
   });
   return token;
 }
@@ -53,7 +59,7 @@ export async function createSession(
 export async function getSessionUser(db: Db, token: string, slide = true) {
   const id = sha256(token);
   const [row] = await db
-    .select({ expiresAt: sessions.expiresAt, user: users })
+    .select({ expiresAt: sessions.expiresAt, method: sessions.method, user: users })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
     .where(and(eq(sessions.id, id), gt(sessions.expiresAt, new Date()), eq(users.isActive, true)));
@@ -66,8 +72,12 @@ export async function getSessionUser(db: Db, token: string, slide = true) {
       .where(eq(sessions.id, id));
     extended = true;
   }
-  return { user: row.user, sessionId: id, extended };
+  return { user: row.user, sessionId: id, method: row.method, extended };
 }
+
+/** A password to change only blocks sessions made with it (OpenID sessions skip it, 12). */
+export const mustChange = (f: { user: { mustChangePassword: boolean }; method: string }) =>
+  f.user.mustChangePassword && f.method === 'password';
 
 export async function deleteSession(db: Db, token: string) {
   await db.delete(sessions).where(eq(sessions.id, sha256(token)));

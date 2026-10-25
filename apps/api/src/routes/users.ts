@@ -17,10 +17,16 @@ import { hashPassword } from '../auth/passwords.ts';
 import { deleteUserSessions } from '../auth/sessions.ts';
 import { randomAlnum } from '../crypto/secrets.ts';
 import { audit } from '../services/audit.ts';
+import { getSetting } from '../services/settings.ts';
 import { signInWays } from './auth.ts';
 
 type UserRow = typeof users.$inferSelect;
-type IdentityRow = { userId: string; kind: 'oidc' | 'ldap'; email: string | null };
+type IdentityRow = {
+  userId: string;
+  kind: 'oidc' | 'ldap';
+  email: string | null;
+  groups: string[];
+};
 
 export const toUserDto = (
   u: UserRow,
@@ -47,6 +53,7 @@ const identitiesOf = (db: Db, userId?: string): Promise<IdentityRow[]> =>
       userId: userIdentities.userId,
       kind: userIdentities.kind,
       email: userIdentities.email,
+      groups: userIdentities.groups,
     })
     .from(userIdentities)
     .where(userId ? eq(userIdentities.userId, userId) : undefined);
@@ -75,10 +82,10 @@ async function getUser(db: Db, id: string): Promise<UserRow> {
 }
 
 /**
- * Throws if removing `id` from the active admins would leave none with a password: the way in
- * when the identity provider is down (12 §1).
+ * Removing `id` from the active admins would leave none with a password: the way in when the
+ * identity provider is down (12 §1).
  */
-async function assertNotLastAdmin(db: Db, id: string) {
+export async function isLastAdmin(db: Db, id: string): Promise<boolean> {
   const [r] = await db
     .select({ n: count() })
     .from(users)
@@ -90,7 +97,11 @@ async function assertNotLastAdmin(db: Db, id: string) {
         ne(users.id, id),
       ),
     );
-  if (!r || r.n === 0) throw conflict('This is the last active admin with a password');
+  return !r || r.n === 0;
+}
+
+async function assertNotLastAdmin(db: Db, id: string) {
+  if (await isLastAdmin(db, id)) throw conflict('This is the last active admin with a password');
 }
 
 export async function userRoutes(app: FastifyInstance) {
@@ -124,12 +135,17 @@ export async function userRoutes(app: FastifyInstance) {
 
   app.post('/api/users', async (req, reply) => {
     const body = UserCreateSchema.parse(req.body);
-    const password = temporaryPassword();
+    // OpenID only (12 §3.3): no password; their first sign-in matches them by verified email.
+    const password = (await getSetting(db, 'auth.mode')) === 'oidc' ? null : temporaryPassword();
     let created: UserRow;
     try {
       [created] = (await db
         .insert(users)
-        .values({ ...body, passwordHash: await hashPassword(password), mustChangePassword: true })
+        .values({
+          ...body,
+          passwordHash: password && (await hashPassword(password)),
+          mustChangePassword: password !== null,
+        })
         .returning()) as [UserRow];
     } catch (e) {
       if (isUniqueViolation(e)) throw conflict('A user with this email already exists');

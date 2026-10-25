@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from '@fastify/websocket';
 import { eq } from 'drizzle-orm';
 import type { ExtensionLive, LiveMessage } from '@selfphoneng/shared';
-import { COOKIE, getSessionUser } from '../auth/sessions.ts';
+import { COOKIE, getSessionUser, mustChange } from '../auth/sessions.ts';
 import { extensions } from '../db/schema.ts';
 import type { LiveState } from './state.ts';
 
@@ -103,7 +103,7 @@ export async function liveRoutes(app: FastifyInstance) {
     for (const c of clients)
       void getSessionUser(app.db, c.token, false)
         .then((f) => {
-          if (!f || f.user.mustChangePassword || (f.user.role === 'admin') !== c.admin)
+          if (!f || mustChange(f) || (f.user.role === 'admin') !== c.admin)
             c.ws.close(4401, 'unauthorized');
         })
         .catch(() => {}); // database down: keep the socket, check again next time
@@ -123,7 +123,7 @@ export async function liveRoutes(app: FastifyInstance) {
     const token = req.cookies[COOKIE];
     const found = token ? await getSessionUser(app.db, token) : null;
     // Browsers can't read an HTTP 401 on an upgrade, so open and close with 4401 (04 §5.2).
-    if (!found || found.user.mustChangePassword) return ws.close(4401, 'unauthorized');
+    if (!found || mustChange(found)) return ws.close(4401, 'unauthorized');
     const mine = await app.db
       .select({ n: extensions.number })
       .from(extensions)

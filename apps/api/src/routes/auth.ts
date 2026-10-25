@@ -24,7 +24,8 @@ import {
   otpauthUrl,
 } from '../auth/totp.ts';
 import type { Db } from '../db/client.ts';
-import { extensions, userIdentities, users } from '../db/schema.ts';
+import { extensions, sessions, userIdentities, users } from '../db/schema.ts';
+import { endSessionUrl, oidcError } from '../sso/oidc.ts';
 import { getSetting } from '../services/settings.ts';
 import {
   unauthorized,
@@ -55,12 +56,12 @@ import {
 /** 12 §2: the user's password and connected accounts, from their user_identities rows. */
 export const signInWays = (
   u: { passwordHash: string | null },
-  ids: { kind: 'oidc' | 'ldap'; email: string | null }[],
+  ids: { kind: 'oidc' | 'ldap'; email: string | null; groups: string[] }[],
 ): SignInWays => {
   const oidc = ids.find((i) => i.kind === 'oidc');
   return {
     password: u.passwordHash !== null,
-    oidc: oidc ? { email: oidc.email } : null,
+    oidc: oidc ? { email: oidc.email, groups: oidc.groups } : null,
     ldap: ids.some((i) => i.kind === 'ldap'),
   };
 };
@@ -71,7 +72,11 @@ export async function toAuthUser(db: Db, u: CurrentUser): Promise<AuthUser> {
     .from(extensions)
     .where(eq(extensions.userId, u.id));
   const ids = await db
-    .select({ kind: userIdentities.kind, email: userIdentities.email })
+    .select({
+      kind: userIdentities.kind,
+      email: userIdentities.email,
+      groups: userIdentities.groups,
+    })
     .from(userIdentities)
     .where(eq(userIdentities.userId, u.id));
   return {
@@ -203,11 +208,15 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   /** The login page's choices (12 §2). Public: says nothing about any user. */
-  app.get('/api/auth/methods', async (): Promise<AuthMethods> => ({
-    mode: await getSetting(db, 'auth.mode'),
-    ldap: false, // S4
-    oidc: null, // S2
-  }));
+  app.get('/api/auth/methods', async (): Promise<AuthMethods> => {
+    const mode = await getSetting(db, 'auth.mode');
+    const oidc = await getSetting(db, 'auth.oidc');
+    return {
+      mode,
+      ldap: false, // S4
+      oidc: oidc && mode !== 'password' ? { label: oidc.label } : null,
+    };
+  });
 
   app.post('/api/auth/login', async (req, reply) => {
     const { login, ...body } = LoginSchema.parse(req.body);
@@ -267,8 +276,24 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/auth/logout', { preHandler: requireAuth }, async (req, reply) => {
+    const [sess] = req.sessionId
+      ? await db.select().from(sessions).where(eq(sessions.id, req.sessionId))
+      : [];
     await deleteSession(db, req.cookies[COOKIE]!);
     clearSessionCookie(reply);
+    // Signed in with OpenID: sign out there too (12 §3.5). A provider problem doesn't stop ours.
+    let redirect: string | null = null;
+    const oidc = sess?.idpIdTokenEnc ? await getSetting(db, 'auth.oidc') : null;
+    if (oidc)
+      try {
+        redirect = await endSessionUrl(
+          oidc,
+          app.config.PUBLIC_HOSTNAME,
+          decrypt(sess!.idpIdTokenEnc!),
+        );
+      } catch (err) {
+        req.log.warn({ event: 'auth.oidc', err: oidcError(err) }, 'no sign-out at the provider');
+      }
     await audit(db, {
       actorUserId: req.user!.id,
       actorIp: req.ip,
@@ -277,7 +302,7 @@ export async function authRoutes(app: FastifyInstance) {
       entityId: req.user!.id,
       summary: `${req.user!.email} logged out`,
     });
-    return { ok: true };
+    return redirect ? { ok: true, redirect } : { ok: true };
   });
 
   app.get('/api/auth/me', { preHandler: requireAuth }, async (req) => ({

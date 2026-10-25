@@ -7,10 +7,14 @@ import {
   AiEndpointSchema,
   AiTtsEndpointSchema,
   ContrackInputSchema,
+  OidcInputSchema,
   SettingsSchemas,
   SmtpInputSchema,
   type AiTestResult,
+  type AuthMode,
   type Destination,
+  type OidcInput,
+  type OidcTestResult,
   type SettingKey,
   type SettingsDto,
   type Warning,
@@ -30,6 +34,7 @@ import { detectPublicIp } from '../jobs.ts';
 import type { SendMail } from '../services/mail.ts';
 import { AiError, assertLocalUrl, testEndpoint } from '../ai/client.ts';
 import { forgetBook } from '../contacts/contrack.ts';
+import { assertIssuer, oidcConfig, oidcError, testOidc, type OidcSettings } from '../sso/oidc.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -47,9 +52,20 @@ const READ_ONLY = new Set<string>([
 ]);
 
 async function toDto(db: Db): Promise<SettingsDto> {
-  const { smtp, 'contacts.contrack': ctk, ...rest } = await getAllSettings(db);
+  const { smtp, 'contacts.contrack': ctk, 'auth.oidc': oidc, ...rest } = await getAllSettings(db);
   return {
     ...rest,
+    'auth.oidc': oidc && {
+      label: oidc.label,
+      issuer: oidc.issuer,
+      clientId: oidc.clientId,
+      scopes: oidc.scopes,
+      groupsClaim: oidc.groupsClaim,
+      adminGroups: oidc.adminGroups,
+      allowedGroups: oidc.allowedGroups,
+      trustEmail: oidc.trustEmail,
+      hasClientSecret: oidc.clientSecretEnc !== null,
+    },
     'contacts.contrack': ctk && {
       url: ctk.url,
       publicUrl: ctk.publicUrl,
@@ -100,6 +116,32 @@ async function checkRefs(db: Db, v: Record<string, unknown>) {
 
 export async function settingsRoutes(app: FastifyInstance) {
   const { db } = app;
+
+  /** The stored form of `auth.oidc`: the secret is write-only (empty keeps the stored one). */
+  async function oidcFromInput(input: OidcInput | null): Promise<OidcSettings | null> {
+    if (!input) return null;
+    try {
+      assertIssuer(input.issuer);
+    } catch (err) {
+      throw badRequest((err as Error).message);
+    }
+    const old = await getSetting(db, 'auth.oidc');
+    return {
+      label: input.label,
+      issuer: input.issuer,
+      clientId: input.clientId,
+      clientSecretEnc: input.clientSecret
+        ? encrypt(input.clientSecret)
+        : input.clearClientSecret
+          ? null
+          : (old?.clientSecretEnc ?? null),
+      scopes: input.scopes,
+      groupsClaim: input.groupsClaim,
+      adminGroups: input.adminGroups,
+      allowedGroups: input.allowedGroups,
+      trustEmail: input.trustEmail,
+    };
+  }
   app.addHook('preHandler', requireAdmin);
 
   app.get('/api/settings', () => toDto(db));
@@ -142,13 +184,11 @@ export async function settingsRoutes(app: FastifyInstance) {
               : (old?.companyTokenEnc ?? ''),
         };
         forgetBook(null);
+      } else if (key === 'auth.oidc') {
+        values[key] = await oidcFromInput(raw === null ? null : OidcInputSchema.parse(raw));
       } else values[key] = SettingsSchemas[key as SettingKey].parse(raw);
     }
     await checkRefs(db, values);
-    // 12 §1.1: mixed and oidc need OpenID Connect set up first.
-    // S2 makes this "auth.oidc set and its Test passed".
-    if (values['auth.mode'] !== undefined && values['auth.mode'] !== 'password')
-      throw badRequest('Set up OpenID Connect first');
     for (const key of ['ai.llm', 'ai.stt', 'ai.tts'] as const) {
       const ep = values[key] as { url: string } | null | undefined;
       try {
@@ -159,6 +199,21 @@ export async function settingsRoutes(app: FastifyInstance) {
       }
     }
     const before = await getAllSettings(db);
+    // 12 §1.1: mixed and oidc need a working OpenID Connect setup.
+    if ('auth.mode' in values || 'auth.oidc' in values) {
+      const mode = (values['auth.mode'] ?? before['auth.mode']) as AuthMode;
+      const oidc = (
+        'auth.oidc' in values ? values['auth.oidc'] : before['auth.oidc']
+      ) as OidcSettings | null;
+      if (mode !== 'password') {
+        if (!oidc) throw badRequest('Set up OpenID Connect first');
+        try {
+          await oidcConfig(oidc);
+        } catch (err) {
+          throw badRequest(`OpenID Connect doesn't work: ${oidcError(err)}`);
+        }
+      }
+    }
     // SIP ports may not land on another listener (Asterisk would fail to start the transport).
     const c = app.config;
     const [sip, tls] = [
@@ -234,6 +289,12 @@ export async function settingsRoutes(app: FastifyInstance) {
       diff: { after: notified },
     });
     return { notified };
+  });
+
+  /** Settings → Sign-in → Test, from the unsaved form (12 §3.1). */
+  app.post('/api/settings/auth/oidc/test', async (req): Promise<OidcTestResult> => {
+    const s = await oidcFromInput(OidcInputSchema.parse(req.body));
+    return testOidc(s!, app.config.PUBLIC_HOSTNAME);
   });
 
   /** The server's public IPv4, as an outside service sees it (only sent when asked). */

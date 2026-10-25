@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Typed fetch wrappers (05 §1). Every request sends X-Requested-With (CSRF, 04 §2.2).
 import type {
+  AuthMethods,
+  OidcInput,
+  OidcTestResult,
   AboutDto,
   SystemEventDto,
   SystemStatus,
@@ -163,20 +166,25 @@ export const authApi = {
     api<{ ok: true }>('POST', '/api/auth/totp/disable', { password }),
   totpNewCodes: (password: string) =>
     api<{ recoveryCodes: string[] }>('POST', '/api/auth/totp/recovery-codes', { password }),
-  logout: () => api<{ ok: true }>('POST', '/api/auth/logout'),
+  logout: () => api<{ ok: true; redirect?: string }>('POST', '/api/auth/logout'),
+  methods: () => api<AuthMethods>('GET', '/api/auth/methods'),
+  /** 12 §3.3: disconnect my OpenID account. */
+  disconnectOidc: () => api<{ ok: true }>('DELETE', '/api/me/identities/oidc'),
   changePassword: (currentPassword: string, newPassword: string) =>
     api<{ ok: true }>('POST', '/api/auth/change-password', { currentPassword, newPassword }),
 };
 
 export const usersApi = {
   list: () => api<ListResponse<UserDto>>('GET', '/api/users').then((r) => r.items),
+  /** temporaryPassword is null in OpenID-only mode (12 §3.3). */
   create: (u: UserCreate) =>
-    api<{ user: UserDto; temporaryPassword: string }>('POST', '/api/users', u),
+    api<{ user: UserDto; temporaryPassword: string | null }>('POST', '/api/users', u),
   update: (id: string, u: UserUpdate) => api<UserDto>('PATCH', `/api/users/${id}`, u),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/users/${id}`),
   resetPassword: (id: string) =>
     api<{ temporaryPassword: string }>('POST', `/api/users/${id}/reset-password`),
   resetTwoStep: (id: string) => api<{ ok: true }>('POST', `/api/users/${id}/reset-two-step`, {}),
+  disconnectOidc: (id: string) => api<{ ok: true }>('DELETE', `/api/users/${id}/identities/oidc`),
 };
 
 export const extensionsApi = {
@@ -237,7 +245,14 @@ export const settingsApi = {
       '/api/settings/emergency/test',
     ),
   warnings: () => api<{ items: Warning[] }>('GET', '/api/system/warnings').then((r) => r.items),
+  testOidc: (v: OidcInput) => api<OidcTestResult>('POST', '/api/settings/auth/oidc/test', v),
 };
+
+/** Sign out, and when the session came from OpenID, at the provider too (12 §3.5). */
+export async function signOut(): Promise<void> {
+  const r = await authApi.logout().catch(() => null);
+  if (r?.redirect) window.location.assign(r.redirect);
+}
 
 export const aboutApi = { get: () => api<AboutDto>('GET', '/api/about') };
 

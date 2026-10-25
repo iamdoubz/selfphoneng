@@ -536,7 +536,7 @@ function UsersStep({ next }: { next: () => void }) {
           name: r.name,
           email: r.email,
           number: number ?? '–',
-          password: temporaryPassword,
+          password: temporaryPassword ?? '(signs in with OpenID)',
         });
         setCreated([...out]);
       }

@@ -118,6 +118,21 @@ export const SettingsSchemas = {
     .default(null),
   /** Sign-in (12 §1.1): passwords only, OpenID only (admins keep passwords), or both. */
   'auth.mode': z.enum(['password', 'mixed', 'oidc']).default('password'),
+  /** OpenID Connect (12 §3.1). The client secret is encrypted; null = a public client. */
+  'auth.oidc': z
+    .object({
+      label: z.string(),
+      issuer: z.string(),
+      clientId: z.string(),
+      clientSecretEnc: z.string().nullable(),
+      scopes: z.string(),
+      groupsClaim: z.string(),
+      adminGroups: z.array(z.string()),
+      allowedGroups: z.array(z.string()),
+      trustEmail: z.boolean(),
+    })
+    .nullable()
+    .default(null),
   // Not in 02 §3's table but used by the generator (03 §3).
   'system.transportHash': z.string().nullable().default(null),
 };
@@ -150,12 +165,56 @@ export const ContrackInputSchema = z.object({
 });
 export type ContrackInput = z.input<typeof ContrackInputSchema>;
 
+const groupList = z
+  .array(z.string().trim().min(1).max(200))
+  .max(50)
+  .transform((l) => [...new Set(l)]);
+
+/** PATCH /api/settings `auth.oidc` and its Test: the client secret is write-only (empty keeps it). */
+export const OidcInputSchema = z.object({
+  label: z.string().trim().min(1, 'Required').max(40),
+  // Exactly as the provider writes it: the issuer is compared character for character
+  // (Authentik's ends in "/").
+  issuer: z.url({ protocol: /^https?$/ }).trim(),
+  clientId: z.string().trim().min(1, 'Required').max(200),
+  clientSecret: z.string().max(500).optional(),
+  clearClientSecret: z.boolean().optional(),
+  scopes: z
+    .string()
+    .trim()
+    .max(500)
+    .refine((s) => s.split(/\s+/).includes('openid'), 'Must include openid'),
+  groupsClaim: z.string().trim().min(1).max(200),
+  adminGroups: groupList,
+  allowedGroups: groupList,
+  trustEmail: z.boolean(),
+});
+export type OidcInput = z.input<typeof OidcInputSchema>;
+
+/** POST /api/settings/auth/oidc/test. */
+export type OidcTestResult =
+  | {
+      ok: true;
+      issuer: string;
+      algorithms: string[];
+      pkce: boolean;
+      refreshTokens: boolean;
+      endSession: boolean;
+      redirectUri: string;
+      postLogoutRedirectUri: string;
+    }
+  | { ok: false; error: string };
+
 /** GET /api/settings: every key, secrets replaced by hasPassword / hasCompanyToken. */
 export type SettingsDto = {
-  [K in Exclude<SettingKey, 'smtp' | 'sms.webhookToken' | 'contacts.contrack'>]: SettingValue<K>;
+  [
+    K in Exclude<SettingKey, 'smtp' | 'sms.webhookToken' | 'contacts.contrack' | 'auth.oidc'>
+  ]: SettingValue<K>;
 } & {
   smtp: (Omit<SmtpInput, 'password'> & { hasPassword: boolean }) | null;
   'contacts.contrack': { url: string; publicUrl: string | null; hasCompanyToken: boolean } | null;
+  'auth.oidc':
+    (Omit<OidcInput, 'clientSecret' | 'clearClientSecret'> & { hasClientSecret: boolean }) | null;
 };
 
 /** POST /api/ai/test: one endpoint tried with a tiny request. `audio`: the TTS test, a data: URL. */

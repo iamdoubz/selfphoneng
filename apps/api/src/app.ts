@@ -14,6 +14,7 @@ import { settingsRoutes } from './routes/settings.ts';
 import { errorHandler, forbidden, notFound, sendError } from './errors.ts';
 import { authRoutes } from './routes/auth.ts';
 import { userRoutes } from './routes/users.ts';
+import { oidcRoutes } from './routes/oidc.ts';
 import { systemRoutes } from './routes/system.ts';
 import { extensionRoutes } from './routes/extensions.ts';
 import { trunkRoutes } from './routes/trunks.ts';
@@ -139,6 +140,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
 
   app.register(authRoutes);
   app.register(userRoutes);
+  app.register(oidcRoutes);
   app.register(systemRoutes);
   app.register(extensionRoutes);
   app.register(trunkRoutes);

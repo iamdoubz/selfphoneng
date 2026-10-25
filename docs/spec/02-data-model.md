@@ -629,6 +629,7 @@ with a zod schema per key and a default. Missing rows return the default.
 | `webhooks.allowPrivate` | boolean | false | allow webhook URLs on private/loopback IPs |
 | `setup.completed` | boolean | false | first-run wizard done |
 | `auth.mode` | `'password'\|'mixed'\|'oidc'` | `'password'` | sign-in ways offered (12 §1.1) |
+| `auth.oidc` | object \| null | null | the OpenID Connect provider, client secret encrypted (12 §3.1) |
 | `sms.webhookToken` | string | random 32 chars, made on first read | secret part of the voip.ms SMS callback URL |
 | `sip.restrictPhonesToLocalNets` | boolean | false | only accept phone registrations from `network.localNets` (+ `sip.extraAllowedNets`) |
 | `sip.extraAllowedNets` | string[] | `[]` | e.g. a VPN subnet |
