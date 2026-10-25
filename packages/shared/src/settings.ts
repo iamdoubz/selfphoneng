@@ -116,6 +116,8 @@ export const SettingsSchemas = {
     })
     .nullable()
     .default(null),
+  /** Sign-in (12 §1.1): passwords only, OpenID only (admins keep passwords), or both. */
+  'auth.mode': z.enum(['password', 'mixed', 'oidc']).default('password'),
   // Not in 02 §3's table but used by the generator (03 §3).
   'system.transportHash': z.string().nullable().default(null),
 };

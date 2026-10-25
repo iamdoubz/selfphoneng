@@ -69,7 +69,7 @@ create table users (
   id               uuid primary key default gen_random_uuid(),
   email            citext not null unique,
   display_name     text not null,
-  password_hash    text not null,                 -- argon2id
+  password_hash    text,                          -- argon2id; null: OpenID only (12 §3.3)
   role             user_role not null default 'user',
   is_active        boolean not null default true,
   totp_secret_enc  text,                          -- null = 2FA off (M11)
@@ -88,9 +88,29 @@ create table sessions (
   user_id      uuid not null references users(id) on delete cascade,
   expires_at   timestamptz not null,
   ip           inet,
-  user_agent   text
+  user_agent   text,
+  method       text not null default 'password'   -- password | ldap | oidc (12 §2)
+               check (method in ('password', 'ldap', 'oidc')),
+  idp_refresh_enc  text,                          -- oidc: refresh token, encrypted (12 §3.5)
+  idp_id_token_enc text,                          -- oidc: ID token, encrypted, to sign out there
+  idp_checked_at   timestamptz
 );
 create index on sessions (user_id);
+
+-- One more way to sign in to a user (12 §2): a connected OpenID account or directory entry.
+create type identity_kind as enum ('oidc', 'ldap');
+create table user_identities (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references users(id) on delete cascade,
+  kind         identity_kind not null,
+  subject      text not null,                     -- oidc: "<iss> <sub>"; ldap: the UUID attribute
+  email        text,                              -- as the provider last said
+  groups       text[] not null default '{}',      -- oidc: groupsClaim values at the last sign-in
+  created_at   timestamptz not null default now(),
+  last_used_at timestamptz,
+  unique (kind, subject),
+  unique (user_id, kind)
+);
 
 create table api_tokens (
   id            uuid primary key default gen_random_uuid(),
@@ -608,6 +628,7 @@ with a zod schema per key and a default. Missing rows return the default.
 | `backup.includeRecordings` | boolean | false | |
 | `webhooks.allowPrivate` | boolean | false | allow webhook URLs on private/loopback IPs |
 | `setup.completed` | boolean | false | first-run wizard done |
+| `auth.mode` | `'password'\|'mixed'\|'oidc'` | `'password'` | sign-in ways offered (12 §1.1) |
 | `sms.webhookToken` | string | random 32 chars, made on first read | secret part of the voip.ms SMS callback URL |
 | `sip.restrictPhonesToLocalNets` | boolean | false | only accept phone registrations from `network.localNets` (+ `sip.extraAllowedNets`) |
 | `sip.extraAllowedNets` | string[] | `[]` | e.g. a VPN subnet |

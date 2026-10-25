@@ -19,6 +19,7 @@ import {
   smallint,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -53,7 +54,8 @@ export const users = pgTable('users', {
   id: id(),
   email: citext().notNull().unique(),
   displayName: text().notNull(),
-  passwordHash: text().notNull(),
+  /** argon2id; null: no password, signs in with OpenID only (12 §3.3). */
+  passwordHash: text(),
   role: userRole().notNull().default('user'),
   isActive: boolean().notNull().default(true),
   totpSecretEnc: text(),
@@ -83,9 +85,40 @@ export const sessions = pgTable(
     expiresAt: tstz().notNull(),
     ip: inet(),
     userAgent: text(),
+    /** How it was made (12 §2): password, ldap or oidc. */
+    method: text().notNull().default('password'),
+    /** OpenID sessions (12 §3.5): refresh token for the leaver check, ID token for signing out. */
+    idpRefreshEnc: text(),
+    idpIdTokenEnc: text(),
+    idpCheckedAt: tstz(),
     ...timestamps,
   },
-  (t) => [index().on(t.userId)],
+  (t) => [
+    index().on(t.userId),
+    check('sessions_method_check', sql`${t.method} in ('password', 'ldap', 'oidc')`),
+  ],
+);
+
+// One more way to sign in to a user (12 §2): a connected OpenID account or directory entry.
+export const identityKind = pgEnum('identity_kind', ['oidc', 'ldap']);
+export const userIdentities = pgTable(
+  'user_identities',
+  {
+    id: id(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    kind: identityKind().notNull(),
+    /** oidc: "<iss> <sub>"; ldap: the entry's UUID attribute. */
+    subject: text().notNull(),
+    /** As the provider last said. */
+    email: text(),
+    /** oidc: groupsClaim values at the last sign-in (12 §3.4). */
+    groups: emptyTextArray(),
+    createdAt: createdAt(),
+    lastUsedAt: tstz(),
+  },
+  (t) => [unique().on(t.kind, t.subject), unique().on(t.userId, t.kind)],
 );
 
 export const apiTokens = pgTable('api_tokens', {

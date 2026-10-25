@@ -151,6 +151,11 @@ function UsersTable({
       )}
     </span>
   );
+  // 12 §5: every way this user can sign in.
+  const ways = (u: UserDto) =>
+    [u.signIn.password && 'Password', u.signIn.oidc && 'OpenID', u.signIn.ldap && 'Directory']
+      .filter(Boolean)
+      .join(', ') || '–';
   const actions = (u: UserDto) => (
     <span className="flex gap-1">
       <Button variant="ghost" onClick={() => onEdit(u)} aria-label={`Edit ${u.displayName}`}>
@@ -178,7 +183,9 @@ function UsersTable({
               {badge(u)}
             </div>
             <div className="mt-2 flex items-center justify-between text-xs text-zinc-500">
-              <span>Last login: {fmtDate(u.lastLoginAt)}</span>
+              <span>
+                Last login: {fmtDate(u.lastLoginAt)} · {ways(u)}
+              </span>
               {actions(u)}
             </div>
           </li>
@@ -191,6 +198,7 @@ function UsersTable({
             <th className="py-2 font-medium">Name</th>
             <th className="py-2 font-medium">Email</th>
             <th className="py-2 font-medium">Role</th>
+            <th className="py-2 font-medium">Signs in with</th>
             <th className="py-2 font-medium">Last login</th>
             <th className="py-2 font-medium">
               <span className="sr-only">Actions</span>
@@ -204,6 +212,7 @@ function UsersTable({
               <td className="py-2 font-medium">{u.displayName}</td>
               <td className="py-2">{u.email}</td>
               <td className="py-2">{badge(u)}</td>
+              <td className="py-2">{ways(u)}</td>
               <td className="py-2 text-zinc-500">{fmtDate(u.lastLoginAt)}</td>
               <td className="py-2 text-right">{actions(u)}</td>
             </tr>

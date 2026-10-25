@@ -8,7 +8,9 @@ import {
   PasswordConfirmSchema,
   TotpEnableSchema,
   APP_NAME,
+  type AuthMethods,
   type AuthUser,
+  type SignInWays,
   type TotpSetup,
   type TotpStatus,
 } from '@selfphoneng/shared';
@@ -22,7 +24,8 @@ import {
   otpauthUrl,
 } from '../auth/totp.ts';
 import type { Db } from '../db/client.ts';
-import { extensions, users } from '../db/schema.ts';
+import { extensions, userIdentities, users } from '../db/schema.ts';
+import { getSetting } from '../services/settings.ts';
 import {
   unauthorized,
   rateLimited,
@@ -49,11 +52,28 @@ import {
   setSessionCookie,
 } from '../auth/sessions.ts';
 
+/** 12 §2: the user's password and connected accounts, from their user_identities rows. */
+export const signInWays = (
+  u: { passwordHash: string | null },
+  ids: { kind: 'oidc' | 'ldap'; email: string | null }[],
+): SignInWays => {
+  const oidc = ids.find((i) => i.kind === 'oidc');
+  return {
+    password: u.passwordHash !== null,
+    oidc: oidc ? { email: oidc.email } : null,
+    ldap: ids.some((i) => i.kind === 'ldap'),
+  };
+};
+
 export async function toAuthUser(db: Db, u: CurrentUser): Promise<AuthUser> {
   const [ext] = await db
     .select({ id: extensions.id, number: extensions.number, name: extensions.name })
     .from(extensions)
     .where(eq(extensions.userId, u.id));
+  const ids = await db
+    .select({ kind: userIdentities.kind, email: userIdentities.email })
+    .from(userIdentities)
+    .where(eq(userIdentities.userId, u.id));
   return {
     id: u.id,
     email: u.email,
@@ -61,6 +81,7 @@ export async function toAuthUser(db: Db, u: CurrentUser): Promise<AuthUser> {
     role: u.role,
     mustChangePassword: u.mustChangePassword,
     extension: ext ?? null,
+    signIn: signInWays(u, ids),
   };
 }
 
@@ -118,7 +139,8 @@ export async function authRoutes(app: FastifyInstance) {
     const u = await myRow(req.user!.id);
     if (u.totpSecretEnc) throw conflict('Two-step sign-in is already on');
     // Like turning it off: a stolen session alone can't lock the owner out with its own secret.
-    if (!(await verifyPassword(u.passwordHash, password))) throw badRequest('Wrong password');
+    if (!u.passwordHash || !(await verifyPassword(u.passwordHash, password)))
+      throw badRequest('Wrong password');
     const step = checkTotp(secret, code, null);
     if (step === null)
       throw badRequest('That code doesn’t match. Check the phone’s clock and try again.');
@@ -142,7 +164,8 @@ export async function authRoutes(app: FastifyInstance) {
   async function confirmPassword(id: string, body: unknown) {
     const { password } = PasswordConfirmSchema.parse(body);
     const u = await myRow(id);
-    if (!(await verifyPassword(u.passwordHash, password))) throw badRequest('Wrong password');
+    if (!u.passwordHash || !(await verifyPassword(u.passwordHash, password)))
+      throw badRequest('Wrong password');
     return u;
   }
 
@@ -179,15 +202,24 @@ export async function authRoutes(app: FastifyInstance) {
     return { recoveryCodes: codes };
   });
 
+  /** The login page's choices (12 §2). Public: says nothing about any user. */
+  app.get('/api/auth/methods', async (): Promise<AuthMethods> => ({
+    mode: await getSetting(db, 'auth.mode'),
+    ldap: false, // S4
+    oidc: null, // S2
+  }));
+
   app.post('/api/auth/login', async (req, reply) => {
-    const body = LoginSchema.parse(req.body);
-    if (isLoginBlocked(req.ip, body.email)) throw rateLimited();
-    const [user] = await db.select().from(users).where(eq(users.email, body.email));
-    const ok = user?.isActive
-      ? await verifyPassword(user.passwordHash, body.password)
-      : (await burnVerify(body.password), false);
+    const { login, ...body } = LoginSchema.parse(req.body);
+    if (isLoginBlocked(req.ip, login)) throw rateLimited();
+    const [user] = await db.select().from(users).where(eq(users.email, login));
+    // No password (OpenID only, 12 §3.3) fails like a wrong one, after the same work.
+    const ok =
+      user?.isActive && user.passwordHash
+        ? await verifyPassword(user.passwordHash, body.password)
+        : (await burnVerify(body.password), false);
     if (!user || !ok) {
-      recordLoginFailure(req.ip, body.email);
+      recordLoginFailure(req.ip, login);
       req.log.warn({ event: 'auth.failed', ip: req.ip }, 'login failed');
       await audit(db, {
         actorUserId: user?.id,
@@ -195,16 +227,19 @@ export async function authRoutes(app: FastifyInstance) {
         action: 'login_failed',
         entityType: 'user',
         entityId: user?.id,
-        summary: `Failed login for ${body.email}`,
+        summary: `Failed login for ${login}`,
       });
       throw unauthorized('Wrong email or password');
     }
+    // OpenID only (12 §1.1): passwords are for admins, the way in when the provider is down.
+    if (user.role !== 'admin' && (await getSetting(db, 'auth.mode')) === 'oidc')
+      throw forbidden('Use the sign-in button instead', 'password_sign_in_off');
     // Two-step sign-in (08 §2.4): the password was right; now the code.
     if (user.totpSecretEnc) {
       if (!body.totp)
         throw new HttpError(401, 'totp_required', 'Enter the code from your authenticator app');
       if (!(await useSecondFactor(user, body.totp))) {
-        recordLoginFailure(req.ip, body.email);
+        recordLoginFailure(req.ip, login);
         req.log.warn({ event: 'auth.failed', ip: req.ip }, 'login failed: code');
         await audit(db, {
           actorUserId: user.id,
@@ -212,7 +247,7 @@ export async function authRoutes(app: FastifyInstance) {
           action: 'login_failed',
           entityType: 'user',
           entityId: user.id,
-          summary: `Failed login for ${body.email} (wrong authenticator or recovery code)`,
+          summary: `Failed login for ${login} (wrong authenticator or recovery code)`,
         });
         throw new HttpError(401, 'totp_invalid', 'That code is wrong or was used already');
       }
@@ -252,6 +287,8 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/change-password', { preHandler: requireAuth }, async (req) => {
     const body = ChangePasswordSchema.parse(req.body);
     const user = req.user!;
+    if (!user.passwordHash)
+      throw badRequest('You have no password here. Ask an admin to reset it to get one.');
     if (!(await verifyPassword(user.passwordHash, body.currentPassword)))
       throw badRequest('Current password is wrong');
     if (body.newPassword === body.currentPassword)

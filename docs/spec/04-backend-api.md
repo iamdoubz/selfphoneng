@@ -36,6 +36,11 @@
 - Login rate limit: 5 failures per IP per 15 min and 10 per email per hour → HTTP 429.
   Write `login_failed` to the audit log with the IP.
 - If `must_change_password`, every route except `/api/auth/*` returns 403 `{code:'password_change_required'}`.
+- Single sign-on (spec 12, as built in S1): the body is `{login, password, totp?}` (`login`: email, or a
+  directory username from S4; `email` is still accepted). A user without a password fails like a wrong
+  one. `auth.mode = 'oidc'` refuses passwords for non-admins (403 `password_sign_in_off`).
+  `GET /api/auth/methods` (public) → `{mode, ldap, oidc}` for the login page. The last active admin
+  **with a password** can't be deleted, disabled or demoted.
 
 ### 2.3 API tokens (integrations)
 - Header `Authorization: Bearer sp_<40 random base62 chars>`. Stored as sha256.

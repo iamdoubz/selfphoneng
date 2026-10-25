@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // /api/users (04 §7.3). Admin only.
-import { and, asc, count, eq, ne } from 'drizzle-orm';
+import { and, asc, count, eq, isNotNull, ne } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
@@ -10,17 +10,23 @@ import {
   type UserDto,
 } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
-import { extensions, users } from '../db/schema.ts';
+import { extensions, userIdentities, users } from '../db/schema.ts';
 import { badRequest, conflict, notFound } from '../errors.ts';
 import { requireAdmin } from '../auth/guards.ts';
 import { hashPassword } from '../auth/passwords.ts';
 import { deleteUserSessions } from '../auth/sessions.ts';
 import { randomAlnum } from '../crypto/secrets.ts';
 import { audit } from '../services/audit.ts';
+import { signInWays } from './auth.ts';
 
 type UserRow = typeof users.$inferSelect;
+type IdentityRow = { userId: string; kind: 'oidc' | 'ldap'; email: string | null };
 
-export const toUserDto = (u: UserRow, extension: UserDto['extension'] = null): UserDto => ({
+export const toUserDto = (
+  u: UserRow,
+  extension: UserDto['extension'] = null,
+  ids: IdentityRow[] = [],
+): UserDto => ({
   id: u.id,
   email: u.email,
   displayName: u.displayName,
@@ -31,7 +37,19 @@ export const toUserDto = (u: UserRow, extension: UserDto['extension'] = null): U
   lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
   createdAt: u.createdAt.toISOString(),
   extension,
+  signIn: signInWays(u, ids),
 });
+
+/** Connected accounts (12 §2), for one user or all of them. */
+const identitiesOf = (db: Db, userId?: string): Promise<IdentityRow[]> =>
+  db
+    .select({
+      userId: userIdentities.userId,
+      kind: userIdentities.kind,
+      email: userIdentities.email,
+    })
+    .from(userIdentities)
+    .where(userId ? eq(userIdentities.userId, userId) : undefined);
 
 const extOf = async (db: Db, userId: string) => {
   const [e] = await db
@@ -56,13 +74,23 @@ async function getUser(db: Db, id: string): Promise<UserRow> {
   return u;
 }
 
-/** Throws if removing `id` from the active admins would leave none. */
+/**
+ * Throws if removing `id` from the active admins would leave none with a password: the way in
+ * when the identity provider is down (12 §1).
+ */
 async function assertNotLastAdmin(db: Db, id: string) {
   const [r] = await db
     .select({ n: count() })
     .from(users)
-    .where(and(eq(users.role, 'admin'), eq(users.isActive, true), ne(users.id, id)));
-  if (!r || r.n === 0) throw conflict('This is the last active admin');
+    .where(
+      and(
+        eq(users.role, 'admin'),
+        eq(users.isActive, true),
+        isNotNull(users.passwordHash),
+        ne(users.id, id),
+      ),
+    );
+  if (!r || r.n === 0) throw conflict('This is the last active admin with a password');
 }
 
 export async function userRoutes(app: FastifyInstance) {
@@ -76,9 +104,14 @@ export async function userRoutes(app: FastifyInstance) {
       .from(users)
       .leftJoin(extensions, eq(extensions.userId, users.id))
       .orderBy(asc(users.displayName), asc(users.id));
+    const ids = await identitiesOf(db);
     return {
       items: rows.map((r) =>
-        toUserDto(r.u, r.extId && r.extNumber ? { id: r.extId, number: r.extNumber } : null),
+        toUserDto(
+          r.u,
+          r.extId && r.extNumber ? { id: r.extId, number: r.extNumber } : null,
+          ids.filter((i) => i.userId === r.u.id),
+        ),
       ),
       nextCursor: null,
     };
@@ -86,7 +119,7 @@ export async function userRoutes(app: FastifyInstance) {
 
   app.get('/api/users/:id', async (req) => {
     const { id } = IdParams.parse(req.params);
-    return toUserDto(await getUser(db, id), await extOf(db, id));
+    return toUserDto(await getUser(db, id), await extOf(db, id), await identitiesOf(db, id));
   });
 
   app.post('/api/users', async (req, reply) => {
@@ -150,7 +183,7 @@ export async function userRoutes(app: FastifyInstance) {
         after: Object.fromEntries(changed.map((k) => [k, after[k]])),
       },
     });
-    return toUserDto(after, await extOf(db, id));
+    return toUserDto(after, await extOf(db, id), await identitiesOf(db, id));
   });
 
   app.delete('/api/users/:id', async (req) => {

@@ -15,7 +15,7 @@ const EXPECTED: Record<string, Record<string, string>> = {
     id: 'uuid|NO|gen_random_uuid()',
     email: 'USER-DEFINED:citext|NO|',
     display_name: 'text|NO|',
-    password_hash: 'text|NO|',
+    password_hash: 'text|YES|',
     role: "USER-DEFINED:user_role|NO|'user'::user_role",
     is_active: 'boolean|NO|true',
     totp_secret_enc: 'text|YES|',
@@ -115,11 +115,11 @@ describe.skipIf(!hasTestDb)('schema matches spec 02', () => {
   beforeAll(async () => ({ db, drop } = await createTestDb()));
   afterAll(() => drop?.());
 
-  it('creates all 43 tables', async () => {
+  it('creates all 44 tables', async () => {
     const r = await db.execute(
       sql`select count(*)::int as n from information_schema.tables where table_schema = 'public'`,
     );
-    expect(r.rows[0]).toEqual({ n: 43 });
+    expect(r.rows[0]).toEqual({ n: 44 });
   });
 
   it.each(Object.keys(EXPECTED))('%s columns', async (table) => {

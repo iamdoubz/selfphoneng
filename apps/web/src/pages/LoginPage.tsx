@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { APP_NAME, LoginSchema } from '@selfphoneng/shared';
+import { APP_NAME, LoginFields } from '@selfphoneng/shared';
 import { ApiError, authApi } from '../api/client.ts';
 import { homeFor } from '../auth/RequireAuth.tsx';
 import { Alert, Button, Field, inputClass } from '../components/ui.tsx';
@@ -32,13 +32,13 @@ export function LoginPage() {
   // Two-step sign-in: shown once the server says the password was right and a code is needed.
   const [needCode, setNeedCode] = useState(false);
   const [code, setCode] = useState('');
-  const form = useForm({ resolver: zodResolver(LoginSchema.omit({ totp: true })) });
+  const form = useForm({ resolver: zodResolver(LoginFields.omit({ totp: true })) });
   const { errors, isSubmitting } = form.formState;
 
-  const onSubmit = form.handleSubmit(async ({ email, password }) => {
+  const onSubmit = form.handleSubmit(async ({ login, password }) => {
     setError(undefined);
     try {
-      const user = await authApi.login(email, password, needCode ? code : undefined);
+      const user = await authApi.login(login, password, needCode ? code : undefined);
       qc.setQueryData(['me'], user);
       const next = params.get('next');
       // Only same-site paths: never redirect to another origin.
@@ -58,11 +58,11 @@ export function LoginPage() {
     <AuthCard title="Sign in">
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
         {error && <Alert>{error}</Alert>}
-        <Field label="Email" error={errors.email?.message}>
+        <Field label="Email" error={errors.login?.message}>
           {(a) => (
             <input
               {...a}
-              {...form.register('email')}
+              {...form.register('login')}
               type="email"
               autoComplete="username"
               className={inputClass}

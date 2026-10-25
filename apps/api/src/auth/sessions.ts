@@ -32,6 +32,7 @@ export async function createSession(
   userId: string,
   ip: string | null,
   userAgent: string | null,
+  method: 'password' | 'ldap' | 'oidc' = 'password',
 ): Promise<string> {
   const token = randomBytes(32).toString('base64url');
   await db.insert(sessions).values({
@@ -40,6 +41,7 @@ export async function createSession(
     expiresAt: new Date(Date.now() + LIFETIME),
     ip,
     userAgent: userAgent?.slice(0, 500) ?? null,
+    method,
   });
   return token;
 }

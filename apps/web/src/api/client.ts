@@ -149,9 +149,9 @@ async function upload<T>(method: string, url: string, body: Blob): Promise<T> {
 
 export const authApi = {
   me: () => api<{ user: AuthUser }>('GET', '/api/auth/me').then((r) => r.user),
-  login: (email: string, password: string, totp?: string) =>
+  login: (login: string, password: string, totp?: string) =>
     api<{ user: AuthUser }>('POST', '/api/auth/login', {
-      email,
+      login,
       password,
       ...(totp ? { totp } : {}),
     }).then((r) => r.user),

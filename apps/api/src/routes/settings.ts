@@ -145,6 +145,10 @@ export async function settingsRoutes(app: FastifyInstance) {
       } else values[key] = SettingsSchemas[key as SettingKey].parse(raw);
     }
     await checkRefs(db, values);
+    // 12 §1.1: mixed and oidc need OpenID Connect set up first.
+    // S2 makes this "auth.oidc set and its Test passed".
+    if (values['auth.mode'] !== undefined && values['auth.mode'] !== 'password')
+      throw badRequest('Set up OpenID Connect first');
     for (const key of ['ai.llm', 'ai.stt', 'ai.tts'] as const) {
       const ep = values[key] as { url: string } | null | undefined;
       try {
