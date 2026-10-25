@@ -1,4 +1,4 @@
-# Sign-in: passwords and OpenID Connect
+# Sign-in: passwords, OpenID Connect and LDAP
 
 People sign in to SelfPhoneNG (the admin pages, their own portal and the browser phone) with a
 password, with your company's identity provider through **OpenID Connect**, or either. This only
@@ -6,7 +6,8 @@ changes the web sign-in: desk phones, phone apps and the browser phone's line ke
 passwords and never talk to the identity provider.
 
 Any provider that speaks OpenID Connect works. This page uses **Keycloak**; the table at the end
-says what is different for the others.
+says what is different for the others. A company directory (Active Directory, OpenLDAP, FreeIPA,
+lldap …) can check passwords too: see [Directory (LDAP)](#directory-ldap).
 
 ## How it works
 
@@ -113,3 +114,33 @@ The login page says what went wrong in plain words. The reason Keycloak gave is 
 | Okta, Auth0, Kanidm, Pocket ID, Dex, GitLab, Rauthy | as the provider documents | as the provider documents | expected to work, not tested yet |
 
 Keycloak (26.8.1) is the one SelfPhoneNG is tested against.
+
+## Directory (LDAP)
+
+With a directory, people sign in with their **directory username or email and password**. When
+the password isn't the one set in SelfPhoneNG, SelfPhoneNG asks the directory. The first time,
+they're matched to their user here by the directory's email; nobody gets a user just for being in
+the directory. Their SelfPhoneNG password, if they have one, keeps working too.
+
+**Settings → Sign-in → Directory (LDAP)**:
+
+1. **Directory type**: Active Directory, OpenLDAP, FreeIPA or lldap. It fills in the filters.
+2. **Address**: `ldaps://dc1.example.com` (port 636), or `ldap://…` with **StartTLS**. A plain
+   `ldap://` address is refused unless the directory runs on this same server, because passwords
+   would cross the network in clear text. For a private CA, see
+   [the certificate section](#keycloak-with-a-self-signed-or-private-certificate) (same file).
+3. **Service account DN** and **password**: an account that may search people, e.g.
+   `CN=pbx-search,OU=Service,DC=example,DC=com`. Empty searches anonymously.
+4. **Where people are**: the base DN, e.g. `DC=example,DC=com` or `ou=people,dc=example,dc=com`.
+5. **User filter**: `{login}` is what they type. Only one group may sign in? Add
+   `(memberOf=CN=Phone users,OU=Groups,DC=example,DC=com)` inside the `(&…)`.
+6. **Admin filter**: people it matches are admins at each sign-in, the others users, e.g.
+   `(memberOf=cn=pbx-admins,ou=groups,dc=example,dc=com)`. Active Directory's preset uses
+   `memberOf:1.2.840.113556.1.4.1941:=` so nested groups count. Empty: you set roles on Users.
+7. **Test**, with a test login and its password: it says how many people the filter matches, and
+   who that login would sign in as here.
+8. Tick **Check passwords against the directory** and **Save**.
+
+If the directory is down, people get "The directory can't be reached" and passwords set in
+SelfPhoneNG still work. Directories without `memberOf` on people (OpenLDAP without the memberof
+overlay) can't map groups yet. Tested against lldap 0.6.3.

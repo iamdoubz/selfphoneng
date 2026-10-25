@@ -99,12 +99,15 @@ export function LoginPage() {
         noValidate
       >
         {error && <Alert>{error}</Alert>}
-        <Field label="Email" error={errors.login?.message}>
+        <Field
+          label={methods.data?.ldap ? 'Email or username' : 'Email'}
+          error={errors.login?.message}
+        >
           {(a) => (
             <input
               {...a}
               {...form.register('login')}
-              type="email"
+              type={methods.data?.ldap ? 'text' : 'email'}
               autoComplete="username"
               className={inputClass}
             />

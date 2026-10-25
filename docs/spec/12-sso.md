@@ -452,7 +452,7 @@ For every active user with a directory account, one connection per run:
 | S1 | Decision 0004; migration (§2); `auth.mode` (§1.1) with only `password` selectable; break glass; `GET /api/auth/methods`; the `login` field; Users "Signs in with" | `pnpm lint && typecheck && test` pass; sign-in works as before. Done, see §8.1 |
 | S2 | OIDC: settings + Test, start/callback, claims (§3.4), §3.3 (connect, disconnect, email match), `mixed` and `oidc` modes, sign out at the provider, login page and My account, fake provider tests | every §6 OIDC case passes against the fake provider. Done, see §8.2 |
 | S3 | OIDC session check (§3.5); Keycloak live test; admin guide page `docs/admin-guide/sign-in.md` with the §3.6 table | the owner connects their Keycloak account, signs in with it or their password, a Keycloak group makes them admin, signing out also signs out of Keycloak, and disabling them in Keycloak ends their Keycloak session here within 20 min. Done (against a throwaway Keycloak 26.8.1), see §8.3; the owner's own Keycloak still to try |
-| S4 | LDAP: settings + Test, presets, sign-in flow (§4.2), §4.3, unit + lldap live tests | sign-in by uid and email against lldap over LDAPS; admin by group; no user made for a stranger |
+| S4 | LDAP: settings + Test, presets, sign-in flow (§4.2), §4.3, unit + lldap live tests | sign-in by uid and email against lldap over LDAPS; admin by group; no user made for a stranger. Done, see §8.4 |
 | S5 | `directoryCheck` (§4.5), dashboard warnings; Samba AD check | a user removed from the directory is disabled within an hour; AD nested-group admin works |
 
 ### 8.1 As built: S1
@@ -506,6 +506,30 @@ For every active user with a directory account, one connection per run:
   mounted read-only into the api), so no compose change.
 - Admin guide: `docs/admin-guide/sign-in.md`. There is no audit log page yet, so failures are
   found in the api log (`OpenID sign-in failed`, `reason`).
+
+### 8.4 As built: S4
+
+- `sso/ldap.ts` (ldapts 9.2: `assertLdap`, `withLogin` through `escapeFilter`, `anyLogin`,
+  `ldapAuthenticate`, `testLdap`), `sso/directory.ts` (entry → user, connecting by email),
+  `sso/role.ts` (`applyRole`, shared with OpenID). The user's own bind is on a second connection,
+  so the admin filter is read with the service account.
+- Login (§4.2): the SelfPhoneNG password first; when it isn't that, the directory. The "last
+  active local admin" exception of the first draft is gone: connecting a directory account no
+  longer removes a password (§1), so there is nothing to protect. Sessions are `method = 'ldap'`.
+- The user's name and email here are **not** changed by the directory (as with OpenID): only the
+  identity's email and the role (`adminFilter`) follow it. §4.3 step 1's "email follows" is
+  dropped; an admin edits users on Users.
+- lldap answers a base search whose filter doesn't match the entry with `noSuchObject`
+  (0x20), not an empty result: that counts as "not admin".
+- Disconnect is `DELETE /api/me/identities/:kind` and `/api/users/:id/identities/:kind`
+  (`oidc` or `ldap`), with one "is there still a way in" rule for both.
+- `apps/api/src/sso/ldap.test.ts`, `apps/api/test/ldap-live.test.ts` (`LDAP_LIVE_URL`,
+  `LDAP_LIVE_HTTP`, `LDAP_LIVE_LDAPS_URL`; users made through lldap's GraphQL, passwords with an
+  RFC 3062 password modify). Passed against lldap 0.6.3 on 2026-10-25, LDAPS with a throwaway CA
+  through `NODE_EXTRA_CA_CERTS`. The AD, FreeIPA and OpenLDAP presets are not checked yet (S5: a
+  Samba AD DC).
+- Web: Settings → Sign-in → Directory (presets, Test with an optional test login), "Email or
+  username" on the login page, the directory account on My settings and the Users drawer.
 
 ## 9. Decided
 

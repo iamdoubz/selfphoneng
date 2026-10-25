@@ -8,7 +8,9 @@ import {
   WEBHOOK_EVENTS,
   formatNumber,
   type AiTestResult,
+  LDAP_PRESETS,
   type AuthMode,
+  type LdapInput,
   type OidcInput,
   type SettingsDto,
   type WebhookDto,
@@ -77,7 +79,12 @@ export function SettingsPage() {
       {tab === 'tokens' && <TokensTab />}
       {settings.data && tab === 'ai' && <AiTab s={settings.data} />}
       {settings.data && tab === 'contacts' && <ContactsTab s={settings.data} />}
-      {settings.data && tab === 'sign-in' && <SignInTab s={settings.data} />}
+      {settings.data && tab === 'sign-in' && (
+        <div className="flex flex-col gap-10">
+          <SignInTab s={settings.data} />
+          <DirectoryForm s={settings.data} />
+        </div>
+      )}
     </section>
   );
 }
@@ -1555,6 +1562,213 @@ function SignInTab({ s }: { s: SettingsDto }) {
         <p className="text-xs text-zinc-500">
           Then connect your own account in My account, and sign in from a private window.
         </p>
+      </fieldset>
+      {save.isError && <Alert>{save.error.message}</Alert>}
+      {save.isSuccess && (
+        <p role="status" className="text-sm text-green-700 dark:text-green-400">
+          Saved.
+        </p>
+      )}
+      <div>
+        <Button type="submit" variant="primary" disabled={save.isPending}>
+          Save
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** Sign-in → Directory (spec 12 §4.1): LDAP / LDAPS, checked when a password isn't ours. */
+function DirectoryForm({ s }: { s: SettingsDto }) {
+  const save = useSave();
+  const d = s['auth.ldap'];
+  const [v, setV] = useState({
+    enabled: d?.enabled ?? false,
+    preset: d?.preset ?? ('ad' as LdapInput['preset']),
+    url: d?.url ?? '',
+    startTls: d?.startTls ?? false,
+    bindDn: d?.bindDn ?? '',
+    bindPassword: '',
+    baseDn: d?.baseDn ?? '',
+    userFilter: d?.userFilter ?? LDAP_PRESETS.ad.userFilter,
+    idAttribute: d?.idAttribute ?? LDAP_PRESETS.ad.idAttribute,
+    emailAttribute: d?.emailAttribute ?? 'mail',
+    nameAttribute: d?.nameAttribute ?? 'displayName',
+    adminFilter: d?.adminFilter ?? '',
+  });
+  const [probe, setProbe] = useState({ testLogin: '', testPassword: '' });
+  const input = (): LdapInput => ({ ...v, bindPassword: v.bindPassword || undefined });
+  const test = useMutation({ mutationFn: () => settingsApi.testLdap({ ...input(), ...probe }) });
+  const set = (k: keyof typeof v) => (e: { target: { value: string } }) =>
+    setV({ ...v, [k]: e.target.value });
+  const preset = (p: LdapInput['preset']) => {
+    const x = LDAP_PRESETS[p];
+    setV({
+      ...v,
+      preset: p,
+      userFilter: x.userFilter,
+      idAttribute: x.idAttribute,
+      adminFilter: x.adminFilter,
+    });
+  };
+  const text = (k: keyof typeof v, label: string, hint?: string, placeholder?: string) => (
+    <Field label={label} hint={hint}>
+      {(a) => (
+        <input
+          {...a}
+          className={inputClass}
+          placeholder={placeholder}
+          value={v[k] as string}
+          onChange={set(k)}
+        />
+      )}
+    </Field>
+  );
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate({ 'auth.ldap': v.url.trim() ? input() : null });
+        setV({ ...v, bindPassword: '' });
+      }}
+    >
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 font-medium">Directory (LDAP)</legend>
+        <p className="text-sm text-zinc-500">
+          When a password isn&apos;t the one set here, SelfPhoneNG asks the directory. People sign
+          in with their directory username or email; the first time, they&apos;re matched to their
+          user here by email. Nobody gets a user just for being in the directory.
+        </p>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-4"
+            checked={v.enabled}
+            onChange={(e) => setV({ ...v, enabled: e.target.checked })}
+          />
+          Check passwords against the directory
+        </label>
+        <Field label="Directory type" hint="Fills in the filters below; change them as needed">
+          {(a) => (
+            <select
+              {...a}
+              className={inputClass}
+              value={v.preset}
+              onChange={(e) => preset(e.target.value as LdapInput['preset'])}
+            >
+              {Object.entries(LDAP_PRESETS).map(([id, p]) => (
+                <option key={id} value={id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        {text(
+          'url',
+          'Address',
+          'ldaps:// (port 636), or ldap:// with StartTLS. Plain ldap:// only to this server itself.',
+          'ldaps://dc1.example.com',
+        )}
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-4"
+            checked={v.startTls}
+            onChange={(e) => setV({ ...v, startTls: e.target.checked })}
+          />
+          StartTLS (for ldap:// addresses)
+        </label>
+        {text(
+          'bindDn',
+          'Service account DN',
+          'An account that may search people. Empty: search anonymously.',
+          'CN=pbx-search,OU=Service,DC=example,DC=com',
+        )}
+        <Field
+          label="Service account password"
+          hint={d?.hasBindPassword ? 'Saved. Type a new one to replace it.' : undefined}
+        >
+          {(a) => (
+            <input
+              {...a}
+              type="password"
+              autoComplete="off"
+              placeholder={d?.hasBindPassword ? '••••••••' : ''}
+              className={inputClass}
+              value={v.bindPassword}
+              onChange={set('bindPassword')}
+            />
+          )}
+        </Field>
+        {text(
+          'baseDn',
+          'Where people are',
+          'Searched with everything under it',
+          'DC=example,DC=com',
+        )}
+        {text(
+          'userFilter',
+          'User filter',
+          '{login} is what they type. To allow one group only, add (memberOf=…) here.',
+        )}
+        {text(
+          'adminFilter',
+          'Admin filter',
+          'People it matches are admins, the others users. Empty: you set roles on Users.',
+        )}
+        {text(
+          'idAttribute',
+          'ID attribute',
+          'Never changes for a person: objectGUID, entryUUID, ipaUniqueID',
+        )}
+        {text('emailAttribute', 'Email attribute')}
+        {text('nameAttribute', 'Name attribute')}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Test login (optional)" hint="Username or email">
+            {(a) => (
+              <input
+                {...a}
+                autoComplete="off"
+                className={inputClass}
+                value={probe.testLogin}
+                onChange={(e) => setProbe({ ...probe, testLogin: e.target.value })}
+              />
+            )}
+          </Field>
+          <Field label="Its password" hint="Only used for this test, never stored">
+            {(a) => (
+              <input
+                {...a}
+                type="password"
+                autoComplete="off"
+                className={inputClass}
+                value={probe.testPassword}
+                onChange={(e) => setProbe({ ...probe, testPassword: e.target.value })}
+              />
+            )}
+          </Field>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => test.mutate()} disabled={test.isPending || !v.url.trim()}>
+            Test
+          </Button>
+          {test.data && (
+            <span
+              role="status"
+              className={`text-sm ${test.data.ok ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}
+            >
+              {!test.data.ok
+                ? test.data.error
+                : `Works: ${test.data.matching >= 1000 ? '1000+' : test.data.matching} people match the user filter.` +
+                  (test.data.user
+                    ? ` ${test.data.user.dn}: ${test.data.user.email ?? 'no email'}, ${test.data.user.admin === null ? 'role set here' : test.data.user.admin ? 'admin' : 'user'}, ${test.data.user.matches ? `signs in as ${test.data.user.matches}` : 'no user here has that email'}.`
+                    : '')}
+            </span>
+          )}
+          {test.error && <Alert>{test.error.message}</Alert>}
+        </div>
       </fieldset>
       {save.isError && <Alert>{save.error.message}</Alert>}
       {save.isSuccess && (

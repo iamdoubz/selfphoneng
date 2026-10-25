@@ -240,7 +240,8 @@ function GeneralTab({
             Creates a new temporary password and signs them out everywhere.
           </p>
           {user.twoStep && <ResetTwoStep user={user} />}
-          {user.signIn.oidc && <ConnectedOidc user={user} />}
+          {user.signIn.oidc && <ConnectedAccount user={user} kind="oidc" />}
+          {user.signIn.ldap && <ConnectedAccount user={user} kind="ldap" />}
         </div>
       )}
     </form>
@@ -587,26 +588,36 @@ function EmergencyTab({ ext, onSaved }: { ext: ExtensionDto; onSaved: () => void
   );
 }
 
-/** Their connected OpenID account (12 §5): the groups it sent, and Disconnect. */
-function ConnectedOidc({ user }: { user: UserDto }) {
+/** A connected OpenID or directory account (12 §5): what it sent, and Disconnect. */
+function ConnectedAccount({ user, kind }: { user: UserDto; kind: 'oidc' | 'ldap' }) {
   const qc = useQueryClient();
-  const label = useAuthMethods().data?.oidc?.label ?? 'OpenID';
+  const oidcLabel = useAuthMethods().data?.oidc?.label ?? 'OpenID';
+  const label = kind === 'oidc' ? oidcLabel : 'Directory';
   const disconnect = useMutation({
-    mutationFn: () => usersApi.disconnectOidc(user.id),
+    mutationFn: () => usersApi.disconnect(user.id, kind),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
   });
-  const oidc = user.signIn.oidc!;
+  const oidc = user.signIn.oidc;
   return (
     <div className="mt-4 flex flex-col gap-1 text-sm">
-      <p>
-        <span className="font-medium">{label}</span>: {oidc.email ?? 'connected'}
-      </p>
-      <p className="text-xs text-zinc-500">
-        Groups at the last sign-in: {oidc.groups.length ? oidc.groups.join(', ') : 'none'}
-      </p>
+      {kind === 'oidc' && oidc ? (
+        <>
+          <p>
+            <span className="font-medium">{label}</span>: {oidc.email ?? 'connected'}
+          </p>
+          <p className="text-xs text-zinc-500">
+            Groups at the last sign-in: {oidc.groups.length ? oidc.groups.join(', ') : 'none'}
+          </p>
+        </>
+      ) : (
+        <p>
+          <span className="font-medium">{label}</span>: connected, their directory password works
+          here
+        </p>
+      )}
       <div>
         <Button onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
-          Disconnect {label}
+          Disconnect {kind === 'oidc' ? label : 'the directory'}
         </Button>
       </div>
       {disconnect.error && <Alert>{disconnect.error.message}</Alert>}

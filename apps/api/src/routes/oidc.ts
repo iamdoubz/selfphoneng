@@ -224,38 +224,51 @@ export async function oidcRoutes(app: FastifyInstance) {
     return reply.redirect(pending.next);
   });
 
-  /** Disconnect (12 §3.3): refused when it would leave them no way in under the current mode. */
-  async function disconnect(req: FastifyRequest, reply: FastifyReply, userId: string) {
+  /**
+   * Disconnect an OpenID or directory account (12 §3.3, §4.3): refused when it would leave
+   * them no way in under the current mode. Sessions made with it end.
+   */
+  async function disconnect(
+    req: FastifyRequest,
+    reply: FastifyReply,
+    userId: string,
+    kind: 'oidc' | 'ldap',
+  ) {
     const [u] = await db.select().from(users).where(eq(users.id, userId));
     if (!u) throw notFound('User not found');
     const ids = await db
       .select({ kind: userIdentities.kind })
       .from(userIdentities)
       .where(eq(userIdentities.userId, userId));
-    if (!ids.some((i) => i.kind === 'oidc')) throw notFound('No OpenID account is connected');
+    if (!ids.some((i) => i.kind === kind)) throw notFound('No such account is connected');
+    const left = ids.filter((i) => i.kind !== kind);
     const mode = await getSetting(db, 'auth.mode');
-    const passwordWay = u.passwordHash !== null || ids.some((i) => i.kind === 'ldap');
-    if (!passwordWay || (mode === 'oidc' && u.role !== 'admin'))
+    const password = u.passwordHash !== null || left.some((i) => i.kind === 'ldap');
+    const openid = mode !== 'password' && left.some((i) => i.kind === 'oidc');
+    if (!openid && !(password && (mode !== 'oidc' || u.role === 'admin')))
       throw new HttpError(409, 'last_way_in', 'That would leave no way to sign in');
     await db
       .delete(userIdentities)
-      .where(and(eq(userIdentities.userId, userId), eq(userIdentities.kind, 'oidc')));
-    await db.delete(sessions).where(and(eq(sessions.userId, userId), eq(sessions.method, 'oidc')));
+      .where(and(eq(userIdentities.userId, userId), eq(userIdentities.kind, kind)));
+    await db.delete(sessions).where(and(eq(sessions.userId, userId), eq(sessions.method, kind)));
+    const what = kind === 'oidc' ? 'OpenID' : 'directory';
     await audit(db, {
       actorUserId: req.user!.id,
       actorIp: req.ip,
       action: 'sso_disconnected',
       entityType: 'user',
       entityId: userId,
-      summary: `Disconnected the OpenID account of ${u.email}`,
+      summary: `Disconnected the ${what} account of ${u.email}`,
     });
     return reply.send({ ok: true });
   }
 
-  app.delete('/api/me/identities/oidc', { preHandler: requireAuth }, (req, reply) =>
-    disconnect(req, reply, req.user!.id),
+  const Kind = z.object({ kind: z.enum(['oidc', 'ldap']) });
+  app.delete('/api/me/identities/:kind', { preHandler: requireAuth }, (req, reply) =>
+    disconnect(req, reply, req.user!.id, Kind.parse(req.params).kind),
   );
-  app.delete('/api/users/:id/identities/oidc', { preHandler: requireAdmin }, (req, reply) =>
-    disconnect(req, reply, z.object({ id: z.uuid() }).parse(req.params).id),
-  );
+  app.delete('/api/users/:id/identities/:kind', { preHandler: requireAdmin }, (req, reply) => {
+    const p = Kind.extend({ id: z.uuid() }).parse(req.params);
+    return disconnect(req, reply, p.id, p.kind);
+  });
 }

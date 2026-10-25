@@ -18,6 +18,7 @@
     "@selfphoneng/shared": "workspace:*",
     "drizzle-orm": "^0.45.4",
     "fastify": "^5.12.7",
+    "ldapts": "^9.2.0",
     "nodemailer": "10.0.11",
     "openid-client": "^6.8.8",
     "pg": "^8.23.1",

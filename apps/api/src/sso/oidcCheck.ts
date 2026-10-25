@@ -6,15 +6,15 @@ import * as oidc from 'openid-client';
 import type { Db } from '../db/client.ts';
 import { decrypt, encrypt } from '../crypto/secrets.ts';
 import { sessions, userIdentities, users } from '../db/schema.ts';
-import { isLastAdmin } from '../routes/users.ts';
 import { audit } from '../services/audit.ts';
 import { getSetting } from '../services/settings.ts';
 import { decide, type ClaimsDecision } from './claims.ts';
+import { applyRole } from './role.ts';
 import { oidcConfig, oidcError, type OidcSettings } from './oidc.ts';
 
 type Log = { info(o: object, m: string): void; warn?(o: object, m: string): void };
 
-/** The role from adminGroups (never demoting the last admin with a password), groups, email. */
+/** The role from adminGroups (12 §3.4), and the groups and email on the identity. */
 export async function applyClaims(
   db: Db,
   log: Log,
@@ -24,24 +24,7 @@ export async function applyClaims(
   email: string | null,
   actorIp: string | null,
 ): Promise<void> {
-  const [user] = await db.select().from(users).where(eq(users.id, userId));
-  if (!user) return;
-  const role = d.admin === null ? user.role : d.admin ? 'admin' : 'user';
-  if (role !== user.role) {
-    if (role === 'user' && (await isLastAdmin(db, userId)))
-      log.info({ userId }, `kept the last admin with a password, though ${s.label} says user`);
-    else {
-      await db.update(users).set({ role }).where(eq(users.id, userId));
-      await audit(db, {
-        actorIp: actorIp ?? undefined,
-        action: 'update',
-        entityType: 'user',
-        entityId: userId,
-        summary: `${user.email} is now ${role}, from ${s.label}'s groups`,
-        diff: { before: { role: user.role }, after: { role } },
-      });
-    }
-  }
+  await applyRole(db, log, userId, d.admin, `${s.label}'s groups`, actorIp);
   await db
     .update(userIdentities)
     .set({ email, groups: d.groups })

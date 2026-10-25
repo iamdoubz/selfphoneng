@@ -7,12 +7,14 @@ import {
   AiEndpointSchema,
   AiTtsEndpointSchema,
   ContrackInputSchema,
+  LdapInputSchema,
   OidcInputSchema,
   SettingsSchemas,
   SmtpInputSchema,
   type AiTestResult,
   type AuthMode,
   type Destination,
+  type LdapTestResult,
   type OidcInput,
   type OidcTestResult,
   type SettingKey,
@@ -34,6 +36,8 @@ import { detectPublicIp } from '../jobs.ts';
 import type { SendMail } from '../services/mail.ts';
 import { AiError, assertLocalUrl, testEndpoint } from '../ai/client.ts';
 import { forgetBook } from '../contacts/contrack.ts';
+import { assertLdap, testLdap, type LdapSettings } from '../sso/ldap.ts';
+import { directoryUserFor } from '../sso/directory.ts';
 import { assertIssuer, oidcConfig, oidcError, testOidc, type OidcSettings } from '../sso/oidc.ts';
 
 declare module 'fastify' {
@@ -52,9 +56,29 @@ const READ_ONLY = new Set<string>([
 ]);
 
 async function toDto(db: Db): Promise<SettingsDto> {
-  const { smtp, 'contacts.contrack': ctk, 'auth.oidc': oidc, ...rest } = await getAllSettings(db);
+  const {
+    smtp,
+    'contacts.contrack': ctk,
+    'auth.oidc': oidc,
+    'auth.ldap': ldap,
+    ...rest
+  } = await getAllSettings(db);
   return {
     ...rest,
+    'auth.ldap': ldap && {
+      enabled: ldap.enabled,
+      preset: ldap.preset,
+      url: ldap.url,
+      startTls: ldap.startTls,
+      bindDn: ldap.bindDn,
+      baseDn: ldap.baseDn,
+      userFilter: ldap.userFilter,
+      idAttribute: ldap.idAttribute,
+      emailAttribute: ldap.emailAttribute,
+      nameAttribute: ldap.nameAttribute,
+      adminFilter: ldap.adminFilter,
+      hasBindPassword: ldap.bindPasswordEnc !== null,
+    },
     'auth.oidc': oidc && {
       label: oidc.label,
       issuer: oidc.issuer,
@@ -116,6 +140,36 @@ async function checkRefs(db: Db, v: Record<string, unknown>) {
 
 export async function settingsRoutes(app: FastifyInstance) {
   const { db } = app;
+
+  /** The stored form of `auth.ldap`: the bind password is write-only (empty keeps it). */
+  async function ldapFromInput(raw: unknown): Promise<LdapSettings | null> {
+    if (raw === null) return null;
+    const v = LdapInputSchema.parse(raw);
+    try {
+      assertLdap(v);
+    } catch (err) {
+      throw badRequest((err as Error).message);
+    }
+    const old = await getSetting(db, 'auth.ldap');
+    return {
+      enabled: v.enabled,
+      preset: v.preset,
+      url: v.url.replace(/\/$/, ''),
+      startTls: v.startTls,
+      bindDn: v.bindDn,
+      bindPasswordEnc: v.bindPassword
+        ? encrypt(v.bindPassword)
+        : v.clearBindPassword
+          ? null
+          : (old?.bindPasswordEnc ?? null),
+      baseDn: v.baseDn,
+      userFilter: v.userFilter,
+      idAttribute: v.idAttribute,
+      emailAttribute: v.emailAttribute,
+      nameAttribute: v.nameAttribute,
+      adminFilter: v.adminFilter,
+    };
+  }
 
   /** The stored form of `auth.oidc`: the secret is write-only (empty keeps the stored one). */
   async function oidcFromInput(input: OidcInput | null): Promise<OidcSettings | null> {
@@ -184,6 +238,8 @@ export async function settingsRoutes(app: FastifyInstance) {
               : (old?.companyTokenEnc ?? ''),
         };
         forgetBook(null);
+      } else if (key === 'auth.ldap') {
+        values[key] = await ldapFromInput(raw);
       } else if (key === 'auth.oidc') {
         values[key] = await oidcFromInput(raw === null ? null : OidcInputSchema.parse(raw));
       } else values[key] = SettingsSchemas[key as SettingKey].parse(raw);
@@ -289,6 +345,30 @@ export async function settingsRoutes(app: FastifyInstance) {
       diff: { after: notified },
     });
     return { notified };
+  });
+
+  /**
+   * Settings → Sign-in → Directory → Test, from the unsaved form (12 §4.1). The test password
+   * is used once and never stored or logged.
+   */
+  app.post('/api/settings/auth/ldap/test', async (req): Promise<LdapTestResult> => {
+    const { testLogin, testPassword, ...form } = LdapInputSchema.extend({
+      testLogin: z.string().trim().max(254).optional(),
+      testPassword: z.string().max(200).optional(),
+    }).parse(req.body);
+    const s = (await ldapFromInput(form))!;
+    try {
+      const r = await testLdap(s, testLogin || undefined, testPassword);
+      if (!r.user) return { ok: true, matching: r.matching };
+      const matches = await directoryUserFor(db, r.user);
+      return {
+        ok: true,
+        matching: r.matching,
+        user: { ...r.user, matches: matches?.email ?? null },
+      };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
   });
 
   /** Settings → Sign-in → Test, from the unsaved form (12 §3.1). */

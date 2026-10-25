@@ -118,6 +118,24 @@ export const SettingsSchemas = {
     .default(null),
   /** Sign-in (12 §1.1): passwords only, OpenID only (admins keep passwords), or both. */
   'auth.mode': z.enum(['password', 'mixed', 'oidc']).default('password'),
+  /** LDAP / LDAPS (12 §4.1). The bind password is encrypted; null = anonymous search. */
+  'auth.ldap': z
+    .object({
+      enabled: z.boolean(),
+      preset: z.enum(['ad', 'openldap', 'freeipa', 'lldap', 'other']),
+      url: z.string(),
+      startTls: z.boolean(),
+      bindDn: z.string().nullable(),
+      bindPasswordEnc: z.string().nullable(),
+      baseDn: z.string(),
+      userFilter: z.string(),
+      idAttribute: z.string(),
+      emailAttribute: z.string(),
+      nameAttribute: z.string(),
+      adminFilter: z.string().nullable(),
+    })
+    .nullable()
+    .default(null),
   /** OpenID Connect (12 §3.1). The client secret is encrypted; null = a public client. */
   'auth.oidc': z
     .object({
@@ -191,6 +209,93 @@ export const OidcInputSchema = z.object({
 });
 export type OidcInput = z.input<typeof OidcInputSchema>;
 
+/** The directory presets (12 §4.1): they only fill the form. */
+export const LDAP_PRESETS = {
+  ad: {
+    label: 'Active Directory / Samba AD',
+    userFilter:
+      '(&(objectCategory=person)(objectClass=user)(!(userAccountControl:1.2.840.113556.1.4.803:=2))(|(sAMAccountName={login})(userPrincipalName={login})(mail={login})))',
+    idAttribute: 'objectGUID',
+    adminFilter: '(memberOf:1.2.840.113556.1.4.1941:=CN=PBX Admins,OU=Groups,DC=example,DC=com)',
+  },
+  openldap: {
+    label: 'OpenLDAP (memberof overlay)',
+    userFilter: '(&(objectClass=inetOrgPerson)(|(uid={login})(mail={login})))',
+    idAttribute: 'entryUUID',
+    adminFilter: '(memberOf=cn=pbx-admins,ou=groups,dc=example,dc=com)',
+  },
+  freeipa: {
+    label: 'FreeIPA',
+    userFilter: '(&(objectClass=person)(!(nsAccountLock=TRUE))(|(uid={login})(mail={login})))',
+    idAttribute: 'ipaUniqueID',
+    adminFilter: '(memberOf=cn=pbx-admins,cn=groups,cn=accounts,dc=example,dc=com)',
+  },
+  lldap: {
+    label: 'lldap',
+    userFilter: '(&(objectClass=person)(|(uid={login})(mail={login})))',
+    idAttribute: 'entryUUID',
+    adminFilter: '(memberOf=cn=pbx-admins,ou=groups,dc=example,dc=com)',
+  },
+  other: {
+    label: 'Other',
+    userFilter: '(&(objectClass=person)(|(uid={login})(mail={login})))',
+    idAttribute: 'entryUUID',
+    adminFilter: '',
+  },
+} as const;
+
+/** PATCH /api/settings `auth.ldap` and its Test: the bind password is write-only. */
+export const LdapInputSchema = z.object({
+  enabled: z.boolean(),
+  preset: z.enum(['ad', 'openldap', 'freeipa', 'lldap', 'other']),
+  url: z
+    .string()
+    .trim()
+    .regex(
+      /^ldaps?:\/\/[^/\s]+\/?$/,
+      'Like ldaps://dc1.example.com or ldap://ldap.example.com:389',
+    ),
+  startTls: z.boolean(),
+  bindDn: z
+    .string()
+    .trim()
+    .max(500)
+    .transform((v) => v || null),
+  bindPassword: z.string().max(500).optional(),
+  clearBindPassword: z.boolean().optional(),
+  baseDn: z.string().trim().min(1, 'Required').max(500),
+  userFilter: z
+    .string()
+    .trim()
+    .max(2000)
+    .refine((v) => v.includes('{login}'), 'Must contain {login}'),
+  idAttribute: z.string().trim().min(1).max(100),
+  emailAttribute: z.string().trim().min(1).max(100),
+  nameAttribute: z.string().trim().min(1).max(100),
+  adminFilter: z
+    .string()
+    .trim()
+    .max(2000)
+    .transform((v) => v || null),
+});
+export type LdapInput = z.input<typeof LdapInputSchema>;
+
+/** POST /api/settings/auth/ldap/test. `user`: with a test login, who it would sign in as. */
+export type LdapTestResult =
+  | {
+      ok: true;
+      matching: number;
+      user?: {
+        dn: string;
+        id: string;
+        email: string | null;
+        name: string | null;
+        admin: boolean | null;
+        matches: string | null;
+      };
+    }
+  | { ok: false; error: string };
+
 /** POST /api/settings/auth/oidc/test. */
 export type OidcTestResult =
   | {
@@ -208,13 +313,21 @@ export type OidcTestResult =
 /** GET /api/settings: every key, secrets replaced by hasPassword / hasCompanyToken. */
 export type SettingsDto = {
   [
-    K in Exclude<SettingKey, 'smtp' | 'sms.webhookToken' | 'contacts.contrack' | 'auth.oidc'>
+    K in Exclude<
+      SettingKey,
+      'smtp' | 'sms.webhookToken' | 'contacts.contrack' | 'auth.oidc' | 'auth.ldap'
+    >
   ]: SettingValue<K>;
 } & {
   smtp: (Omit<SmtpInput, 'password'> & { hasPassword: boolean }) | null;
   'contacts.contrack': { url: string; publicUrl: string | null; hasCompanyToken: boolean } | null;
   'auth.oidc':
     (Omit<OidcInput, 'clientSecret' | 'clearClientSecret'> & { hasClientSecret: boolean }) | null;
+  'auth.ldap':
+    | (Omit<z.output<typeof LdapInputSchema>, 'bindPassword' | 'clearBindPassword'> & {
+        hasBindPassword: boolean;
+      })
+    | null;
 };
 
 /** POST /api/ai/test: one endpoint tried with a tiny request. `audio`: the TTS test, a data: URL. */

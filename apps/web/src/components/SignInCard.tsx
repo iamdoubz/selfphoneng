@@ -59,6 +59,11 @@ export function SignInCard() {
           </p>
         )}
       </div>
+      {ways.ldap && (
+        <p className="text-sm">
+          Your company directory account is connected: its password works here too.
+        </p>
+      )}
       {oidc && (
         <div className="flex flex-col gap-2 text-sm">
           <h3 className="font-medium">{oidc.label}</h3>

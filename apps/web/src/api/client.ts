@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Typed fetch wrappers (05 §1). Every request sends X-Requested-With (CSRF, 04 §2.2).
 import type {
+  LdapInput,
+  LdapTestResult,
   AuthMethods,
   OidcInput,
   OidcTestResult,
@@ -184,7 +186,8 @@ export const usersApi = {
   resetPassword: (id: string) =>
     api<{ temporaryPassword: string }>('POST', `/api/users/${id}/reset-password`),
   resetTwoStep: (id: string) => api<{ ok: true }>('POST', `/api/users/${id}/reset-two-step`, {}),
-  disconnectOidc: (id: string) => api<{ ok: true }>('DELETE', `/api/users/${id}/identities/oidc`),
+  disconnect: (id: string, kind: 'oidc' | 'ldap') =>
+    api<{ ok: true }>('DELETE', `/api/users/${id}/identities/${kind}`),
 };
 
 export const extensionsApi = {
@@ -246,6 +249,9 @@ export const settingsApi = {
     ),
   warnings: () => api<{ items: Warning[] }>('GET', '/api/system/warnings').then((r) => r.items),
   testOidc: (v: OidcInput) => api<OidcTestResult>('POST', '/api/settings/auth/oidc/test', v),
+  /** 12 §4.1 */
+  testLdap: (v: LdapInput & { testLogin?: string; testPassword?: string }) =>
+    api<LdapTestResult>('POST', '/api/settings/auth/ldap/test', v),
 };
 
 /** Sign out, and when the session came from OpenID, at the provider too (12 §3.5). */

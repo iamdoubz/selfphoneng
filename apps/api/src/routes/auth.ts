@@ -26,6 +26,8 @@ import {
 import type { Db } from '../db/client.ts';
 import { extensions, sessions, userIdentities, users } from '../db/schema.ts';
 import { endSessionUrl, oidcError } from '../sso/oidc.ts';
+import { directorySignIn } from '../sso/directory.ts';
+import { ldapAuthenticate } from '../sso/ldap.ts';
 import { getSetting } from '../services/settings.ts';
 import {
   unauthorized,
@@ -213,7 +215,7 @@ export async function authRoutes(app: FastifyInstance) {
     const oidc = await getSetting(db, 'auth.oidc');
     return {
       mode,
-      ldap: false, // S4
+      ldap: Boolean((await getSetting(db, 'auth.ldap'))?.enabled),
       oidc: oidc && mode !== 'password' ? { label: oidc.label } : null,
     };
   });
@@ -221,13 +223,32 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/login', async (req, reply) => {
     const { login, ...body } = LoginSchema.parse(req.body);
     if (isLoginBlocked(req.ip, login)) throw rateLimited();
-    const [user] = await db.select().from(users).where(eq(users.email, login));
+    let [user] = await db.select().from(users).where(eq(users.email, login));
     // No password (OpenID only, 12 §3.3) fails like a wrong one, after the same work.
-    const ok =
-      user?.isActive && user.passwordHash
-        ? await verifyPassword(user.passwordHash, body.password)
-        : (await burnVerify(body.password), false);
-    if (!user || !ok) {
+    let ok = user?.passwordHash
+      ? await verifyPassword(user.passwordHash, body.password)
+      : (await burnVerify(body.password), false);
+    let method: 'password' | 'ldap' = 'password';
+    // Not this password here: the directory's, when it's on (12 §4.2).
+    const ldap = ok ? null : await getSetting(db, 'auth.ldap');
+    if (ldap?.enabled) {
+      let entry;
+      try {
+        entry = await ldapAuthenticate(ldap, login, body.password);
+      } catch (err) {
+        req.log.warn({ event: 'auth.ldap', err: (err as Error).message }, 'directory unavailable');
+        throw new HttpError(
+          503,
+          'directory_unavailable',
+          'The directory can’t be reached. Passwords set in SelfPhoneNG still work.',
+        );
+      }
+      const found = entry && (await directorySignIn(db, req.log, entry, req.ip));
+      if (entry && !found)
+        req.log.warn({ event: 'auth.failed', ip: req.ip }, 'directory account has no user here');
+      if (found) [user, ok, method] = [found, true, 'ldap'];
+    }
+    if (!user || !ok || !user.isActive) {
       recordLoginFailure(req.ip, login);
       req.log.warn({ event: 'auth.failed', ip: req.ip }, 'login failed');
       await audit(db, {
@@ -261,7 +282,13 @@ export async function authRoutes(app: FastifyInstance) {
         throw new HttpError(401, 'totp_invalid', 'That code is wrong or was used already');
       }
     }
-    const token = await createSession(db, user.id, req.ip, req.headers['user-agent'] ?? null);
+    const token = await createSession(
+      db,
+      user.id,
+      req.ip,
+      req.headers['user-agent'] ?? null,
+      method,
+    );
     setSessionCookie(reply, token);
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
     await audit(db, {
@@ -270,7 +297,7 @@ export async function authRoutes(app: FastifyInstance) {
       action: 'login',
       entityType: 'user',
       entityId: user.id,
-      summary: `${user.email} logged in`,
+      summary: `${user.email} logged in${method === 'ldap' ? ' with the directory' : ''}`,
     });
     return { user: await toAuthUser(db, user) };
   });
