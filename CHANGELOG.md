@@ -5,6 +5,37 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
+## v0.0.8 — 2026-10-26
+
+**Before you update:** this version changes the database (sign-in); the api backs up first, by
+itself. Portainer: change both tags to `0.0.8` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.8`. Sign-in works as before until you set up single sign-on in
+Settings → Sign-in (admin guide: [Sign-in](docs/admin-guide/sign-in.md)). Every route is now rate
+limited, 600 requests a minute per client IP by default (`RATE_LIMIT_PER_MINUTE`, 0 turns it off).
+
+- **Sign in with OpenID Connect** (spec 12, admin guide: [Sign-in](docs/admin-guide/sign-in.md)):
+  Keycloak (tested), and any provider that follows the standard: Authentik, Authelia, Zitadel,
+  Entra ID and others are expected to work. People connect their
+  account on My settings → Sign-in and then sign in with either it or their password. The admin
+  picks passwords only, OpenID only, or both. Provider groups can decide who may sign in and who
+  is an admin. Signing out also signs out at the provider, and someone disabled there loses their
+  session here within 20 minutes. No accounts are made automatically: an admin still creates each
+  user. Admins keep their password, so the phone system stays reachable if the provider is down.
+- **Sign in with the company directory** (LDAP / LDAPS): presets for Active Directory and Samba
+  AD, OpenLDAP, FreeIPA and lldap (AD and lldap tested), and a Test button. People use their directory username or email
+  and password. New users are matched by email; anyone who chose their own password, and every
+  admin, connects once on My settings → Sign-in. An admin filter can make people admins (nested AD
+  groups count).
+- **Leavers**: every hour, someone removed from the directory (or disabled there) is disabled
+  here, password included. A dashboard warning shows when the directory can't be reached, or when
+  a check would disable most people (it then disables nobody).
+- **Security** (a two-reviewer audit of the new sign-in and all 207 API routes): rate limits on
+  every route, stricter on Test buttons; a password asked again (change password, two-step on and
+  off) counts like a sign-in; a saved directory or provider password is never sent to a new
+  address; and a role set by the provider is read-only on Users.
+- Database changes: `user_identities`; `sessions` records how each session was made; a user may
+  have no password (the api backs up first).
+
 ## v0.0.7 — 2026-10-23
 
 **Before you update:** this version changes the database (call reports, contacts); the api backs

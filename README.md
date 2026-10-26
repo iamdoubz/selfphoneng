@@ -7,7 +7,7 @@
 A fully open source, self-hosted business phone system. Bring your own SIP trunk and numbers
 (reference provider: voip.ms). Built on Asterisk 24 + TypeScript + PostgreSQL 18, runs in Docker.
 
-**Status:** pre-1.0 (v0.0.7), for testing. See [what's left for v1](docs/v1-checklist.md).
+**Status:** pre-1.0 (v0.0.8), for testing. See [what's left for v1](docs/v1-checklist.md).
 
 ## What it does today
 
