@@ -66,6 +66,7 @@ export async function createTestApp(
     INITIAL_ADMIN_PASSWORD: ADMIN.password,
     AMI_SECRET: 'ami-secret-123',
     LOG_LEVEL: 'fatal',
+    RATE_LIMIT_PER_MINUTE: '0', // the rate limit has its own test
     RECORDINGS_DIR: mkdtempSync(join(tmpdir(), 'sp-rec-')),
     SOUNDS_DIR: mkdtempSync(join(tmpdir(), 'sp-sounds-')),
     MOH_DIR: mkdtempSync(join(tmpdir(), 'sp-moh-')),

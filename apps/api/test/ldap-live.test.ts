@@ -38,6 +38,7 @@ describe.skipIf(!hasTestDb || !URL_ || !HTTP)('LDAP with a real lldap (12 S4)', 
   const ann = `ann${tag}`;
   const bob = `bob${tag}`;
   const cat = `cat${tag}`;
+  const dee = `dee${tag}`;
   const group = `pbx-admins-${tag}`;
   let t: Awaited<ReturnType<typeof createTestApp>>;
   let jwt: string;
@@ -86,6 +87,7 @@ describe.skipIf(!hasTestDb || !URL_ || !HTTP)('LDAP with a real lldap (12 S4)', 
       [ann, 'Ann Lee'],
       [bob, 'Bob Roe'],
       [cat, 'Cat Poe'],
+      [dee, 'Dee Fox'],
     ])
       await gql(
         `mutation { createUser(user: { id: "${id}", email: "${id}@example.com", displayName: "${name}" }) { id } }`,
@@ -96,7 +98,7 @@ describe.skipIf(!hasTestDb || !URL_ || !HTTP)('LDAP with a real lldap (12 S4)', 
     await gql(`mutation { addUserToGroup(userId: "${ann}", groupId: ${g.createGroup.id}) { ok } }`);
     const c = new Client({ url: URL_! });
     await c.bind(`uid=admin,ou=people,${BASE}`, ADMIN_PASS);
-    for (const id of [ann, bob, cat])
+    for (const id of [ann, bob, cat, dee])
       await c.exop(
         '1.3.6.1.4.1.4203.1.11.1',
         passwordModify(`uid=${id},ou=people,${BASE}`, `${id}-directory-pw`),
@@ -106,14 +108,21 @@ describe.skipIf(!hasTestDb || !URL_ || !HTTP)('LDAP with a real lldap (12 S4)', 
     t = await createTestApp();
     await t.clearMustChange(ADMIN.email);
     admin = await t.login(ADMIN.email, ADMIN.password);
-    await t.addUser(`${ann}@example.com`, 'ann-local-pw-12');
-    await t.addUser(`${cat}@example.com`, 'cat-local-pw-12');
+    // New users with the temporary password from Users: the directory email may connect them.
+    for (const who of [ann, cat]) {
+      await t.addUser(`${who}@example.com`, `${who}-local-pw-12`);
+      await t.db
+        .update(users)
+        .set({ mustChangePassword: true })
+        .where(eq(users.email, `${who}@example.com`));
+    }
+    await t.addUser(`${dee}@example.com`, 'dee-own-password-12'); // chose her own password
     await setSetting(t.db, 'auth.ldap', settings());
   }, 60_000);
 
   afterAll(async () => {
     await t?.close();
-    for (const id of [ann, bob, cat])
+    for (const id of [ann, bob, cat, dee])
       await gql(`mutation { deleteUser(userId: "${id}") { ok } }`).catch(() => {});
   });
 
@@ -142,7 +151,7 @@ describe.skipIf(!hasTestDb || !URL_ || !HTTP)('LDAP with a real lldap (12 S4)', 
   it('signs in by email too, and the local password still works', async () => {
     resetLoginLimiter();
     expect((await login(`${ann}@example.com`, `${ann}-directory-pw`)).statusCode).toBe(200);
-    expect((await login(`${ann}@example.com`, 'ann-local-pw-12')).statusCode).toBe(200);
+    expect((await login(`${ann}@example.com`, `${ann}-local-pw-12`)).statusCode).toBe(200);
   });
 
   it('a wrong password, an empty one, and a stranger are refused alike', async () => {
@@ -170,7 +179,7 @@ describe.skipIf(!hasTestDb || !URL_ || !HTTP)('LDAP with a real lldap (12 S4)', 
       const r = await login(ann, `${ann}-directory-pw`);
       expect(r.statusCode).toBe(503);
       expect(r.json().error.code).toBe('directory_unavailable');
-      expect((await login(`${ann}@example.com`, 'ann-local-pw-12')).statusCode).toBe(200);
+      expect((await login(`${ann}@example.com`, `${ann}-local-pw-12`)).statusCode).toBe(200);
     } finally {
       await setSetting(t.db, 'auth.ldap', settings());
     }
@@ -196,6 +205,23 @@ describe.skipIf(!hasTestDb || !URL_ || !HTTP)('LDAP with a real lldap (12 S4)', 
       payload: { ...form, testLogin: ann, testPassword: 'nope' },
     });
     expect(bad.json()).toMatchObject({ ok: false, error: expect.stringContaining('refused') });
+  });
+
+  it('someone with their own password connects on My settings, never by email alone', async () => {
+    resetLoginLimiter();
+    expect((await login(dee, `${dee}-directory-pw`)).statusCode).toBe(401);
+    const mine = await t.login(`${dee}@example.com`, 'dee-own-password-12');
+    const connect = (password: string) =>
+      t.app.inject({
+        method: 'POST',
+        url: '/api/me/identities/ldap',
+        headers: { ...H, cookie: mine },
+        payload: { login: dee, password },
+      });
+    expect((await connect('wrong-password')).statusCode).toBe(400);
+    expect((await connect(`${dee}-directory-pw`)).statusCode).toBe(200);
+    resetLoginLimiter();
+    expect((await login(dee, `${dee}-directory-pw`)).statusCode).toBe(200);
   });
 
   it('directoryCheck disables someone removed from the directory, and only them (§4.5)', async () => {

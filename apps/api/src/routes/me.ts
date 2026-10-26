@@ -180,6 +180,9 @@ export async function meRoutes(app: FastifyInstance) {
   /** Log my calls in Contrack, with or without their summaries (11 §4.4). */
   app.patch('/api/me/contrack', async (req) => {
     const o = ContrackOptionsSchema.parse(req.body);
+    // An empty update would be `UPDATE … SET` with nothing to set: a 500, not a 400.
+    if (o.logCalls === undefined && o.logSummaries === undefined)
+      throw badRequest('Nothing to update');
     const [u] = await db
       .select({ logCalls: users.contrackLogCalls })
       .from(users)

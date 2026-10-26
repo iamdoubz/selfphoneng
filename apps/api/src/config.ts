@@ -35,6 +35,8 @@ const EnvSchema = z
     API_PORT: z.coerce.number().int().min(1).max(65535).default(8080),
     LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
     TRUST_PROXY: z.stringbool().default(true),
+    /** Requests per minute per client IP, every route (08 §2.4); stricter ones per route. 0: off. */
+    RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(0).default(600),
     /** Call audio (RTP) ports, both ends included: the firewall opens this UDP range (01 §3.6). */
     RTP_PORT_START: z.coerce.number().int().min(1024).max(65534).default(10000),
     RTP_PORT_END: z.coerce.number().int().min(1025).max(65535).default(20000),

@@ -111,4 +111,123 @@ describe.skipIf(!hasTestDb)('sign-in (12 S1)', () => {
     });
     expect(del.statusCode).toBe(200);
   });
+
+  const patch = (payload: object, cookie = admin) =>
+    t.app.inject({ method: 'PATCH', url: '/api/settings', payload, headers: { ...H, cookie } });
+
+  it('a stored secret never goes to a new server: the directory, OpenID and email', async () => {
+    const ldap = {
+      enabled: false,
+      preset: 'lldap',
+      url: 'ldaps://dir.example.com',
+      startTls: false,
+      bindDn: 'uid=svc,dc=example,dc=com',
+      bindPassword: 'service-pw-1',
+      baseDn: 'dc=example,dc=com',
+      userFilter: '(uid={login})',
+      idAttribute: 'entryUUID',
+      emailAttribute: 'mail',
+      nameAttribute: 'displayName',
+      adminFilter: '',
+    };
+    expect((await patch({ 'auth.ldap': ldap })).statusCode).toBe(200);
+    const { bindPassword: _, ...keep } = ldap;
+    expect((await patch({ 'auth.ldap': keep })).statusCode).toBe(200); // same server: kept
+    const moved = await patch({ 'auth.ldap': { ...keep, url: 'ldaps://evil.example' } });
+    expect(moved.statusCode).toBe(400);
+    expect(moved.json().error.message).toMatch(/enter its password again/);
+    const test = await post(
+      '/api/settings/auth/ldap/test',
+      { ...keep, url: 'ldaps://evil.example' },
+      admin,
+    );
+    expect(test.statusCode).toBe(400); // Test too: it would bind there with the stored password
+    const otherDn = await patch({
+      'auth.ldap': { ...keep, bindDn: 'uid=other,dc=example,dc=com' },
+    });
+    expect(otherDn.statusCode).toBe(400);
+
+    const oidc = {
+      label: 'Keycloak',
+      issuer: 'https://kc.example.com/realms/x',
+      clientId: 'selfphoneng',
+      clientSecret: 'client-secret-1',
+      scopes: 'openid email profile',
+      groupsClaim: 'groups',
+      adminGroups: [],
+      allowedGroups: [],
+      trustEmail: false,
+    };
+    expect((await patch({ 'auth.oidc': oidc })).statusCode).toBe(200);
+    const { clientSecret: __, ...noSecret } = oidc;
+    const newIssuer = await patch({ 'auth.oidc': { ...noSecret, issuer: 'https://evil.example' } });
+    expect(newIssuer.statusCode).toBe(400);
+    expect(newIssuer.json().error.message).toMatch(/client secret again/);
+    expect((await patch({ 'auth.oidc': noSecret })).json()['auth.oidc'].hasClientSecret).toBe(true);
+
+    const smtp = {
+      host: 'mail.example.com',
+      port: 587,
+      secure: false,
+      username: 'pbx',
+      password: 'smtp-pw-1',
+      from: 'PBX <pbx@example.com>',
+    };
+    expect((await patch({ smtp })).statusCode).toBe(200);
+    const { password: ___, ...smtpKeep } = smtp;
+    expect((await patch({ smtp: smtpKeep })).json().smtp.hasPassword).toBe(true);
+    expect(
+      (await patch({ smtp: { ...smtpKeep, host: 'evil.example' } })).json().smtp.hasPassword,
+    ).toBe(false);
+    await patch({ 'auth.ldap': null, 'auth.oidc': null, smtp: null });
+  });
+
+  it('a role set by the directory or the provider is read-only here (409 role_managed)', async () => {
+    const u = await t.addUser('managed@example.com', 'managed-pw-12');
+    await t.db.insert(userIdentities).values({ userId: u.id, kind: 'ldap', subject: 'managed-id' });
+    const ldap = {
+      enabled: true,
+      preset: 'lldap' as const,
+      url: 'ldaps://dir.example.com',
+      startTls: false,
+      bindDn: null,
+      bindPasswordEnc: null,
+      baseDn: 'dc=example,dc=com',
+      userFilter: '(uid={login})',
+      idAttribute: 'entryUUID',
+      emailAttribute: 'mail',
+      nameAttribute: 'displayName',
+      adminFilter: null,
+    };
+    await setSetting(t.db, 'auth.ldap', ldap);
+    const setRole = (role: string) =>
+      t.app.inject({
+        method: 'PATCH',
+        url: `/api/users/${u.id}`,
+        payload: { role },
+        headers: { ...H, cookie: admin },
+      });
+    try {
+      expect((await setRole('admin')).statusCode).toBe(200); // no admin filter: set here
+      await setRole('user');
+      await setSetting(t.db, 'auth.ldap', { ...ldap, adminFilter: '(memberOf=cn=pbx-admins)' });
+      const r = await setRole('admin');
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error.code).toBe('role_managed');
+      const dto = await t.app.inject({ url: `/api/users/${u.id}`, headers: { cookie: admin } });
+      expect(dto.json().roleFrom).toBe('the directory');
+    } finally {
+      await setSetting(t.db, 'auth.ldap', null);
+    }
+  });
+
+  it('an empty Contrack update is a 400, not a 500', async () => {
+    const r = await t.app.inject({
+      method: 'PATCH',
+      url: '/api/me/contrack',
+      payload: {},
+      headers: { ...H, cookie: admin },
+    });
+    expect(r.statusCode).toBe(400);
+  });
 });

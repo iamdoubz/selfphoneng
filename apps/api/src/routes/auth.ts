@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // /api/auth/* (04 §2, §7.3).
 import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   ChangePasswordSchema,
   LoginSchema,
@@ -140,14 +140,24 @@ export async function authRoutes(app: FastifyInstance) {
     return { secret, otpauthUrl: url, qr: await QRCode.toDataURL(url, { margin: 2, width: 240 }) };
   });
 
+  /**
+   * A signed-in person's own password, asked again (two-step on/off, recovery codes, a new
+   * password). Wrong ones count in the login limiter, so a stolen session can't guess it.
+   */
+  async function myPasswordOk(req: FastifyRequest, hash: string | null, password: string) {
+    if (isLoginBlocked(req.ip, req.user!.email)) throw rateLimited();
+    if (hash && (await verifyPassword(hash, password))) return true;
+    recordLoginFailure(req.ip, req.user!.email);
+    return false;
+  }
+
   app.post('/api/auth/totp/enable', { preHandler: requireAuth }, async (req) => {
     adminOnly(req.user!);
     const { secret, code, password } = TotpEnableSchema.parse(req.body);
     const u = await myRow(req.user!.id);
     if (u.totpSecretEnc) throw conflict('Two-step sign-in is already on');
     // Like turning it off: a stolen session alone can't lock the owner out with its own secret.
-    if (!u.passwordHash || !(await verifyPassword(u.passwordHash, password)))
-      throw badRequest('Wrong password');
+    if (!(await myPasswordOk(req, u.passwordHash, password))) throw badRequest('Wrong password');
     const step = checkTotp(secret, code, null);
     if (step === null)
       throw badRequest('That code doesn’t match. Check the phone’s clock and try again.');
@@ -168,16 +178,15 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   /** Turning it off or making new recovery codes needs the password again (on does too). */
-  async function confirmPassword(id: string, body: unknown) {
-    const { password } = PasswordConfirmSchema.parse(body);
-    const u = await myRow(id);
-    if (!u.passwordHash || !(await verifyPassword(u.passwordHash, password)))
-      throw badRequest('Wrong password');
+  async function confirmPassword(req: FastifyRequest) {
+    const { password } = PasswordConfirmSchema.parse(req.body);
+    const u = await myRow(req.user!.id);
+    if (!(await myPasswordOk(req, u.passwordHash, password))) throw badRequest('Wrong password');
     return u;
   }
 
   app.post('/api/auth/totp/disable', { preHandler: requireAuth }, async (req) => {
-    await confirmPassword(req.user!.id, req.body);
+    await confirmPassword(req);
     await db
       .update(users)
       .set({ totpSecretEnc: null, totpLastStep: null, totpRecoveryHashes: [] })
@@ -194,7 +203,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/auth/totp/recovery-codes', { preHandler: requireAuth }, async (req) => {
-    const u = await confirmPassword(req.user!.id, req.body);
+    const u = await confirmPassword(req);
     if (!u.totpSecretEnc) throw badRequest('Two-step sign-in is off');
     const { codes, hashes } = newRecoveryCodes();
     await db.update(users).set({ totpRecoveryHashes: hashes }).where(eq(users.id, u.id));
@@ -236,6 +245,16 @@ export async function authRoutes(app: FastifyInstance) {
       try {
         entry = await ldapAuthenticate(ldap, login, body.password);
       } catch (err) {
+        // Counted like a wrong password: a 503 must not be a free guess at the local one.
+        recordLoginFailure(req.ip, login);
+        await audit(db, {
+          actorUserId: user?.id,
+          actorIp: req.ip,
+          action: 'login_failed',
+          entityType: 'user',
+          entityId: user?.id,
+          summary: `Failed login for ${login} (the directory can't be reached)`,
+        });
         req.log.warn({ event: 'auth.ldap', err: (err as Error).message }, 'directory unavailable');
         await directoryWarning(
           db,
@@ -345,7 +364,7 @@ export async function authRoutes(app: FastifyInstance) {
     const user = req.user!;
     if (!user.passwordHash)
       throw badRequest('You have no password here. Ask an admin to reset it to get one.');
-    if (!(await verifyPassword(user.passwordHash, body.currentPassword)))
+    if (!(await myPasswordOk(req, user.passwordHash, body.currentPassword)))
       throw badRequest('Current password is wrong');
     if (body.newPassword === body.currentPassword)
       throw badRequest('Choose a password different from the current one');

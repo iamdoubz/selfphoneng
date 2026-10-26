@@ -36,6 +36,8 @@ export type UserDto = {
   createdAt: string;
   extension: { id: string; number: string } | null;
   signIn: SignInWays;
+  /** Who sets the role (12 §1): the provider's label, "the directory", or null (set here). */
+  roleFrom: string | null;
 };
 
 export type ListResponse<T> = { items: T[]; nextCursor: string | null };

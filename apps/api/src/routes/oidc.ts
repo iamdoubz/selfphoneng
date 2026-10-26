@@ -5,13 +5,22 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { decrypt, encrypt } from '../crypto/secrets.ts';
 import { sessions, userIdentities, users } from '../db/schema.ts';
-import { HttpError, notFound, unauthorized } from '../errors.ts';
+import {
+  HttpError,
+  badRequest,
+  forbidden,
+  notFound,
+  rateLimited,
+  unauthorized,
+} from '../errors.ts';
 import { requireAdmin, requireAuth } from '../auth/guards.ts';
 import { isLoginBlocked, recordLoginFailure } from '../auth/login-limiter.ts';
 import { createSession, setSessionCookie } from '../auth/sessions.ts';
 import { audit } from '../services/audit.ts';
 import { getSetting } from '../services/settings.ts';
 import { decide, verifiedEmail } from '../sso/claims.ts';
+import { connectDirectory } from '../sso/directory.ts';
+import { ldapAuthenticate } from '../sso/ldap.ts';
 import { applyClaims } from '../sso/oidcCheck.ts';
 import {
   finishSignIn,
@@ -24,8 +33,14 @@ import {
 export const OIDC_COOKIE = 'sp_oidc';
 const COOKIE_PATH = '/api/auth/oidc';
 
-/** Same-site paths only: never send the browser to another origin. */
-const safeNext = (p: string | undefined) => (p && /^\/(?![/\\])/.test(p) ? p : undefined);
+/**
+ * Same-site paths only: never send the browser to another origin. No backslash or control
+ * character anywhere: browsers drop tabs and newlines from URLs, so "/<tab>/evil.example"
+ * would become "//evil.example".
+ */
+export const safeNext = (p: string | undefined) =>
+  // eslint-disable-next-line no-control-regex -- control characters are what it refuses
+  p && /^\/(?!\/)[^\\\x00-\x1f\x7f]*$/.test(p) ? p : undefined;
 
 const withParam = (path: string, k: string, v: string) =>
   `${path}${path.includes('?') ? '&' : '?'}${k}=${v}`;
@@ -41,34 +56,46 @@ export async function oidcRoutes(app: FastifyInstance) {
     return s;
   }
 
+  /** The sp_oidc cookie: what the callback checks the provider's answer against. */
+  async function begin(reply: FastifyReply, s: OidcSettings, next: string, connect: string | null) {
+    const { url, pending } = await startSignIn(s, host, next, connect);
+    reply.setCookie(OIDC_COOKIE, encrypt(JSON.stringify(pending)), {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: COOKIE_PATH,
+      maxAge: 600,
+    });
+    return url.href;
+  }
+
   app.get('/api/auth/oidc/start', async (req, reply) => {
     const s = await enabled();
-    const q = z
-      .object({ next: z.string().max(500).optional(), connect: z.literal('1').optional() })
-      .parse(req.query);
-    let connectSessionId: string | null = null;
-    let next = safeNext(q.next);
-    if (q.connect) {
-      await requireAuth(req, reply);
-      if (!req.sessionId) throw unauthorized(); // an API token can't connect an account
-      connectSessionId = req.sessionId;
-      next ??= req.user!.role === 'admin' ? '/admin/account' : '/me/settings';
-    }
+    const q = z.object({ next: z.string().max(500).optional() }).parse(req.query);
     try {
-      const { url, pending } = await startSignIn(s, host, next ?? '/', connectSessionId);
-      reply.setCookie(OIDC_COOKIE, encrypt(JSON.stringify(pending)), {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        path: COOKIE_PATH,
-        maxAge: 600,
-      });
-      return reply.redirect(url.href);
+      return reply.redirect(await begin(reply, s, safeNext(q.next) ?? '/', null));
     } catch (err) {
       req.log.warn({ event: 'auth.oidc', err: oidcError(err) }, 'OpenID discovery failed');
-      return reply.redirect(
-        withParam(connectSessionId ? next! : '/login', 'sso_error', 'provider'),
-      );
+      return reply.redirect(withParam('/login', 'sso_error', 'provider'));
+    }
+  });
+
+  /**
+   * Connect from My account (12 §3.3). A POST, so it needs the CSRF header: another site can't
+   * start it and connect whatever provider account the browser is signed in to. The page then
+   * sends the browser to `url`.
+   */
+  app.post('/api/auth/oidc/connect', { preHandler: requireAuth }, async (req, reply) => {
+    const s = await enabled();
+    if (!req.sessionId) throw unauthorized(); // an API token can't connect an account
+    const q = z.object({ next: z.string().max(500).optional() }).parse(req.body ?? {});
+    const next =
+      safeNext(q.next) ?? (req.user!.role === 'admin' ? '/admin/account' : '/me/settings');
+    try {
+      return { url: await begin(reply, s, next, req.sessionId) };
+    } catch (err) {
+      req.log.warn({ event: 'auth.oidc', err: oidcError(err) }, 'OpenID discovery failed');
+      throw new HttpError(502, 'provider', `${s.label} can't be reached`);
     }
   });
 
@@ -264,9 +291,41 @@ export async function oidcRoutes(app: FastifyInstance) {
   }
 
   const Kind = z.object({ kind: z.enum(['oidc', 'ldap']) });
-  app.delete('/api/me/identities/:kind', { preHandler: requireAuth }, (req, reply) =>
-    disconnect(req, reply, req.user!.id, Kind.parse(req.params).kind),
-  );
+  app.delete('/api/me/identities/:kind', { preHandler: requireAuth }, (req, reply) => {
+    const { kind } = Kind.parse(req.params);
+    // The directory account is how a leaver gets disabled (12 §4.5): only an admin drops it.
+    if (kind === 'ldap' && req.user!.role !== 'admin')
+      throw forbidden('Ask an admin to disconnect your directory account', 'admin_only');
+    return disconnect(req, reply, req.user!.id, kind);
+  });
+
+  /**
+   * Connect my directory account (12 §4.3): its username and password, checked by the directory,
+   * while signed in here. Counted like a sign-in by the login limiter.
+   */
+  app.post('/api/me/identities/ldap', { preHandler: requireAuth }, async (req) => {
+    if (!req.sessionId) throw unauthorized(); // an API token can't connect an account
+    const { login, password } = z
+      .object({ login: z.string().trim().min(1).max(254), password: z.string().min(1).max(200) })
+      .parse(req.body);
+    const ldap = await getSetting(db, 'auth.ldap');
+    if (!ldap?.enabled) throw notFound();
+    if (isLoginBlocked(req.ip, login)) throw rateLimited();
+    let entry;
+    try {
+      entry = await ldapAuthenticate(ldap, login, password);
+    } catch {
+      recordLoginFailure(req.ip, login);
+      throw new HttpError(503, 'directory_unavailable', 'The directory can’t be reached');
+    }
+    if (!entry) {
+      recordLoginFailure(req.ip, login);
+      throw badRequest('The directory refused that username or password');
+    }
+    if ((await connectDirectory(db, req.log, req.user!.id, entry, req.ip)) === 'taken')
+      throw new HttpError(409, 'taken', 'That directory account belongs to another user');
+    return { ok: true };
+  });
   app.delete('/api/users/:id/identities/:kind', { preHandler: requireAdmin }, (req, reply) => {
     const p = Kind.extend({ id: z.uuid() }).parse(req.params);
     return disconnect(req, reply, p.id, p.kind);

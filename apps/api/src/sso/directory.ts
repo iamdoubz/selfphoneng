@@ -23,7 +23,49 @@ export async function directoryUserFor(db: Db, e: DirectoryEntry): Promise<UserR
   if (byId) return byId.u;
   if (!e.email) return null;
   const [byEmail] = await db.select().from(users).where(eq(users.email, e.email));
-  return byEmail ?? null;
+  return byEmail && byEmailOk(byEmail) ? byEmail : null;
+}
+
+/**
+ * Who a directory email may connect to on its own (12 §4.3 step 2): not an admin, and nobody
+ * who chose their own password (none, or only the temporary one from Users). Anyone else
+ * connects on My settings with both passwords: a directory that lets people edit their own
+ * `mail` must not hand out the admin's account.
+ */
+const byEmailOk = (u: UserRow) =>
+  u.role !== 'admin' && (u.passwordHash === null || u.mustChangePassword);
+
+/** Connect a directory account the person proved (My settings, 12 §4.3). */
+export async function connectDirectory(
+  db: Db,
+  log: { info(o: object, m: string): void },
+  userId: string,
+  e: DirectoryEntry,
+  ip: string,
+): Promise<'connected' | 'taken'> {
+  const [owner] = await db
+    .select({ userId: userIdentities.userId })
+    .from(userIdentities)
+    .where(and(eq(userIdentities.kind, 'ldap'), eq(userIdentities.subject, e.id)));
+  if (owner && owner.userId !== userId) return 'taken';
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(userIdentities)
+      .where(and(eq(userIdentities.userId, userId), eq(userIdentities.kind, 'ldap')));
+    await tx
+      .insert(userIdentities)
+      .values({ userId, kind: 'ldap', subject: e.id, email: e.email, lastUsedAt: new Date() });
+  });
+  await audit(db, {
+    actorUserId: userId,
+    actorIp: ip,
+    action: 'ldap_connected',
+    entityType: 'user',
+    entityId: userId,
+    summary: `Connected directory account ${e.dn}`,
+  });
+  await applyRole(db, log, userId, e.admin, 'the directory', ip);
+  return 'connected';
 }
 
 /**

@@ -128,12 +128,22 @@ describe.skipIf(!hasTestDb || !KC)('OpenID Connect with a real Keycloak (12 S3)'
 
   /** start → Keycloak's login form, filled in like a person would → our callback. */
   async function flow(cookie?: string, query = '') {
-    const start = await t.app.inject({
-      url: `/api/auth/oidc/start${query}`,
-      headers: cookie ? { cookie } : {},
-    });
+    const connecting = query === '?connect=1';
+    // Connect is a POST from My account (with the CSRF header); sign-in a GET from the button.
+    const start = connecting
+      ? await t.app.inject({
+          method: 'POST',
+          url: '/api/auth/oidc/connect',
+          headers: { ...H, cookie: cookie! },
+          payload: {},
+        })
+      : await t.app.inject({
+          url: `/api/auth/oidc/start${query}`,
+          headers: cookie ? { cookie } : {},
+        });
+    const location = connecting ? (start.json() as { url: string }).url : start.headers.location;
     const pending = start.cookies.find((c) => c.name === 'sp_oidc')!;
-    let res = await browser.get(start.headers.location as string);
+    let res = await browser.get(location as string);
     if (res.status === 200) {
       // Not signed in at Keycloak yet: post its login form.
       const html = await res.text();

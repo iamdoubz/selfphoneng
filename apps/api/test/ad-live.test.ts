@@ -94,8 +94,14 @@ describe.skipIf(!hasTestDb || !URL_)('Active Directory with a real Samba AD DC (
     });
 
     t = await createTestApp();
-    for (const sam of [ann, bob, dan, cat])
+    // New users with the temporary password: the directory email may connect them (12 §4.3).
+    for (const sam of [ann, bob, dan, cat]) {
       await t.addUser(`${sam}@example.com`, 'local-password-1');
+      await t.db
+        .update(users)
+        .set({ mustChangePassword: true })
+        .where(eq(users.email, `${sam}@example.com`));
+    }
     await setSetting(t.db, 'auth.ldap', {
       enabled: true,
       preset: 'ad',

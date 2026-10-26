@@ -3,7 +3,7 @@
 // provider (test/fake-oidc.ts).
 import { and, desc, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { encrypt } from '../src/crypto/secrets.ts';
+import { decrypt, encrypt } from '../src/crypto/secrets.ts';
 import { sessions, userIdentities, users } from '../src/db/schema.ts';
 import { resetLoginLimiter } from '../src/auth/login-limiter.ts';
 import { setSetting } from '../src/services/settings.ts';
@@ -49,18 +49,29 @@ for (const alg of ['RS256', 'ES256'] as const)
       idp.st.user = { sub: 'u-1', email: 'ann@example.com', email_verified: true };
       idp.st.refreshOk = true;
       idp.st.down = false;
+      idp.st.refreshIdToken = true;
     });
 
     /** The browser's round trip: start → provider → callback. */
     async function flow(cookie?: string, query = '') {
-      const start = await t.app.inject({
-        url: `/api/auth/oidc/start${query}`,
-        headers: cookie ? { cookie } : {},
-      });
-      expect(start.statusCode).toBe(302);
+      const connecting = query === '?connect=1';
+      // Connect is a POST from My account (with the CSRF header); sign-in a GET from the button.
+      const start = connecting
+        ? await t.app.inject({
+            method: 'POST',
+            url: '/api/auth/oidc/connect',
+            headers: { ...H, cookie: cookie! },
+            payload: {},
+          })
+        : await t.app.inject({
+            url: `/api/auth/oidc/start${query}`,
+            headers: cookie ? { cookie } : {},
+          });
+      const location = connecting ? (start.json() as { url: string }).url : start.headers.location;
+      expect(start.statusCode).toBe(connecting ? 200 : 302);
       const pending = start.cookies.find((c) => c.name === 'sp_oidc');
       if (!pending) return { start, callback: null };
-      const atIdp = await fetch(start.headers.location as string, { redirect: 'manual' });
+      const atIdp = await fetch(location as string, { redirect: 'manual' });
       const back = new URL(atIdp.headers.get('location')!);
       expect(back.origin).toBe('https://pbx.test');
       const callback = await t.app.inject({
@@ -79,6 +90,43 @@ for (const alg of ['RS256', 'ES256'] as const)
     it('methods show the button in mixed mode', async () => {
       const r = await t.app.inject({ url: '/api/auth/methods' });
       expect(r.json()).toEqual({ mode: 'mixed', ldap: false, oidc: { label: 'Keycloak' } });
+    });
+
+    it('never sends the browser to another site after sign-in (a tab, a backslash, //)', async () => {
+      await t.addUser('nextcheck@example.com', 'next-check-pw-1');
+      idp.st.user = { sub: 'u-next', email: 'nextcheck@example.com', email_verified: true };
+      const pw = await t.login('nextcheck@example.com', 'next-check-pw-1');
+      await flow(pw, '?connect=1');
+      for (const next of [
+        '/\t/evil.example',
+        '/\n/evil.example',
+        '/\\evil.example',
+        '//evil.example',
+      ])
+        expect(
+          (await flow(undefined, `?next=${encodeURIComponent(next)}`)).callback!.headers.location,
+        ).toBe('/');
+      expect((await flow(undefined, '?next=/me/calls')).callback!.headers.location).toBe(
+        '/me/calls',
+      );
+    });
+
+    it('connect is a POST with the CSRF header; a GET with connect=1 only signs in', async () => {
+      const ann = await t.login(ADMIN.email, ADMIN.password);
+      const forged = await t.app.inject({
+        method: 'POST',
+        url: '/api/auth/oidc/connect',
+        headers: { cookie: ann },
+        payload: {},
+      });
+      expect(forged.statusCode).toBe(403);
+      expect(forged.json().error.code).toBe('csrf');
+      const r = await t.app.inject({
+        url: '/api/auth/oidc/start?connect=1',
+        headers: { cookie: ann },
+      });
+      const pending = r.cookies.find((c) => c.name === 'sp_oidc')!;
+      expect(JSON.parse(decrypt(pending.value)).connectSessionId).toBeNull();
     });
 
     it('starts with PKCE S256, state and nonce, and a short-lived cookie', async () => {
@@ -398,6 +446,29 @@ for (const alg of ['RS256', 'ES256'] as const)
         const { id } = await annSession();
         idp.st.user.groups = [];
         await check(20);
+        expect(await row(id)).toBeUndefined();
+      } finally {
+        await setSetting(t.db, 'auth.oidc', oidcSettings);
+      }
+    });
+
+    it('the session check reads roles that are only in the ID token, and keeps a session whose refresh brings no groups', async () => {
+      idp.st.user = { ...idp.st.user, roles: ['pbx-users'] }; // Entra: app roles, ID token only
+      await setSetting(t.db, 'auth.oidc', {
+        ...oidcSettings,
+        groupsClaim: 'roles',
+        allowedGroups: ['pbx-users'],
+      });
+      try {
+        const { id } = await annSession();
+        await check(20);
+        expect(await row(id)).toBeTruthy();
+        idp.st.refreshIdToken = false; // no new ID token: no roles claim at all
+        await check(40);
+        expect(await row(id)).toBeTruthy();
+        idp.st.refreshIdToken = true;
+        idp.st.user.roles = []; // the claim is there, and empty: ended
+        await check(60);
         expect(await row(id)).toBeUndefined();
       } finally {
         await setSetting(t.db, 'auth.oidc', oidcSettings);

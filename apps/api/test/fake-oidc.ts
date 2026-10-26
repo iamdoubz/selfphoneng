@@ -11,6 +11,8 @@ export type FakeUser = {
   email_verified?: boolean;
   /** Only in userinfo, as Keycloak's mappers and Authelia send them. */
   groups?: string[];
+  /** Only in the ID token, as Entra's app roles. */
+  roles?: string[];
 };
 
 const b64u = (b: Buffer | string) => Buffer.from(b).toString('base64url');
@@ -38,6 +40,8 @@ export async function startFakeOidc(alg: 'RS256' | 'ES256' = 'RS256') {
     /** true: the token endpoint answers 503, as a provider that's down. */
     down: false,
     refreshes: 0,
+    /** false: a refresh brings no new ID token (allowed by OIDC Core §12.2). */
+    refreshIdToken: true,
   };
   const codes = new Map<string, { nonce: string; challenge: string; user: FakeUser }>();
   const access = new Map<string, FakeUser>();
@@ -101,7 +105,8 @@ export async function startFakeOidc(alg: 'RS256' | 'ES256' = 'RS256') {
         st.refreshes++;
         if (!user || !st.refreshOk) return json(400, { error: 'invalid_grant' });
         // Today's claims, as a real provider gives on refresh.
-        return json(200, tokens(st.user.sub === user.sub ? { ...st.user } : user, null));
+        const t = tokens(st.user.sub === user.sub ? { ...st.user } : user, null);
+        return json(200, st.refreshIdToken ? t : { ...t, id_token: undefined });
       }
       const c = codes.get(form.get('code') ?? '');
       codes.delete(form.get('code') ?? '');
@@ -113,7 +118,8 @@ export async function startFakeOidc(alg: 'RS256' | 'ES256' = 'RS256') {
     if (url.pathname === '/userinfo') {
       const user = access.get((req.headers.authorization ?? '').replace(/^Bearer /, ''));
       if (!user) return json(401, { error: 'invalid_token' });
-      return json(200, { ...user, ...(st.tamper.userinfoSub && { sub: 'someone-else' }) });
+      const { roles: _, ...info } = user;
+      return json(200, { ...info, ...(st.tamper.userinfoSub && { sub: 'someone-else' }) });
     }
     if (url.pathname === '/logout') return json(200, {});
     json(404, {});
@@ -130,6 +136,7 @@ export async function startFakeOidc(alg: 'RS256' | 'ES256' = 'RS256') {
       exp: t.expired ? now - 3600 : now + 300,
       ...(nonce && { nonce: t.nonce ? 'wrong-nonce' : nonce }),
       ...(user.email && { email: user.email, email_verified: user.email_verified }),
+      ...(user.roles && { roles: user.roles }),
     };
     const at = b64u(randomBytes(16));
     const rt = b64u(randomBytes(16));

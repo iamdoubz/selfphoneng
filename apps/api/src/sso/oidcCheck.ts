@@ -8,7 +8,7 @@ import { decrypt, encrypt } from '../crypto/secrets.ts';
 import { sessions, userIdentities, users } from '../db/schema.ts';
 import { audit } from '../services/audit.ts';
 import { getSetting } from '../services/settings.ts';
-import { decide, type ClaimsDecision } from './claims.ts';
+import { claimAt, decide, type ClaimsDecision } from './claims.ts';
 import { applyRole } from './role.ts';
 import { oidcConfig, oidcError, type OidcSettings } from './oidc.ts';
 
@@ -95,9 +95,13 @@ export async function checkOidcSessions(d: { db: Db; log: Log; now?: Date }): Pr
     try {
       tokens = await oidc.refreshTokenGrant(config, decrypt(row.refreshEnc!));
       const sub = row.subject.slice(row.subject.indexOf(' ') + 1);
-      claims = config.serverMetadata().userinfo_endpoint
-        ? { ...(await oidc.fetchUserInfo(config, tokens.access_token, sub)) }
-        : { ...tokens.claims() };
+      // As at sign-in: the ID token's claims, userinfo's on top. Entra's app roles and
+      // "ID token only" mappers are in the ID token alone.
+      claims = {
+        ...tokens.claims(),
+        ...(config.serverMetadata().userinfo_endpoint &&
+          (await oidc.fetchUserInfo(config, tokens.access_token, sub))),
+      };
     } catch (err) {
       // The provider said no: disabled, signed out there, or the refresh token expired.
       if (err instanceof oidc.ResponseBodyError && err.error === 'invalid_grant') {
@@ -106,6 +110,21 @@ export async function checkOidcSessions(d: { db: Db; log: Log; now?: Date }): Pr
       }
       // Down, 5xx, a bad client setup: keep the session and try again next run.
       log.warn?.({ err: oidcError(err) }, `OpenID check of a session failed`);
+      continue;
+    }
+    // No groups claim at all (the refresh brought no ID token, and userinfo doesn't carry it):
+    // nothing to decide groups on, so not "in no groups". Checked again next run.
+    const groupsKnown = claimAt(claims, s.groupsClaim) !== undefined;
+    const ruled = s.allowedGroups.length > 0 || s.adminGroups.length > 0;
+    if (ruled && !groupsKnown) {
+      log.info({ userId: row.userId }, 'OpenID check: no groups claim, role and access kept');
+      await db
+        .update(sessions)
+        .set({
+          idpCheckedAt: now,
+          ...(tokens.refresh_token && { idpRefreshEnc: encrypt(tokens.refresh_token) }),
+        })
+        .where(eq(sessions.id, row.id));
       continue;
     }
     const verdict = decide(s, claims);

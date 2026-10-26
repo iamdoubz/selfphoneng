@@ -13,7 +13,7 @@ import type {
   SystemStatus,
 } from '@selfphoneng/shared';
 import type { FastifyInstance } from 'fastify';
-import { requireAdmin } from '../auth/guards.ts';
+import { SLOW, requireAdmin } from '../auth/guards.ts';
 import { audit } from '../services/audit.ts';
 import { getAllSettings } from '../services/settings.ts';
 import { systemEvents } from '../db/schema.ts';
@@ -175,14 +175,18 @@ export async function systemRoutes(app: FastifyInstance) {
   app.get('/api/system/diagnostics', async (): Promise<DiagnosticsDto> => ({
     checks: await insideChecks(diag()),
   }));
-  app.post('/api/system/diagnostics/network', async (req): Promise<NetworkTestDto> => {
-    const { mode } = z
-      .object({ mode: z.enum(['quick', 'complete']).default('quick') })
-      .parse(req.body ?? {});
-    if (!(await getAllSettings(app.db))['network.probeUrl'])
-      throw badRequest('No network test probe set (Settings → Network)');
-    return networkTest(diag(), mode);
-  });
+  app.post(
+    '/api/system/diagnostics/network',
+    { config: SLOW },
+    async (req): Promise<NetworkTestDto> => {
+      const { mode } = z
+        .object({ mode: z.enum(['quick', 'complete']).default('quick') })
+        .parse(req.body ?? {});
+      if (!(await getAllSettings(app.db))['network.probeUrl'])
+        throw badRequest('No network test probe set (Settings → Network)');
+      return networkTest(diag(), mode);
+    },
+  );
 
   app.get('/api/system/generated-files', async () => ({
     files: await Promise.all(

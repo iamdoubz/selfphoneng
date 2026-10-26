@@ -172,6 +172,11 @@ export const authApi = {
   methods: () => api<AuthMethods>('GET', '/api/auth/methods'),
   /** 12 §3.3: disconnect my OpenID account. */
   disconnectOidc: () => api<{ ok: true }>('DELETE', '/api/me/identities/oidc'),
+  /** 12 §3.3: where to send the browser to connect my OpenID account. */
+  connectOidc: (next: string) => api<{ url: string }>('POST', '/api/auth/oidc/connect', { next }),
+  /** 12 §4.3: connect my directory account with its username and password. */
+  connectLdap: (login: string, password: string) =>
+    api<{ ok: true }>('POST', '/api/me/identities/ldap', { login, password }),
   changePassword: (currentPassword: string, newPassword: string) =>
     api<{ ok: true }>('POST', '/api/auth/change-password', { currentPassword, newPassword }),
 };

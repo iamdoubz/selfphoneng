@@ -16,7 +16,7 @@ import {
   type ContactShareDto,
   type ListResponse,
 } from '@selfphoneng/shared';
-import { requireAdmin, requireAuth } from '../auth/guards.ts';
+import { NO_LIMIT, SLOW, requireAdmin, requireAuth } from '../auth/guards.ts';
 import {
   addToBook,
   assertBuiltin,
@@ -162,33 +162,39 @@ export async function contactRoutes(app: FastifyInstance) {
    * The dialplan's caller-name lookup (11 §6 C4): only Asterisk on this machine (no proxy in
    * between) with the token. Never waits on Contrack. Not logged: the token is in the query.
    */
-  app.get('/api/internal/caller-name', { logLevel: 'silent' }, async (req, reply) => {
-    const q = z
-      .object({
-        ext: z.string().regex(/^\d{1,10}$/),
-        number: z.string().regex(/^\d{3,20}$/),
-        token: z.string().max(100),
-      })
-      .safeParse(req.query);
-    const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? '');
-    if (
-      !local ||
-      req.headers['x-forwarded-for'] ||
-      !q.success ||
-      !sameToken(q.data.token, callerNameToken(app.config.APP_SECRET))
-    )
-      return reply.code(404).send('');
-    const [e] = await db
-      .select({ userId: extensions.userId })
-      .from(extensions)
-      .where(eq(extensions.number, q.data.ext));
-    const names = await contactNames(db, e?.userId ?? null, [q.data.number], { wait: false }).catch(
-      () => new Map<string, string>(),
-    );
-    return reply
-      .type('text/plain; charset=utf-8')
-      .send(phoneSafeName(names.get(q.data.number) ?? ''));
-  });
+  app.get(
+    '/api/internal/caller-name',
+    { logLevel: 'silent', config: NO_LIMIT },
+    async (req, reply) => {
+      const q = z
+        .object({
+          ext: z.string().regex(/^\d{1,10}$/),
+          number: z.string().regex(/^\d{3,20}$/),
+          token: z.string().max(100),
+        })
+        .safeParse(req.query);
+      const local = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(
+        req.socket.remoteAddress ?? '',
+      );
+      if (
+        !local ||
+        req.headers['x-forwarded-for'] ||
+        !q.success ||
+        !sameToken(q.data.token, callerNameToken(app.config.APP_SECRET))
+      )
+        return reply.code(404).send('');
+      const [e] = await db
+        .select({ userId: extensions.userId })
+        .from(extensions)
+        .where(eq(extensions.number, q.data.ext));
+      const names = await contactNames(db, e?.userId ?? null, [q.data.number], {
+        wait: false,
+      }).catch(() => new Map<string, string>());
+      return reply
+        .type('text/plain; charset=utf-8')
+        .send(phoneSafeName(names.get(q.data.number) ?? ''));
+    },
+  );
 
   /** Copy the builtin book into Contrack (11 §5, C6): mine, or (admin) the company's. */
   app.post(
@@ -214,19 +220,23 @@ export async function contactRoutes(app: FastifyInstance) {
   );
 
   /** Settings → Contacts → Test (11 §4.3): the form's address, and its token or the saved one. */
-  app.post('/api/contacts/contrack/test', { preHandler: requireAdmin }, async (req) => {
-    const b = z
-      .object({ url: z.string().trim().min(1), companyToken: z.string().trim().optional() })
-      .parse(req.body);
-    const saved = await getSetting(db, 'contacts.contrack');
-    const token =
-      b.companyToken || (saved?.companyTokenEnc ? decrypt(saved.companyTokenEnc) : null);
-    try {
-      return { ok: true, detail: await contrackCheck(b.url, token) };
-    } catch (err) {
-      return { ok: false, error: (err as Error).message };
-    }
-  });
+  app.post(
+    '/api/contacts/contrack/test',
+    { preHandler: requireAdmin, config: SLOW },
+    async (req) => {
+      const b = z
+        .object({ url: z.string().trim().min(1), companyToken: z.string().trim().optional() })
+        .parse(req.body);
+      const saved = await getSetting(db, 'contacts.contrack');
+      const token =
+        b.companyToken || (saved?.companyTokenEnc ? decrypt(saved.companyTokenEnc) : null);
+      try {
+        return { ok: true, detail: await contrackCheck(b.url, token) };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    },
+  );
 
   // ───── sharing: an offer each, accepted or denied by the recipient (11 §2.1) ─────
   app.post('/api/me/contacts/share', { preHandler: requireAuth }, async (req) => {

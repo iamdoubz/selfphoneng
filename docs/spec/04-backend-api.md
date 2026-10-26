@@ -33,7 +33,12 @@
 - **CSRF:** every non-GET `/api/*` request with cookie auth must carry the header
   `X-Requested-With: selfphoneng`. The web client always sends it. Browsers can't send
   it cross-site without CORS, and CORS is off.
-- Login rate limit: 5 failures per IP per 15 min and 10 per email per hour → HTTP 429.
+- Login rate limit: 5 failures per IP per 15 min and 10 per email per hour → HTTP 429. A signed-in
+  person's password asked again (change password, two-step on/off, recovery codes) counts the same.
+- Every route: `@fastify/rate-limit`, `RATE_LIMIT_PER_MINUTE` (default 600) per client IP → 429
+  `rate_limited`. Test buttons, diagnostics and the source download: 10 a minute (`SLOW` in
+  `auth/guards.ts`). `/prov` (its own limits, 07 §2) and the caller-name route (Asterisk on this
+  machine) are outside it (`NO_LIMIT`).
   Write `login_failed` to the audit log with the IP.
 - If `must_change_password`, every route except `/api/auth/*` returns 403 `{code:'password_change_required'}`.
 - Single sign-on (spec 12, as built in S1): the body is `{login, password, totp?}` (`login`: email, or a

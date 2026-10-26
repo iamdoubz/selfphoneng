@@ -118,9 +118,22 @@ Keycloak (26.8.1) is the one SelfPhoneNG is tested against.
 ## Directory (LDAP)
 
 With a directory, people sign in with their **directory username or email and password**. When
-the password isn't the one set in SelfPhoneNG, SelfPhoneNG asks the directory. The first time,
-they're matched to their user here by the directory's email; nobody gets a user just for being in
-the directory. Their SelfPhoneNG password, if they have one, keeps working too.
+the password isn't the one set in SelfPhoneNG, SelfPhoneNG asks the directory. Nobody gets a user
+just for being in the directory, and their SelfPhoneNG password, if they have one, keeps working
+too.
+
+The first time, the directory account is connected to their user here:
+
+- **New users** (still on the temporary password from Users, or with none): automatically, by the
+  directory's email.
+- **Everyone else, and every admin**: they sign in with their SelfPhoneNG password once, then
+  **My settings** (admins: **My account**) → **Sign-in** → **Connect directory account** with their
+  directory username and password. An email alone never connects an admin or someone who chose
+  their own password, so a directory that lets people edit their own email can't hand out an
+  account.
+
+Only an admin can disconnect a directory account (Users → the user → Sign-in): it's what the
+hourly leaver check follows.
 
 **Settings → Sign-in → Directory (LDAP)**:
 

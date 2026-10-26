@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// preHandler guards (04 §2.4). Routes list them in `preHandler`.
+// preHandler guards (04 §2.4). Routes list them in `preHandler`; the rate limit presets go in
+// `config`.
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { users } from '../db/schema.ts';
 import { forbidden, unauthorized } from '../errors.ts';
@@ -47,3 +48,8 @@ export async function requireAdmin(req: FastifyRequest, reply: FastifyReply): Pr
   await requireAuth(req, reply);
   if (req.user!.role !== 'admin') throw forbidden('Admins only');
 }
+
+/** Route `config` for what calls out or does real work (Test buttons, downloads): 10 a minute. */
+export const SLOW = { rateLimit: { max: 10, timeWindow: 60_000 } };
+/** Route `config` for routes with their own limit (/prov) or only Asterisk on this machine. */
+export const NO_LIMIT = { rateLimit: false as const };

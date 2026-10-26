@@ -121,6 +121,7 @@ APP_UID=1000
 APP_GID=1000
 LOG_LEVEL=info
 TRUST_PROXY=true                     # true when behind Caddy/nginx
+RATE_LIMIT_PER_MINUTE=600            # requests per minute per client IP, every route; 0 = off
 #NODE_EXTRA_CA_CERTS=/var/lib/selfphoneng/tls/idp-ca.pem  # a private CA for the OpenID provider or LDAPS (12 §1)
 ```
 

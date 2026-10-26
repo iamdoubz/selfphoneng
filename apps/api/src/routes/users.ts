@@ -11,7 +11,7 @@ import {
 } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
 import { extensions, userIdentities, users } from '../db/schema.ts';
-import { badRequest, conflict, notFound } from '../errors.ts';
+import { HttpError, badRequest, conflict, notFound } from '../errors.ts';
 import { requireAdmin } from '../auth/guards.ts';
 import { hashPassword } from '../auth/passwords.ts';
 import { deleteUserSessions } from '../auth/sessions.ts';
@@ -32,6 +32,7 @@ export const toUserDto = (
   u: UserRow,
   extension: UserDto['extension'] = null,
   ids: IdentityRow[] = [],
+  from: RoleSources = { oidc: null, ldap: false },
 ): UserDto => ({
   id: u.id,
   email: u.email,
@@ -44,7 +45,25 @@ export const toUserDto = (
   createdAt: u.createdAt.toISOString(),
   extension,
   signIn: signInWays(u, ids),
+  roleFrom: roleFrom(ids, from),
 });
+
+/** The providers that set roles now (12 §1): adminGroups / adminFilter set and in use. */
+type RoleSources = { oidc: string | null; ldap: boolean };
+async function roleSources(db: Db): Promise<RoleSources> {
+  const [oidc, ldap, mode] = await Promise.all([
+    getSetting(db, 'auth.oidc'),
+    getSetting(db, 'auth.ldap'),
+    getSetting(db, 'auth.mode'),
+  ]);
+  return {
+    oidc: oidc && mode !== 'password' && oidc.adminGroups.length > 0 ? oidc.label : null,
+    ldap: Boolean(ldap?.enabled && ldap.adminFilter),
+  };
+}
+const roleFrom = (ids: { kind: string }[], from: RoleSources) =>
+  (from.oidc && ids.some((i) => i.kind === 'oidc') && from.oidc) ||
+  (from.ldap && ids.some((i) => i.kind === 'ldap') ? 'the directory' : null);
 
 /** Connected accounts (12 §2), for one user or all of them. */
 const identitiesOf = (db: Db, userId?: string): Promise<IdentityRow[]> =>
@@ -116,12 +135,14 @@ export async function userRoutes(app: FastifyInstance) {
       .leftJoin(extensions, eq(extensions.userId, users.id))
       .orderBy(asc(users.displayName), asc(users.id));
     const ids = await identitiesOf(db);
+    const from = await roleSources(db);
     return {
       items: rows.map((r) =>
         toUserDto(
           r.u,
           r.extId && r.extNumber ? { id: r.extId, number: r.extNumber } : null,
           ids.filter((i) => i.userId === r.u.id),
+          from,
         ),
       ),
       nextCursor: null,
@@ -130,7 +151,12 @@ export async function userRoutes(app: FastifyInstance) {
 
   app.get('/api/users/:id', async (req) => {
     const { id } = IdParams.parse(req.params);
-    return toUserDto(await getUser(db, id), await extOf(db, id), await identitiesOf(db, id));
+    return toUserDto(
+      await getUser(db, id),
+      await extOf(db, id),
+      await identitiesOf(db, id),
+      await roleSources(db),
+    );
   });
 
   app.post('/api/users', async (req, reply) => {
@@ -169,6 +195,12 @@ export async function userRoutes(app: FastifyInstance) {
     const body = UserUpdateSchema.parse(req.body);
     if (Object.keys(body).length === 0) throw badRequest('Nothing to update');
     const before = await getUser(db, id);
+    const ids = await identitiesOf(db, id);
+    const from = await roleSources(db);
+    // 12 §1: a provider that sets the role would undo this at the next sign-in or check.
+    const managed = roleFrom(ids, from);
+    if (body.role !== undefined && body.role !== before.role && managed)
+      throw new HttpError(409, 'role_managed', `The role comes from ${managed}`);
     const losesAdmin =
       before.role === 'admin' &&
       before.isActive &&
@@ -199,7 +231,7 @@ export async function userRoutes(app: FastifyInstance) {
         after: Object.fromEntries(changed.map((k) => [k, after[k]])),
       },
     });
-    return toUserDto(after, await extOf(db, id), await identitiesOf(db, id));
+    return toUserDto(after, await extOf(db, id), ids, from);
   });
 
   app.delete('/api/users/:id', async (req) => {

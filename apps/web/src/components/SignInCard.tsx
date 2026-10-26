@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// My sign-in ways (12 §5): the password, and connecting or disconnecting an OpenID account.
+// My sign-in ways (12 §5): the password, connecting or disconnecting an OpenID account, and
+// connecting a directory account.
+import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation, useSearchParams } from 'react-router';
 import { authApi } from '../api/client.ts';
 import { useMe } from '../auth/RequireAuth.tsx';
-import { Alert, Button } from './ui.tsx';
+import { Alert, Button, Field, inputClass } from './ui.tsx';
 
 /** What `?sso_error=` means (12 §3.2), for the login page and here. */
 export function ssoErrorText(code: string, label: string): string {
@@ -34,6 +36,10 @@ export function SignInCard() {
     mutationFn: authApi.disconnectOidc,
     onSuccess: () => qc.invalidateQueries({ queryKey: ['me'] }),
   });
+  const connect = useMutation({
+    mutationFn: () => authApi.connectOidc(loc.pathname),
+    onSuccess: (r) => window.location.assign(r.url),
+  });
   const ways = me.data?.signIn;
   const oidc = methods.data?.oidc;
   if (!ways) return null;
@@ -59,10 +65,13 @@ export function SignInCard() {
           </p>
         )}
       </div>
-      {ways.ldap && (
+      {ways.ldap ? (
         <p className="text-sm">
-          Your company directory account is connected: its password works here too.
+          Your company directory account is connected: its password works here too. Only an admin
+          can disconnect it.
         </p>
+      ) : (
+        methods.data?.ldap && <DirectoryConnect />
       )}
       {oidc && (
         <div className="flex flex-col gap-2 text-sm">
@@ -87,18 +96,75 @@ export function SignInCard() {
                 Connect your {oidc.label} account to sign in with it as well.
               </p>
               <div>
-                {/* A full page load: the browser goes to the provider and comes back. */}
-                <a
-                  className="inline-block rounded-md border border-zinc-300 px-3 py-1.5 font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
-                  href={`/api/auth/oidc/start?connect=1&next=${encodeURIComponent(loc.pathname)}`}
+                {/* The browser goes to the provider and comes back (a POST first: 12 §3.3). */}
+                <Button
+                  onClick={() => connect.mutate()}
+                  disabled={connect.isPending || connect.isSuccess}
                 >
                   Connect {oidc.label}
-                </a>
+                </Button>
               </div>
+              {connect.error && <Alert>{connect.error.message}</Alert>}
             </>
           )}
         </div>
       )}
     </section>
+  );
+}
+
+/** Connect my directory account (12 §4.3): its username and password, checked by the directory. */
+function DirectoryConnect() {
+  const qc = useQueryClient();
+  const [v, setV] = useState({ login: '', password: '' });
+  const connect = useMutation({
+    mutationFn: () => authApi.connectLdap(v.login, v.password),
+    onSuccess: () => {
+      setV({ login: '', password: '' });
+      return qc.invalidateQueries({ queryKey: ['me'] });
+    },
+  });
+  return (
+    <form
+      className="flex flex-col gap-2 text-sm"
+      onSubmit={(e) => {
+        e.preventDefault();
+        connect.mutate();
+      }}
+    >
+      <h3 className="font-medium">Company directory</h3>
+      <p className="text-zinc-500">
+        Connect your directory account to sign in with its password as well.
+      </p>
+      <Field label="Directory username or email">
+        {(a) => (
+          <input
+            {...a}
+            className={inputClass}
+            autoComplete="username"
+            value={v.login}
+            onChange={(e) => setV({ ...v, login: e.target.value })}
+          />
+        )}
+      </Field>
+      <Field label="Directory password">
+        {(a) => (
+          <input
+            {...a}
+            type="password"
+            className={inputClass}
+            autoComplete="current-password"
+            value={v.password}
+            onChange={(e) => setV({ ...v, password: e.target.value })}
+          />
+        )}
+      </Field>
+      <div>
+        <Button type="submit" disabled={connect.isPending || !v.login || !v.password}>
+          Connect directory account
+        </Button>
+      </div>
+      {connect.error && <Alert>{connect.error.message}</Alert>}
+    </form>
   );
 }

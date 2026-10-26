@@ -18,7 +18,7 @@ import {
 import type { Db } from '../db/client.ts';
 import { dids, outboundRoutes, trunks } from '../db/schema.ts';
 import { badRequest, conflict, HttpError, notFound } from '../errors.ts';
-import { requireAdmin } from '../auth/guards.ts';
+import { SLOW, requireAdmin } from '../auth/guards.ts';
 import { decrypt, encrypt } from '../crypto/secrets.ts';
 import {
   getDids,
@@ -202,7 +202,7 @@ export async function trunkRoutes(app: FastifyInstance) {
     return { ok: true };
   });
 
-  app.post('/api/trunks/:id/test', async (req): Promise<TrunkTestResult> => {
+  app.post('/api/trunks/:id/test', { config: SLOW }, async (req): Promise<TrunkTestResult> => {
     const { id } = IdParams.parse(req.params);
     const t = await getTrunk(db, id);
     if (!t.enabled) throw badRequest('Turn the trunk on first');

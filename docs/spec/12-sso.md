@@ -36,7 +36,9 @@ the softphone's SIP login are untouched: a phone never talks to the identity pro
   warning).
 - **Extensions** stay manual: an admin assigns one on Users.
 - **Our own session**: every sign-in makes the same `sp_session` cookie as today (04 §2.2, 14 days,
-  sliding). `sessions.method` says how it was made. Provider tokens never reach the browser.
+  sliding). `sessions.method` says how it was made. Provider tokens never reach the browser, except
+  the ID token as `id_token_hint` in the sign-out redirect to the provider (§3.5; RP-initiated
+  logout works that way).
 - **Two-step sign-in** (08 §2.4, owner 2026-10-25): password sign-ins ask for our TOTP code when
   it's on, whether the password was checked here or by the directory. OpenID sign-ins don't: MFA
   there is the provider's job.
@@ -155,7 +157,10 @@ rotation, and builds the end-session URL. We don't hand-roll any of that.
 
 1. Login page (`mixed`, `oidc`): **Sign in with <label>**, a plain link to
    `/api/auth/oidc/start?next=<path>` (same-site paths only, as `next` is today).
-   My account: **Connect <label>**, a link to `/api/auth/oidc/start?connect=1` (needs a session).
+   My account: **Connect <label>** posts `POST /api/auth/oidc/connect` (`{ next? }`, a session, the
+   CSRF header) and sends the browser to the `url` it answers. A POST, so another site can't start
+   a connect and attach whatever provider account the browser is signed in to (security audit,
+   2026-10-26).
 2. `GET /api/auth/oidc/start`: 404 in `password` mode. Makes `state`, `nonce` and a PKCE verifier
    (always all three, even when the provider advertises PKCE), stores them with `next` (and, to
    connect, the session id) in the cookie `sp_oidc = encrypt(JSON)`;
@@ -241,7 +246,9 @@ lasts 14 days, so a person disabled in Keycloak must lose it sooner:
 
 - Sessions with `method = 'oidc'`, a refresh token and `idp_checked_at` older than 15 min →
   `refreshTokenGrant`, store the new refresh and ID tokens when rotated, fetch userinfo with the new
-  access token, run `applyClaims`. The provider refuses (`invalid_grant`: user disabled, session
+  access token, run `applyClaims` on the new ID token's claims with userinfo's on top (as at
+  sign-in: Entra's app roles are in the ID token only). No groups claim at all (the refresh brought
+  no ID token and userinfo lacks it) → role and access unchanged this run; an empty one counts. The provider refuses (`invalid_grant`: user disabled, session
   revoked, refresh token expired) or `applyClaims` says not allowed → delete that session (the live
   socket closes within 30 s, 04 §6). Role, groups and email changes apply. The provider unreachable
   or 5xx → keep the session, try next run (an outage doesn't sign everyone out).
@@ -346,7 +353,10 @@ accepted, so older scripts keep working).
    2. Connect, StartTLS if set, bind the service account (or none).
    3. Search `baseDn`, subtree, `userFilter` with every `{login}` replaced by the escaped `login`
       (`escapeFilter`), attributes: id, email, name. Not exactly one entry → fail.
-   4. Bind as that entry's DN with the password. Refused → fail.
+   4. Bind as that entry's DN with the password. Refused → fail. Any answer from the server is a
+      refusal (wrong password, locked, expired: 389 DS and FreeIPA answer a locked account with
+      19 or 53, not 49); only no answer at all is "unavailable". Else locking someone's directory
+      account would turn their sign-in into a 503.
    5. `adminFilter` set → search `base` = that DN, scope `base`, filter `adminFilter`, with the
       **service** connection: one entry → admin, none → user.
    6. Unbind and close (one connection per sign-in, no pool: a few sign-ins a day).
@@ -356,7 +366,9 @@ accepted, so older scripts keep working).
    ("… signed in with the directory" for LDAP).
 6. Anything else → 401 "Wrong email or password", as today (no hint whether the account exists).
    The directory unreachable → 503 `directory_unavailable` "The directory can't be reached.
-   Passwords set in SelfPhoneNG still work." and a dashboard warning.
+   Passwords set in SelfPhoneNG still work." and a dashboard warning. The 503 is counted and
+   audited as a failed sign-in first: else, while the directory is down, a wrong local password
+   (503) and a right one (200) would be free unlimited guesses.
 
 A user can have both a SelfPhoneNG password and a directory account: either password works.
 
@@ -364,14 +376,20 @@ A user can have both a SelfPhoneNG password and a directory account: either pass
 
 1. A `user_identities` row (`ldap`, id) → its user. Their email here follows the directory's when
    it changes (unless another user has it: kept, logged).
-2. Else, a user with the directory email → connect it (add the row) and sign in, audit
-   `ldap_connected`. The directory is the company's own and the person just proved its password,
-   so its email is trusted, unlike an OpenID provider's (§3.3).
+2. Else, a user with the directory email who is **not an admin** and has **no password or only the
+   temporary one** from Users (`must_change_password`) → connect it (add the row) and sign in,
+   audit `ldap_connected`. Anyone else connects on My settings → Sign-in → **Connect directory
+   account** (`POST /api/me/identities/ldap`, `{ login, password }`, checked by the directory and
+   counted by the login limiter; 409 `taken` when another user has it). Security audit,
+   2026-10-26: a directory where people can edit their own `mail` (common OpenLDAP access rules)
+   must not hand out the admin's account.
 3. Else → 401 "Wrong email or password" (no account is made, §1), with `login_failed` audited as
    "directory account … has no phone system account". The admin's Test shows the same answer.
 4. No email on the entry → same 401, logged.
 
-Users → a user shows the directory account and **Disconnect** (same rules as §3.3).
+Users → a user shows the directory account and **Disconnect** (same rules as §3.3). Only an admin
+disconnects a directory account (`DELETE /api/me/identities/ldap` → 403 `admin_only` for a user):
+it's what the leaver check (§4.5) follows, so a leaver mustn't be able to drop it on the way out.
 
 ### 4.4 Ids
 
@@ -554,6 +572,32 @@ For every active user with a directory account, one connection per run:
   the disabled bit refused, `objectGUID` as hex, a deleted user disabled. `ldap-live.test.ts`
   gained a removed user disabled by the check. The OpenLDAP and FreeIPA presets are still
   unchecked against a real server.
+
+### 8.6 Security audit, 2026-10-26
+
+Two separate reviews (one by an independent agent) of the whole branch and every API route. All
+207 routes were called signed out and as a plain user: each is guarded as meant. Fixed, each with a
+test:
+
+- Login: a directory 503 is counted and audited as a failed sign-in (§4.2); a locked directory
+  account is a refused password, not "unavailable" (`passwordWorks`: any `ResultCodeError`).
+- `next` after OpenID sign-in: no control character or backslash (`safeNext`): "/<tab>/evil" was
+  an open redirect, browsers drop the tab.
+- Directory email matching only for non-admins without a password of their own (§4.3); others
+  connect on My settings (`POST /api/me/identities/ldap`). Only admins disconnect a directory
+  account (§4.3, §4.5).
+- Session check: the refreshed ID token's claims under userinfo's (§3.5).
+- Connect is `POST /api/auth/oidc/connect` (§3.2), not a GET.
+- A stored bind password or client secret is only reused for the same URL and bind DN, or issuer
+  and client ID (400 "enter it again" otherwise, PATCH and Test); SMTP's password is dropped when
+  the host or username changes.
+- `PATCH /api/users/:id` role → 409 `role_managed` when a provider sets it (§1); `UserDto.roleFrom`,
+  the Users drawer shows "From …" read-only.
+- `@fastify/rate-limit` on every route (04 §2.2), stricter on Test buttons; a password asked again
+  shares the login limiter. `PATCH /api/me/contrack` with nothing to set: 400, not 500.
+
+Left as is: directory usernames can be told apart by timing (one more bind when the entry exists);
+the ID token goes to the provider as `id_token_hint` on sign-out (§1).
 
 ## 9. Decided
 

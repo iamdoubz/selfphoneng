@@ -8,6 +8,7 @@ import {
   FilterParser,
   InvalidCredentialsError,
   NoSuchObjectError,
+  ResultCodeError,
   SizeLimitExceededError,
   escapeFilter,
   type Entry,
@@ -150,7 +151,10 @@ async function passwordWorks(s: LdapSettings, dn: string, password: string): Pro
     await u.bind(dn, password);
     return true;
   } catch (err) {
-    if (err instanceof InvalidCredentialsError) return false;
+    // The server answered (wrong password, locked, expired: 389 DS and FreeIPA say 19 or 53
+    // for a locked account): a refused password. Only no answer at all is "unavailable", so
+    // locking someone's account can't turn their sign-in into a 503.
+    if (err instanceof ResultCodeError) return false;
     throw new DirectoryUnavailable((err as Error).message);
   } finally {
     await u.unbind().catch(() => {});

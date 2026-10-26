@@ -192,11 +192,20 @@ function GeneralTab({
         label="Role"
         error={errors.role?.message}
         hint={
-          isSelf ? 'You cannot remove your own admin role if you are the last admin.' : undefined
+          user?.roleFrom
+            ? `From ${user.roleFrom}: change it there.`
+            : isSelf
+              ? 'You cannot remove your own admin role if you are the last admin.'
+              : undefined
         }
       >
         {(a) => (
-          <select {...a} {...form.register('role')} className={inputClass}>
+          <select
+            {...a}
+            {...form.register('role')}
+            disabled={Boolean(user?.roleFrom)}
+            className={inputClass}
+          >
             <option value="user">User</option>
             <option value="admin">Admin</option>
           </select>

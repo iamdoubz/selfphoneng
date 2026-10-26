@@ -7,6 +7,7 @@ import { readFile, stat } from 'node:fs/promises';
 import type { FastifyInstance } from 'fastify';
 import type { AboutDto } from '@selfphoneng/shared';
 import { notFound } from '../errors.ts';
+import { SLOW } from '../auth/guards.ts';
 
 export const REPO_URL = 'https://git.dou.bet/spng/selfphoneng';
 /** In the api's working directory (/app in the image), like ./public. */
@@ -35,7 +36,7 @@ export async function aboutRoutes(app: FastifyInstance) {
     };
   });
 
-  app.get('/api/about/source', async (_req, reply) => {
+  app.get('/api/about/source', { config: SLOW }, async (_req, reply) => {
     if (!(await stat(SOURCE_ARCHIVE).catch(() => null)))
       throw notFound('The source archive is only in builds made with Docker');
     return reply

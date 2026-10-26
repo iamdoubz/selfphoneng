@@ -13,7 +13,7 @@ import {
   type WebhookDto,
   type WebhookEvent,
 } from '@selfphoneng/shared';
-import { requireAdmin } from '../auth/guards.ts';
+import { SLOW, requireAdmin } from '../auth/guards.ts';
 import { generateToken, hashToken } from '../auth/tokens.ts';
 import { decrypt, encrypt } from '../crypto/secrets.ts';
 import { apiTokens, users, webhookDeliveries, webhooks } from '../db/schema.ts';
@@ -103,7 +103,7 @@ export async function integrationRoutes(app: FastifyInstance) {
   });
 
   /** Sends a `webhook.test` event now, not queued: the answer shows right away. */
-  app.post('/api/webhooks/:id/test', async (req) => {
+  app.post('/api/webhooks/:id/test', { config: SLOW }, async (req) => {
     const h = await getHook(IdParams.parse(req.params).id);
     const body = JSON.stringify({
       id: crypto.randomUUID(),

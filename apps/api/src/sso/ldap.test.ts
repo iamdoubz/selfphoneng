@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { BerWriter } from 'ldapts';
-import { describe, expect, it } from 'vitest';
+import { BerWriter, Client, UnwillingToPerformError } from 'ldapts';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   anyLogin,
   assertLdap,
   byIdFilter,
+  DirectoryUnavailable,
   ldapAuthenticate,
   withLogin,
   type LdapSettings,
@@ -59,5 +60,42 @@ describe('LDAP (12 §4)', () => {
     // A directory that doesn't exist: any attempt to connect would throw DirectoryUnavailable.
     const s = { url: 'ldaps://192.0.2.1', startTls: false, userFilter: f } as LdapSettings;
     expect(await ldapAuthenticate(s, 'ann', '')).toBeNull();
+  });
+});
+
+describe('a directory that answers no (12 §4.2)', () => {
+  afterEach(() => vi.restoreAllMocks());
+  const s = {
+    url: 'ldaps://dir.example.com',
+    startTls: false,
+    bindDn: null,
+    baseDn: 'dc=example,dc=com',
+    userFilter: '(uid={login})',
+    idAttribute: 'entryUUID',
+    emailAttribute: 'mail',
+    nameAttribute: 'displayName',
+    adminFilter: null,
+  } as LdapSettings;
+
+  it('a locked account (389 DS, FreeIPA: not code 49) is a refused password, not "unavailable"', async () => {
+    vi.spyOn(Client.prototype, 'search').mockResolvedValue({
+      searchEntries: [{ dn: 'uid=ann,dc=example,dc=com', entryUUID: 'id-1' }],
+      searchReferences: [],
+    });
+    vi.spyOn(Client.prototype, 'unbind').mockResolvedValue();
+    vi.spyOn(Client.prototype, 'bind').mockRejectedValue(
+      new UnwillingToPerformError('Account locked'),
+    );
+    expect(await ldapAuthenticate(s, 'ann', 'right-but-locked')).toBeNull();
+  });
+
+  it('no answer at all is "unavailable"', async () => {
+    vi.spyOn(Client.prototype, 'search').mockResolvedValue({
+      searchEntries: [{ dn: 'uid=ann,dc=example,dc=com', entryUUID: 'id-1' }],
+      searchReferences: [],
+    });
+    vi.spyOn(Client.prototype, 'unbind').mockResolvedValue();
+    vi.spyOn(Client.prototype, 'bind').mockRejectedValue(new Error('connect ECONNREFUSED'));
+    await expect(ldapAuthenticate(s, 'ann', 'pw')).rejects.toThrow(DirectoryUnavailable);
   });
 });
