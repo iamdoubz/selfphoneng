@@ -27,7 +27,7 @@ Target user: one small business or home lab, 1–100 extensions, one server.
 Do NOT build these in v1. Do not leave half-built hooks for them either.
 
 - Multi-tenancy (several companies on one install)
-- Native mobile apps (we document open source SIP apps instead, see `07-provisioning.md`)
+- ~~Native mobile apps~~: reversed 2026-10-26, our own app is `13-mobile.md` (decision 0005)
 - Video calls, screen sharing, team chat
 - Fax
 - CRM integrations (the REST API + webhooks are the integration point)

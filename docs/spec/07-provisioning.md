@@ -222,5 +222,5 @@ As built (M10-T3), `provisioning/linphone.ts`:
 
 Mobile limitation (state it plainly in the UI and admin guide): without push
 notifications, iOS and battery-optimized Android apps miss calls while in the
-background. A push gateway is a v2 item. For v1, recommend the desk phone + browser softphone,
+background. A push gateway is a v2 item (13 §6; our own app, 13, has the same limit in v1). For v1, recommend the desk phone + browser softphone,
 or call forwarding to a mobile number (CFNA) as the fallback.

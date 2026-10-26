@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // My settings (05 §4): call forwarding, do not disturb, voicemail PIN and email options, the call
-// report email, my Contrack account (11 §4.3).
+// report email, my Contrack account (11 §4.3), pairing the mobile app (13 §2).
 // Softphone devices and notifications live in the softphone panel. "Set up a phone app" (07 §5).
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { formatNumber, type CallReport, type MeDto, type MeUpdate } from '@selfphoneng/shared';
 import { meApi } from '../../api/client.ts';
 import { PhoneAppSetup } from '../../components/PhoneAppSetup.tsx';
@@ -70,6 +70,7 @@ function SettingsForms({ me }: { me: MeDto }) {
         </h2>
         <PhoneAppSetup load={meApi.softphoneQr} />
       </section>
+      <MobileApp />
       <SignInCard />
     </div>
   );
@@ -407,6 +408,91 @@ function ContrackConnect({ contrack }: { contrack: NonNullable<MeDto['contrack']
       </form>
       {(connect.error ?? disconnect.error ?? options.error) && (
         <Alert>{(connect.error ?? disconnect.error)!.message}</Alert>
+      )}
+    </section>
+  );
+}
+
+/** Pairing our own app (13 §2): a one-time QR code, and the phones paired so far. */
+function MobileApp() {
+  const qc = useQueryClient();
+  const pair = useMutation({ mutationFn: meApi.pairPhone });
+  // While a code is up, look for the phone that uses it, then put the code away.
+  const phones = useQuery({
+    queryKey: ['me', 'phones'],
+    queryFn: meApi.phones,
+    refetchInterval: pair.data ? 3000 : false,
+  });
+  const [before, setBefore] = useState(0);
+  const paired = pair.data && (phones.data?.length ?? 0) > before;
+  useEffect(() => {
+    if (paired) pair.reset();
+  }, [paired, pair]);
+  const remove = useMutation({
+    mutationFn: meApi.removePhone,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['me', 'phones'] }),
+  });
+  return (
+    <section aria-labelledby="mob-h" className="flex flex-col gap-3 text-sm">
+      <h2 id="mob-h" className="text-lg font-semibold">
+        Mobile app
+      </h2>
+      <p>
+        The SelfPhoneNG app for Android and iPhone signs in by pairing: tap{' '}
+        <em>Pair with a server</em> in the app and point the camera at the code below. It rings only
+        while the app is open.
+      </p>
+      {phones.data && phones.data.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {phones.data.map((d) => (
+            <li key={d.id} className="flex flex-wrap items-center gap-3">
+              <span>
+                {d.name}{' '}
+                <span className="text-zinc-500">
+                  ({d.platform === 'ios' ? 'iPhone' : 'Android'}, paired{' '}
+                  {new Date(d.createdAt).toLocaleDateString()}
+                  {d.lastUsedAt && `, last used ${new Date(d.lastUsedAt).toLocaleString()}`})
+                </span>
+              </span>
+              <Button onClick={() => remove.mutate(d.id)} disabled={remove.isPending}>
+                Remove
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!pair.data ? (
+        <Button
+          className="self-start"
+          onClick={() => {
+            setBefore(phones.data?.length ?? 0);
+            pair.mutate();
+          }}
+          disabled={pair.isPending}
+        >
+          Pair a phone
+        </Button>
+      ) : (
+        <div className="flex flex-col gap-2">
+          <img
+            src={pair.data.qr}
+            alt="Pairing QR code for the mobile app"
+            width={280}
+            height={280}
+            className="rounded bg-white"
+          />
+          <p>
+            Or type it in the app: server <span className="font-mono">{pair.data.server}</span>,
+            code <span className="font-mono">{pair.data.code}</span>
+          </p>
+          <p className="text-xs text-zinc-500">
+            Works once, until {new Date(pair.data.expiresAt).toLocaleTimeString()}. Whoever uses it
+            gets into your account: don't share it.
+          </p>
+        </div>
+      )}
+      {(pair.error ?? phones.error ?? remove.error) && (
+        <Alert>{(pair.error ?? phones.error ?? remove.error)!.message}</Alert>
       )}
     </section>
   );

@@ -58,6 +58,10 @@ Bearer requests don't need `X-Requested-With` (no cookie is used, and a cross-si
 Authorization). A token can't list, make or revoke tokens (403): a leaked one can't make itself a
 spare. `lastUsedAt` is written on every request. Settings → API tokens.
 
+### 2.3a Mobile device tokens
+`Authorization: Bearer spm_<40 base62>`, made by pairing a phone and acting as its user, never as
+an admin (`requireAdmin` refuses them). See `13-mobile.md` §2 and §4.
+
 ### 2.4 Guards
 Fastify `preHandler` hooks in `auth/guards.ts`:
 - `requireAuth`: sets `req.user`.

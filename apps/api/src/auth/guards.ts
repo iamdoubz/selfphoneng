@@ -5,6 +5,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { users } from '../db/schema.ts';
 import { forbidden, unauthorized } from '../errors.ts';
 import { COOKIE, getSessionUser, mustChange, setSessionCookie } from './sessions.ts';
+import { getDeviceUser } from './devices.ts';
 import { getTokenUser } from './tokens.ts';
 
 export type CurrentUser = typeof users.$inferSelect;
@@ -15,22 +16,28 @@ declare module 'fastify' {
     sessionId: string | null;
     /** Set when the request came with an API token instead of a session. */
     apiTokenId?: string;
+    /** Set when the request came from a paired phone (13 §2). */
+    mobileDeviceId?: string;
   }
 }
 
 /**
- * Sets req.user from an API token (Authorization: Bearer, 04 §2.3) or else the session cookie.
- * Enforces must_change_password outside /api/auth/*.
+ * Sets req.user from a device token (`spm_`, 13 §2) or API token (Authorization: Bearer, 04 §2.3),
+ * or else the session cookie. Enforces must_change_password outside /api/auth/*.
  */
 export async function requireAuth(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   const auth = req.headers.authorization;
   if (auth?.startsWith('Bearer ')) {
-    const t = await getTokenUser(req.server.db, auth.slice(7).trim());
-    if (!t) throw unauthorized();
-    req.user = t.user;
+    const raw = auth.slice(7).trim();
+    const d = raw.startsWith('spm_') ? await getDeviceUser(req.server.db, raw) : null;
+    const t = d ? null : await getTokenUser(req.server.db, raw);
+    if (!d && !t) throw unauthorized();
+    // A phone is never an admin (13 §2): a lost one mustn't open the admin panel or recordings.
+    req.user = d ? { ...d.user, role: 'user' } : t!.user;
     req.sessionId = null;
-    req.apiTokenId = t.tokenId;
-    if (t.user.mustChangePassword)
+    if (d) req.mobileDeviceId = d.deviceId;
+    else req.apiTokenId = t!.tokenId;
+    if (req.user.mustChangePassword)
       throw forbidden('Change your password first', 'password_change_required');
     return;
   }

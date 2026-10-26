@@ -122,6 +122,22 @@ create table api_tokens (
   revoked_at    timestamptz
 );
 
+-- Paired phones (13 §2, §3): a row waits with a pairing code, then holds the device token.
+create table mobile_devices (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null references users(id) on delete cascade,
+  name             text,                    -- "Pixel 9", from the app; null until paired
+  platform         text check (platform in ('android', 'ios')),
+  token_prefix     text,                    -- "spm_AbC1", shown on the web
+  token_hash       text unique,             -- sha256 hex; null while waiting to pair
+  pair_code_hash   text unique,             -- sha256 hex; null once paired
+  pair_expires_at  timestamptz,
+  last_used_at     timestamptz,
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+create index on mobile_devices (user_id);
+
 -- ───────────── extensions (telephony identity of a user) ─────────────
 create type outbound_class as enum ('internal', 'local', 'national', 'international');
 create type record_mode   as enum ('never', 'inbound', 'outbound', 'all');

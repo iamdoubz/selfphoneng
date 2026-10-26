@@ -106,7 +106,7 @@ Implementation notes (M3):
 | Voicemail | `/me/voicemail` | List (new bold), play (marks read), download, delete, search (transcript, caller). Greetings section: record in the browser (MediaRecorder → upload), upload, or delete for unavail/busy/name |
 | Contacts | `/me/contacts` | Personal + company (read-only) with search, click to call |
 | Messages | `/me/sms` | Threads per DID + remote number, chat bubbles, composer with 160-char segment counter, unread badges (06 §5) |
-| Settings | `/me/settings` | Forwarding rules (always/busy/no answer with number fields), voicemail PIN, email options, call report email (off / hourly / daily at a time / weekly on a day at a time, company time zone; optional summaries of recorded calls, 10 §3; nothing sent for a period without calls), softphone audio devices, notification permission, change password, "Set up a phone app" (QR, 07 §5) |
+| Settings | `/me/settings` | Forwarding rules (always/busy/no answer with number fields), voicemail PIN, email options, call report email (off / hourly / daily at a time / weekly on a day at a time, company time zone; optional summaries of recorded calls, 10 §3; nothing sent for a period without calls), softphone audio devices, notification permission, change password, "Set up a phone app" (QR, 07 §5), "Mobile app" (pair a phone, list and remove paired phones, 13 §2) |
 
 ### 4.1 Presence panel
 Right column on wide screens, a tab on mobile. Lists every extension with its
