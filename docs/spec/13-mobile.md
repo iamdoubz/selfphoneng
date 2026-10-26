@@ -7,7 +7,10 @@ stack: [decision 0005](../decisions/0005-mobile-app.md).
 
 - Repo: `git.dou.bet/spng/mobile` (AGPL-3.0), checked out at `mobile/` beside this repo. It has
   this repo as a git submodule for `@selfphoneng/shared` (types and zod schemas).
-- Expo (React Native) + TypeScript, react-query, zustand, zod, as the web client.
+- Expo (React Native) + TypeScript, react-query and zustand, as the web client. Expo packages:
+  expo-router (screens, and the `selfphoneng://` links), expo-camera (scanning the pairing QR),
+  expo-secure-store (the device token), expo-device (the phone's name for the device list).
+  Types from `@selfphoneng/shared` are `import type` only, so the app bundles none of this repo.
 - **User portal only** (owner): calls, call history, voicemail, contacts, My settings. No admin
   screens; admins use the web panel, which works in a phone's browser.
 - Calls: SIP.js + react-native-webrtc on the extension's `-web` endpoint (`GET /api/me/webrtc`),
@@ -83,7 +86,7 @@ What the app uses besides these (all exist): `GET|PATCH /api/me`, `GET /api/me/w
 |---|---|---|---|
 | MB1 | this | Decision 0005; this spec; migration 0013; device tokens in the guards; §4 routes; My settings → Mobile app (QR, code, device list, Remove) | `pnpm lint && typecheck && test` pass; pairing, device token, admin refusal and removal are tested. Done, see §5.1 |
 | MB2 | this | The live socket (`GET /api/live`, 04 §5.2) takes a device token as `Authorization: Bearer` (React Native's WebSocket can send headers; browsers keep the cookie) | the app gets `voicemail` and presence events |
-| MB3 | mobile | Expo skeleton, the submodule, pairing by QR and by hand, Sign out, a tab bar; Android APK builds; iOS builds through ios-builder | the owner pairs an Android phone and an iPhone and sees their name |
+| MB3 | mobile | Expo skeleton, the submodule, pairing by QR, by hand and by `selfphoneng://pair` link, Sign out; Android APK builds; iOS steps for ios-builder (the tab bar comes with MB5, when there's a second screen) | the owner pairs an Android phone and an iPhone and sees their name and extension |
 | MB4 | mobile | Calls: SIP.js + react-native-webrtc, register while open, dial pad, in and out, hold, mute, DTMF, speaker; native call screen; the "rings only while open" notice | a call each way with the PBX, on both phones, shown on the native call screen and in the phone's recent calls |
 | MB5 | mobile | Call history (`/api/me/calls`), tap to call back | matches the web's Calls page |
 | MB6 | mobile | Voicemail: list, play, mark heard, delete | as the web's Voicemail page |
@@ -98,6 +101,20 @@ What the app uses besides these (all exist): `GET|PATCH /api/me`, `GET /api/me/w
   the page checks the list every 3 s and puts the code away when a new phone appears. Paired
   phones, with Remove.
 - `apps/api/test/mobile.test.ts`. Not tried with a real phone yet: that's MB3.
+
+### 5.2 As built: MB3 (mobile `6e4bc2b`)
+
+- Expo SDK 58, React Native 0.88, Expo Router; app id `bet.dou.selfphoneng` (Android and iOS).
+  `// TODO(spec)`: confirm the app id before any store listing (it can't change after).
+- Screens: `pair` (scan, type, or a `selfphoneng://pair` link filled in and waiting for a tap, so
+  a link someone sends can't pair the phone to their server unnoticed) and home (name, server,
+  extension from `GET /api/me`, the rings-only-while-open notice, Sign out). Sign out deletes the
+  device on the server, then forgets the token even if the server can't be reached.
+- `npx expo export` bundles both platforms; a release APK (arm64) builds on Windows. That needed
+  CMake 3.31 (`cmake.dir` in `android/local.properties`): the Android SDK's default CMake 3.22 has a
+  `ninja` without long-path support, and React Native's codegen paths pass 260 characters.
+- **Open:** the owner pairs a real Android phone and an iPhone (ios-builder needs a GitHub mirror
+  of the mobile repo).
 
 ## 6. Later (not in MB1–MB8)
 
