@@ -7,10 +7,16 @@ import {
   AiEndpointSchema,
   AiTtsEndpointSchema,
   ContrackInputSchema,
+  LdapInputSchema,
+  OidcInputSchema,
   SettingsSchemas,
   SmtpInputSchema,
   type AiTestResult,
+  type AuthMode,
   type Destination,
+  type LdapTestResult,
+  type OidcInput,
+  type OidcTestResult,
   type SettingKey,
   type SettingsDto,
   type Warning,
@@ -18,7 +24,7 @@ import {
 import type { Db } from '../db/client.ts';
 import { dids, extensions, trunks } from '../db/schema.ts';
 import { HttpError, badRequest } from '../errors.ts';
-import { requireAdmin } from '../auth/guards.ts';
+import { SLOW, requireAdmin } from '../auth/guards.ts';
 import { encrypt } from '../crypto/secrets.ts';
 import { audit } from '../services/audit.ts';
 import { assertDestinationExists } from '../services/destinations.ts';
@@ -30,6 +36,9 @@ import { detectPublicIp } from '../jobs.ts';
 import type { SendMail } from '../services/mail.ts';
 import { AiError, assertLocalUrl, testEndpoint } from '../ai/client.ts';
 import { forgetBook } from '../contacts/contrack.ts';
+import { assertLdap, testLdap, type LdapSettings } from '../sso/ldap.ts';
+import { directoryUserFor } from '../sso/directory.ts';
+import { assertIssuer, oidcConfig, oidcError, testOidc, type OidcSettings } from '../sso/oidc.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -42,14 +51,46 @@ declare module 'fastify' {
 const READ_ONLY = new Set<string>([
   'system.restartRequired',
   'system.transportHash',
+  'system.directoryWarning',
   'sms.webhookToken',
   'setup.completed',
 ]);
 
 async function toDto(db: Db): Promise<SettingsDto> {
-  const { smtp, 'contacts.contrack': ctk, ...rest } = await getAllSettings(db);
+  const {
+    smtp,
+    'contacts.contrack': ctk,
+    'auth.oidc': oidc,
+    'auth.ldap': ldap,
+    ...rest
+  } = await getAllSettings(db);
   return {
     ...rest,
+    'auth.ldap': ldap && {
+      enabled: ldap.enabled,
+      preset: ldap.preset,
+      url: ldap.url,
+      startTls: ldap.startTls,
+      bindDn: ldap.bindDn,
+      baseDn: ldap.baseDn,
+      userFilter: ldap.userFilter,
+      idAttribute: ldap.idAttribute,
+      emailAttribute: ldap.emailAttribute,
+      nameAttribute: ldap.nameAttribute,
+      adminFilter: ldap.adminFilter,
+      hasBindPassword: ldap.bindPasswordEnc !== null,
+    },
+    'auth.oidc': oidc && {
+      label: oidc.label,
+      issuer: oidc.issuer,
+      clientId: oidc.clientId,
+      scopes: oidc.scopes,
+      groupsClaim: oidc.groupsClaim,
+      adminGroups: oidc.adminGroups,
+      allowedGroups: oidc.allowedGroups,
+      trustEmail: oidc.trustEmail,
+      hasClientSecret: oidc.clientSecretEnc !== null,
+    },
     'contacts.contrack': ctk && {
       url: ctk.url,
       publicUrl: ctk.publicUrl,
@@ -100,6 +141,74 @@ async function checkRefs(db: Db, v: Record<string, unknown>) {
 
 export async function settingsRoutes(app: FastifyInstance) {
   const { db } = app;
+
+  /** The stored form of `auth.ldap`: the bind password is write-only (empty keeps it). */
+  async function ldapFromInput(raw: unknown): Promise<LdapSettings | null> {
+    if (raw === null) return null;
+    const v = LdapInputSchema.parse(raw);
+    try {
+      assertLdap(v);
+    } catch (err) {
+      throw badRequest((err as Error).message);
+    }
+    const old = await getSetting(db, 'auth.ldap');
+    const url = v.url.replace(/\/$/, '');
+    // The stored password only goes back to the server and account it was typed for: else a
+    // changed address (or Test) would send it to whoever answers there.
+    const same = old?.url === url && old.bindDn === v.bindDn;
+    if (!v.bindPassword && !v.clearBindPassword && !same && v.bindDn && old?.bindPasswordEnc)
+      throw badRequest('The address or service account changed: enter its password again');
+    return {
+      enabled: v.enabled,
+      preset: v.preset,
+      url,
+      startTls: v.startTls,
+      bindDn: v.bindDn,
+      bindPasswordEnc: v.bindPassword
+        ? encrypt(v.bindPassword)
+        : v.clearBindPassword || !same
+          ? null
+          : (old?.bindPasswordEnc ?? null),
+      baseDn: v.baseDn,
+      userFilter: v.userFilter,
+      idAttribute: v.idAttribute,
+      emailAttribute: v.emailAttribute,
+      nameAttribute: v.nameAttribute,
+      adminFilter: v.adminFilter,
+    };
+  }
+
+  /** The stored form of `auth.oidc`: the secret is write-only (empty keeps the stored one). */
+  async function oidcFromInput(input: OidcInput | null): Promise<OidcSettings | null> {
+    if (!input) return null;
+    try {
+      assertIssuer(input.issuer);
+    } catch (err) {
+      throw badRequest((err as Error).message);
+    }
+    const old = await getSetting(db, 'auth.oidc');
+    // As for the directory: the stored secret only goes to the provider it was typed for.
+    const same = old?.issuer === input.issuer && old.clientId === input.clientId;
+    if (!input.clientSecret && !input.clearClientSecret && !same && old?.clientSecretEnc)
+      throw badRequest('The issuer or client ID changed: enter the client secret again');
+    return {
+      label: input.label,
+      issuer: input.issuer,
+      clientId: input.clientId,
+      clientSecretEnc: input.clientSecret
+        ? encrypt(input.clientSecret)
+        : input.clearClientSecret
+          ? null
+          : same
+            ? (old.clientSecretEnc ?? null)
+            : null,
+      scopes: input.scopes,
+      groupsClaim: input.groupsClaim,
+      adminGroups: input.adminGroups,
+      allowedGroups: input.allowedGroups,
+      trustEmail: input.trustEmail,
+    };
+  }
   app.addHook('preHandler', requireAdmin);
 
   app.get('/api/settings', () => toDto(db));
@@ -120,7 +229,12 @@ export async function settingsRoutes(app: FastifyInstance) {
           secure: input.secure,
           username: input.username,
           from: input.from,
-          passwordEnc: input.password ? encrypt(input.password) : (old?.passwordEnc ?? ''),
+          // Kept only for the same server and account: a new host doesn't get the old password.
+          passwordEnc: input.password
+            ? encrypt(input.password)
+            : old?.host === input.host && old.username === input.username
+              ? old.passwordEnc
+              : '',
         };
       } else if (key === 'contacts.contrack') {
         // The company token is write-only too (11 §4.3).
@@ -142,6 +256,10 @@ export async function settingsRoutes(app: FastifyInstance) {
               : (old?.companyTokenEnc ?? ''),
         };
         forgetBook(null);
+      } else if (key === 'auth.ldap') {
+        values[key] = await ldapFromInput(raw);
+      } else if (key === 'auth.oidc') {
+        values[key] = await oidcFromInput(raw === null ? null : OidcInputSchema.parse(raw));
       } else values[key] = SettingsSchemas[key as SettingKey].parse(raw);
     }
     await checkRefs(db, values);
@@ -155,6 +273,21 @@ export async function settingsRoutes(app: FastifyInstance) {
       }
     }
     const before = await getAllSettings(db);
+    // 12 §1.1: mixed and oidc need a working OpenID Connect setup.
+    if ('auth.mode' in values || 'auth.oidc' in values) {
+      const mode = (values['auth.mode'] ?? before['auth.mode']) as AuthMode;
+      const oidc = (
+        'auth.oidc' in values ? values['auth.oidc'] : before['auth.oidc']
+      ) as OidcSettings | null;
+      if (mode !== 'password') {
+        if (!oidc) throw badRequest('Set up OpenID Connect first');
+        try {
+          await oidcConfig(oidc);
+        } catch (err) {
+          throw badRequest(`OpenID Connect doesn't work: ${oidcError(err)}`);
+        }
+      }
+    }
     // SIP ports may not land on another listener (Asterisk would fail to start the transport).
     const c = app.config;
     const [sip, tls] = [
@@ -195,7 +328,7 @@ export async function settingsRoutes(app: FastifyInstance) {
     return toDto(db);
   });
 
-  app.post('/api/settings/smtp/test', async (req) => {
+  app.post('/api/settings/smtp/test', { config: SLOW }, async (req) => {
     const { to } = z.object({ to: z.email() }).parse(req.body);
     try {
       await app.sendMail({
@@ -210,7 +343,7 @@ export async function settingsRoutes(app: FastifyInstance) {
   });
 
   /** Settings → Emergency → Test notifications (06 §6.5): email + ring-out, never dials 911. */
-  app.post('/api/settings/emergency/test', async (req) => {
+  app.post('/api/settings/emergency/test', { config: SLOW }, async (req) => {
     const [ext] = await db.select().from(extensions).where(eq(extensions.userId, req.user!.id));
     const notified = await notifyEmergency(
       { db, ami: app.ami, live: app.live, send: app.sendMail, log: req.log },
@@ -232,8 +365,46 @@ export async function settingsRoutes(app: FastifyInstance) {
     return { notified };
   });
 
+  /**
+   * Settings → Sign-in → Directory → Test, from the unsaved form (12 §4.1). The test password
+   * is used once and never stored or logged.
+   */
+  app.post(
+    '/api/settings/auth/ldap/test',
+    { config: SLOW },
+    async (req): Promise<LdapTestResult> => {
+      const { testLogin, testPassword, ...form } = LdapInputSchema.extend({
+        testLogin: z.string().trim().max(254).optional(),
+        testPassword: z.string().max(200).optional(),
+      }).parse(req.body);
+      const s = (await ldapFromInput(form))!;
+      try {
+        const r = await testLdap(s, testLogin || undefined, testPassword);
+        if (!r.user) return { ok: true, matching: r.matching };
+        const matches = await directoryUserFor(db, r.user);
+        return {
+          ok: true,
+          matching: r.matching,
+          user: { ...r.user, matches: matches?.email ?? null },
+        };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    },
+  );
+
+  /** Settings → Sign-in → Test, from the unsaved form (12 §3.1). */
+  app.post(
+    '/api/settings/auth/oidc/test',
+    { config: SLOW },
+    async (req): Promise<OidcTestResult> => {
+      const s = await oidcFromInput(OidcInputSchema.parse(req.body));
+      return testOidc(s!, app.config.PUBLIC_HOSTNAME);
+    },
+  );
+
   /** The server's public IPv4, as an outside service sees it (only sent when asked). */
-  app.post('/api/settings/network/detect-public-ip', async () => {
+  app.post('/api/settings/network/detect-public-ip', { config: SLOW }, async () => {
     const ip = await detectPublicIp();
     if (ip) return { ip };
     throw new HttpError(502, 'unavailable', "Couldn't detect the public IP. Enter it by hand.");
@@ -255,7 +426,7 @@ export async function settingsRoutes(app: FastifyInstance) {
   });
 
   /** Settings → AI → Test (spec 10): the values in the form, saved or not. */
-  app.post('/api/ai/test', async (req): Promise<AiTestResult> => {
+  app.post('/api/ai/test', { config: SLOW }, async (req): Promise<AiTestResult> => {
     const { kind } = z.object({ kind: z.enum(['llm', 'stt', 'tts']) }).parse(req.body);
     const ep = (kind === 'tts' ? AiTtsEndpointSchema : AiEndpointSchema).parse(
       (req.body as { endpoint?: unknown }).endpoint,
@@ -310,6 +481,12 @@ export async function settingsRoutes(app: FastifyInstance) {
         code: 'backup_old',
         message: "Today's backup hasn't been made. Check the api log, or press Back up now.",
         link: '/admin/settings/backups',
+      });
+    if (s['system.directoryWarning'])
+      items.push({
+        code: 'directory_check',
+        message: s['system.directoryWarning'],
+        link: '/admin/settings/sign-in',
       });
     if (!s.smtp)
       items.push({

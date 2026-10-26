@@ -33,9 +33,19 @@
 - **CSRF:** every non-GET `/api/*` request with cookie auth must carry the header
   `X-Requested-With: selfphoneng`. The web client always sends it. Browsers can't send
   it cross-site without CORS, and CORS is off.
-- Login rate limit: 5 failures per IP per 15 min and 10 per email per hour → HTTP 429.
+- Login rate limit: 5 failures per IP per 15 min and 10 per email per hour → HTTP 429. A signed-in
+  person's password asked again (change password, two-step on/off, recovery codes) counts the same.
+- Every route: `@fastify/rate-limit`, `RATE_LIMIT_PER_MINUTE` (default 600) per client IP → 429
+  `rate_limited`. Test buttons, diagnostics and the source download: 10 a minute (`SLOW` in
+  `auth/guards.ts`). `/prov` (its own limits, 07 §2) and the caller-name route (Asterisk on this
+  machine) are outside it (`NO_LIMIT`).
   Write `login_failed` to the audit log with the IP.
 - If `must_change_password`, every route except `/api/auth/*` returns 403 `{code:'password_change_required'}`.
+- Single sign-on (spec 12, as built in S1): the body is `{login, password, totp?}` (`login`: email, or a
+  directory username from S4; `email` is still accepted). A user without a password fails like a wrong
+  one. `auth.mode = 'oidc'` refuses passwords for non-admins (403 `password_sign_in_off`).
+  `GET /api/auth/methods` (public) → `{mode, ldap, oidc}` for the login page. The last active admin
+  **with a password** can't be deleted, disabled or demoted.
 
 ### 2.3 API tokens (integrations)
 - Header `Authorization: Bearer sp_<40 random base62 chars>`. Stored as sha256.
@@ -420,7 +430,7 @@ As built (M11-T6): `routes/reports.ts`. `from`/`to` are company-time-zone days, 
 | GET/PATCH | `/api/settings` | whole settings object; PATCH merges known keys only. `smtp` comes back as `{host, port, secure, username, from, hasPassword}` and is written with an optional `password` (empty keeps the stored one). `system.*`, `sms.webhookToken` and `setup.completed` are read-only. References (DIDs, extensions, destinations) are checked, and a transport a trunk uses can't be turned off |
 | POST | `/api/settings/smtp/test` | `{to}` sends a test email |
 | POST | `/api/settings/emergency/test` | runs 04 §5.3 steps 2–4 with `TEST` in front (email, ring-out, banner); records nothing and dials nothing (06 §6.5). Returns `{notified}` |
-| GET | `/api/system/warnings` | `{items: [{code, message, link}]}` for the dashboard banner: `restart_required`, `e911_cid_missing` (a trunk exists, no default E911 caller ID), `e911_address_unconfirmed` (that DID has no `e911_address`), `smtp_missing`, `tls_cert` (TLS on and the cert missing or expiring within 14 days, M11-T2), `backup_old` (backups on and today's not made yet though the job had its chance, M11-T3). "Trunk down" comes from live state in the browser |
+| GET | `/api/system/warnings` | `{items: [{code, message, link}]}` for the dashboard banner: `restart_required`, `e911_cid_missing` (a trunk exists, no default E911 caller ID), `e911_address_unconfirmed` (that DID has no `e911_address`), `smtp_missing`, `tls_cert` (TLS on and the cert missing or expiring within 14 days, M11-T2), `backup_old` (backups on and today's not made yet though the job had its chance, M11-T3), `directory_check` (12 §4.2, §4.5: the directory unreachable at a sign-in or by `directoryCheck`, or that job refusing to disable most people). "Trunk down" comes from live state in the browser |
 | POST | `/api/settings/network/detect-public-ip` | |
 | GET | `/api/system/status` | `{ db: ok, ami: connected, asteriskVersion, uptime, trunks: [...], disk: {free, total}, restartRequired, lastGeneratorRun }` |
 | GET | `/api/system/tls` | the SIP TLS certificate in `TLS_DIR`: `{ok: true, subject, names, notAfter}` or `{ok: false, error}` (M11-T2) |

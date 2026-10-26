@@ -14,6 +14,7 @@ import { allowProvRequest, recordProvFailure } from '../provisioning/limiter.ts'
 import { grandstream, grandstreamPhonebook } from '../provisioning/templates/grandstream.ts';
 import { yealink, yealinkCommon, yealinkPhonebook } from '../provisioning/templates/yealink.ts';
 import { getSetting } from '../services/settings.ts';
+import { NO_LIMIT } from '../auth/guards.ts';
 
 /** File name → what it is. Anything else is a plain 404 (phones ask for files we don't serve). */
 const FILES: {
@@ -73,7 +74,7 @@ export async function provisioningRoutes(app: FastifyInstance) {
   const deny = (reply: FastifyReply, code: number, text: string) =>
     reply.code(code).header('Cache-Control', 'no-store').type('text/plain').send(text);
 
-  app.get('/prov/*', async (req, reply) => {
+  app.get('/prov/*', { config: NO_LIMIT }, async (req, reply) => {
     if (!(await getSetting(db, 'provisioning.enabled'))) return deny(reply, 404, 'Not found');
     const local = await isLocal(req.ip);
     if ((await getSetting(db, 'provisioning.lanOnly')) && !local)

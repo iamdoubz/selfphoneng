@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import Fastify from 'fastify';
 import fastifyCookie from '@fastify/cookie';
+import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import fastifyWebsocket from '@fastify/websocket';
 import { sql } from 'drizzle-orm';
@@ -11,9 +12,10 @@ import type { Db } from './db/client.ts';
 import type { Generator } from './generator/index.ts';
 import type { AmiClient } from './ami/client.ts';
 import { settingsRoutes } from './routes/settings.ts';
-import { errorHandler, forbidden, notFound, sendError } from './errors.ts';
+import { HttpError, errorHandler, forbidden, notFound, sendError } from './errors.ts';
 import { authRoutes } from './routes/auth.ts';
 import { userRoutes } from './routes/users.ts';
+import { oidcRoutes } from './routes/oidc.ts';
 import { systemRoutes } from './routes/system.ts';
 import { extensionRoutes } from './routes/extensions.ts';
 import { trunkRoutes } from './routes/trunks.ts';
@@ -91,6 +93,15 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.decorateRequest('sessionId', null);
   app.register(fastifyCookie);
   app.register(fastifyWebsocket);
+  // Every route, per client IP (08 §2.4). Before the routes, so each one gets it; routes with
+  // their own limits (login, /prov) or a stricter one say so in `config.rateLimit`.
+  if (config.RATE_LIMIT_PER_MINUTE > 0)
+    app.register(fastifyRateLimit, {
+      max: config.RATE_LIMIT_PER_MINUTE,
+      timeWindow: 60_000,
+      errorResponseBuilder: (_req, ctx) =>
+        new HttpError(429, 'rate_limited', `Too many requests, try again in ${ctx.after}`),
+    });
   app.setErrorHandler(errorHandler);
 
   // CSRF (04 §2.2): browsers can't add this header cross-site without CORS, and CORS is off.
@@ -139,6 +150,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
 
   app.register(authRoutes);
   app.register(userRoutes);
+  app.register(oidcRoutes);
   app.register(systemRoutes);
   app.register(extensionRoutes);
   app.register(trunkRoutes);

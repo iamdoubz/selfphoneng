@@ -27,6 +27,8 @@ import { backupDue, runBackup } from './services/backup.ts';
 import { sendCallReports } from './services/callreport.ts';
 import { contrackBook, contrackSettings } from './contacts/contrack.ts';
 import { logCallsToContrack } from './contacts/timeline.ts';
+import { checkDirectory } from './sso/directory.ts';
+import { checkOidcSessions } from './sso/oidcCheck.ts';
 import { logEvent } from './services/events.ts';
 import { deliverDue } from './services/webhooks.ts';
 import type { SendMail } from './services/mail.ts';
@@ -261,7 +263,19 @@ export function createJobs(d: JobDeps) {
     await logCallsToContrack({ db: d.db, log: d.log, now: now() });
   };
 
+  /** OpenID sessions refreshed at the provider; a leaver's end (12 §3.5). */
+  const oidcCheck = async () => {
+    await checkOidcSessions({ db: d.db, log: d.log, now: now() });
+  };
+
+  /** Directory accounts re-read; a leaver disabled (12 §4.5). */
+  const directoryCheck = async () => {
+    await checkDirectory({ db: d.db, log: d.log });
+  };
+
   return {
+    oidcCheck,
+    directoryCheck,
     daily,
     backup,
     publicIpWatch,
@@ -295,6 +309,8 @@ export function startJobs(d: JobDeps): () => void {
     run('callReports', j.callReports);
     if (minute % 5 === 0) run('contactsWarm', j.contactsWarm);
     run('contrackLog', j.contrackLog);
+    if (minute % 5 === 0) run('oidcCheck', j.oidcCheck);
+    if (minute % 60 === 0) run('directoryCheck', j.directoryCheck);
     run('callTranscripts', async () => {
       await transcribeCalls({ db: d.db, dir: resolve(d.config.RECORDINGS_DIR), log: d.log });
     });

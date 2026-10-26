@@ -4,9 +4,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { APP_NAME, LoginSchema } from '@selfphoneng/shared';
+import { APP_NAME, LoginFields } from '@selfphoneng/shared';
 import { ApiError, authApi } from '../api/client.ts';
 import { homeFor } from '../auth/RequireAuth.tsx';
+import { ssoErrorText, useAuthMethods } from '../components/SignInCard.tsx';
 import { Alert, Button, Field, inputClass } from '../components/ui.tsx';
 
 export function AuthCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -32,15 +33,21 @@ export function LoginPage() {
   // Two-step sign-in: shown once the server says the password was right and a code is needed.
   const [needCode, setNeedCode] = useState(false);
   const [code, setCode] = useState('');
-  const form = useForm({ resolver: zodResolver(LoginSchema.omit({ totp: true })) });
+  const form = useForm({ resolver: zodResolver(LoginFields.omit({ totp: true })) });
   const { errors, isSubmitting } = form.formState;
+  // 12 §1.1: the OpenID button, the password form, or both. OpenID only: the form is for admins.
+  const methods = useAuthMethods();
+  const oidc = methods.data?.oidc;
+  const [adminForm, setAdminForm] = useState(false);
+  const showForm = methods.data?.mode !== 'oidc' || adminForm;
+  const ssoError = params.get('sso_error');
+  const next = params.get('next');
 
-  const onSubmit = form.handleSubmit(async ({ email, password }) => {
+  const onSubmit = form.handleSubmit(async ({ login, password }) => {
     setError(undefined);
     try {
-      const user = await authApi.login(email, password, needCode ? code : undefined);
+      const user = await authApi.login(login, password, needCode ? code : undefined);
       qc.setQueryData(['me'], user);
-      const next = params.get('next');
       // Only same-site paths: never redirect to another origin.
       nav(next?.startsWith('/') && !next.startsWith('//') ? next : homeFor(user), {
         replace: true,
@@ -56,14 +63,51 @@ export function LoginPage() {
 
   return (
     <AuthCard title="Sign in">
-      <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
+      {ssoError && (
+        <div className="mb-4">
+          <Alert>{ssoErrorText(ssoError, oidc?.label ?? 'OpenID')}</Alert>
+        </div>
+      )}
+      {oidc && (
+        <div className="mb-4 flex flex-col gap-3">
+          {/* A full page load: the browser goes to the provider and comes back signed in. */}
+          <a
+            href={`/api/auth/oidc/start${next ? `?next=${encodeURIComponent(next)}` : ''}`}
+            className="rounded-md bg-sky-700 px-4 py-2 text-center text-sm font-medium text-white hover:bg-sky-800"
+          >
+            Sign in with {oidc.label}
+          </a>
+          {showForm && (
+            <p className="text-center text-xs text-zinc-500" aria-hidden>
+              or with your password
+            </p>
+          )}
+        </div>
+      )}
+      {!showForm && (
+        <button
+          type="button"
+          className="w-full text-center text-xs text-zinc-500 hover:underline"
+          onClick={() => setAdminForm(true)}
+        >
+          Admin sign-in
+        </button>
+      )}
+      <form
+        onSubmit={onSubmit}
+        className={`flex flex-col gap-4 ${showForm ? '' : 'hidden'}`}
+        noValidate
+      >
         {error && <Alert>{error}</Alert>}
-        <Field label="Email" error={errors.email?.message}>
+        <Field
+          label={methods.data?.ldap ? 'Email or username' : 'Email'}
+          error={errors.login?.message}
+        >
           {(a) => (
             <input
               {...a}
-              {...form.register('email')}
-              type="email"
+              {...form.register('login')}
+              type={methods.data?.ldap ? 'text' : 'email'}
               autoComplete="username"
               className={inputClass}
             />

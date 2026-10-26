@@ -77,6 +77,8 @@ get the proxy's address only (below). The setting is on Settings → Security, w
   `Permissions-Policy: microphone=(self), camera=()`.
 - HSTS is set by the reverse proxy (Caddy does it by default; nginx example adds `add_header Strict-Transport-Security "max-age=31536000" always;`).
 - `TRUST_PROXY=true` → Fastify `trustProxy: '127.0.0.1'` only.
+- Rate limits on every route (04 §2.2): `RATE_LIMIT_PER_MINUTE` per client IP, stricter on Test
+  buttons; login and a password asked again share the login limiter.
 - Admin TOTP (M11): RFC 6238, 30 s, 6 digits, ±1 window, 10 single-use recovery codes (stored hashed).
 - As built (M11-T1), TOTP (`auth/totp.ts`, node:crypto only, RFC 6238 test vectors in its test):
   opt-in for admins on **My account** (header → Account): scan the QR or type the key, confirm one

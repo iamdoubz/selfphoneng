@@ -15,21 +15,23 @@ function recent(key: string, windowMs: number, now: number): number[] {
   return list;
 }
 
-export function isLoginBlocked(ip: string, email: string, now = Date.now()): boolean {
+/** `email` null: by IP only (an OpenID callback names no account, 12 §3.2). */
+export function isLoginBlocked(ip: string, email: string | null, now = Date.now()): boolean {
   return (
     recent(`ip:${ip}`, RULES.ip.windowMs, now).length >= RULES.ip.max ||
-    recent(`email:${email.toLowerCase()}`, RULES.email.windowMs, now).length >= RULES.email.max
+    (email !== null &&
+      recent(`email:${email.toLowerCase()}`, RULES.email.windowMs, now).length >= RULES.email.max)
   );
 }
 
-export function recordLoginFailure(ip: string, email: string, now = Date.now()): void {
+export function recordLoginFailure(ip: string, email: string | null, now = Date.now()): void {
   // Forget keys past every window, at most once a minute: emails tried once and never again
   // would otherwise stay until restart (08 §6).
   if (now - lastSweep > MIN) {
     lastSweep = now;
     for (const [key, list] of failures) if (now - list.at(-1)! >= LONGEST) failures.delete(key);
   }
-  for (const key of [`ip:${ip}`, `email:${email.toLowerCase()}`]) {
+  for (const key of [`ip:${ip}`, ...(email === null ? [] : [`email:${email.toLowerCase()}`])]) {
     failures.set(key, [...(failures.get(key) ?? []), now]);
   }
 }

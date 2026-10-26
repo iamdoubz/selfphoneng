@@ -8,6 +8,10 @@ import {
   WEBHOOK_EVENTS,
   formatNumber,
   type AiTestResult,
+  LDAP_PRESETS,
+  type AuthMode,
+  type LdapInput,
+  type OidcInput,
   type SettingsDto,
   type WebhookDto,
   type WebhookEvent,
@@ -38,6 +42,7 @@ const TABS = [
   { id: 'tokens', label: 'API tokens' },
   { id: 'ai', label: 'AI' },
   { id: 'contacts', label: 'Contacts' },
+  { id: 'sign-in', label: 'Sign-in' },
 ] as const;
 
 export function SettingsPage() {
@@ -74,6 +79,12 @@ export function SettingsPage() {
       {tab === 'tokens' && <TokensTab />}
       {settings.data && tab === 'ai' && <AiTab s={settings.data} />}
       {settings.data && tab === 'contacts' && <ContactsTab s={settings.data} />}
+      {settings.data && tab === 'sign-in' && (
+        <div className="flex flex-col gap-10">
+          <SignInTab s={settings.data} />
+          <DirectoryForm s={settings.data} />
+        </div>
+      )}
     </section>
   );
 }
@@ -1347,6 +1358,428 @@ export function ContactsTab({ s }: { s: SettingsDto }) {
           </p>
         </fieldset>
       )}
+      {save.isError && <Alert>{save.error.message}</Alert>}
+      {save.isSuccess && (
+        <p role="status" className="text-sm text-green-700 dark:text-green-400">
+          Saved.
+        </p>
+      )}
+      <div>
+        <Button type="submit" variant="primary" disabled={save.isPending}>
+          Save
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+const lines = (s: string) =>
+  s
+    .split(/[\n,]/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+/** Sign-in (spec 12 §5): the mode, and the OpenID Connect provider. */
+function SignInTab({ s }: { s: SettingsDto }) {
+  const save = useSave();
+  const o = s['auth.oidc'];
+  const [mode, setMode] = useState<AuthMode>(s['auth.mode']);
+  const [v, setV] = useState({
+    label: o?.label ?? 'Keycloak',
+    issuer: o?.issuer ?? '',
+    clientId: o?.clientId ?? 'selfphoneng',
+    clientSecret: '',
+    scopes: o?.scopes ?? 'openid email profile',
+    groupsClaim: o?.groupsClaim ?? 'groups',
+    adminGroups: o?.adminGroups.join('\n') ?? '',
+    allowedGroups: o?.allowedGroups.join('\n') ?? '',
+    trustEmail: o?.trustEmail ?? false,
+  });
+  const input = (): OidcInput => ({
+    ...v,
+    clientSecret: v.clientSecret || undefined,
+    adminGroups: lines(v.adminGroups),
+    allowedGroups: lines(v.allowedGroups),
+  });
+  const test = useMutation({ mutationFn: () => settingsApi.testOidc(input()) });
+  const set = (k: keyof typeof v) => (e: { target: { value: string } }) =>
+    setV({ ...v, [k]: e.target.value });
+  const host = window.location.host;
+  const uris = [
+    ['Redirect URI', `https://${host}/api/auth/oidc/callback`],
+    ['Post-logout redirect URI', `https://${host}/login`],
+  ] as const;
+  const text = (k: keyof typeof v, label: string, hint?: string, placeholder?: string) => (
+    <Field label={label} hint={hint}>
+      {(a) => (
+        <input
+          {...a}
+          className={inputClass}
+          placeholder={placeholder}
+          value={v[k] as string}
+          onChange={set(k)}
+        />
+      )}
+    </Field>
+  );
+  const area = (k: 'adminGroups' | 'allowedGroups', label: string, hint: string) => (
+    <Field label={label} hint={hint}>
+      {(a) => <textarea {...a} rows={2} className={inputClass} value={v[k]} onChange={set(k)} />}
+    </Field>
+  );
+  const modes = [
+    ['password', 'Passwords', 'Email and password, as set up here.'],
+    [
+      'mixed',
+      'Passwords or OpenID',
+      `Both. People connect their ${v.label} account in their settings. Disabling someone in ${v.label} ends their ${v.label} sign-ins, but their password keeps working until you disable them on Users.`,
+    ],
+    [
+      'oidc',
+      'OpenID only',
+      `Only ${v.label} decides who gets in. Admins can still sign in with a password (Admin sign-in on the login page), for when ${v.label} is down.`,
+    ],
+  ] as const;
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate({ 'auth.oidc': v.issuer.trim() ? input() : null, 'auth.mode': mode });
+        setV({ ...v, clientSecret: '' });
+      }}
+    >
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 font-medium">How people sign in</legend>
+        {modes.map(([id, title, about]) => (
+          <label key={id} className="flex items-start gap-2 text-sm">
+            <input
+              type="radio"
+              name="auth-mode"
+              checked={mode === id}
+              onChange={() => setMode(id)}
+            />
+            <span>
+              <span className="font-medium">{title}</span>: {about}
+            </span>
+          </label>
+        ))}
+      </fieldset>
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 font-medium">OpenID Connect</legend>
+        <p className="text-sm text-zinc-500">
+          Keycloak, Authentik, Authelia, Zitadel, Entra ID, Google and others. At the provider, make
+          a confidential client using the standard (authorization code) flow, and add these:
+        </p>
+        <dl className="flex flex-col gap-2 text-sm">
+          {uris.map(([label, uri]) => (
+            <div key={label} className="flex flex-wrap items-center gap-2">
+              <dt className="w-48 text-zinc-500">{label}</dt>
+              <dd className="flex items-center gap-2">
+                <code className="rounded bg-zinc-100 px-2 py-1 dark:bg-zinc-800">{uri}</code>
+                <Button onClick={() => void navigator.clipboard?.writeText(uri)}>Copy</Button>
+              </dd>
+            </div>
+          ))}
+        </dl>
+        {text('label', 'Button name', 'Shown as "Sign in with …"')}
+        {text(
+          'issuer',
+          'Issuer',
+          'Exactly as the provider writes it. Leave empty to turn OpenID Connect off.',
+          'https://kc.example.com/realms/company',
+        )}
+        {text('clientId', 'Client ID')}
+        <Field
+          label="Client secret"
+          hint={
+            o?.hasClientSecret
+              ? 'Saved. Type a new one to replace it.'
+              : 'Empty for a public client (PKCE only)'
+          }
+        >
+          {(a) => (
+            <input
+              {...a}
+              type="password"
+              autoComplete="off"
+              placeholder={o?.hasClientSecret ? '••••••••' : ''}
+              className={inputClass}
+              value={v.clientSecret}
+              onChange={set('clientSecret')}
+            />
+          )}
+        </Field>
+        {text(
+          'scopes',
+          'Scopes',
+          'Add offline_access so people who keep the softphone open stay signed in past the provider’s session limit.',
+        )}
+        {text(
+          'groupsClaim',
+          'Groups claim',
+          'Where the provider puts groups or roles: groups, roles, realm_access.roles, resource_access.<client>.roles …',
+        )}
+        {area(
+          'adminGroups',
+          'Admin groups',
+          'One per line, exactly as sent (Keycloak with full group path: /pbx-admins). Members are admins, others users. Empty: you set roles on Users.',
+        )}
+        {area(
+          'allowedGroups',
+          'Allowed groups',
+          'One per line. Empty: anyone with a connected account.',
+        )}
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 size-4"
+            checked={v.trustEmail}
+            onChange={(e) => setV({ ...v, trustEmail: e.target.checked })}
+          />
+          <span>
+            Trust email addresses without “email verified”. Turn on only if people can’t change
+            their own email at {v.label} (a single company’s Keycloak with email editing off, a
+            single-tenant Entra ID). Only used to match people who have no password here.
+          </span>
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => test.mutate()} disabled={test.isPending || !v.issuer.trim()}>
+            Test
+          </Button>
+          {test.data && (
+            <span
+              role="status"
+              className={`text-sm ${test.data.ok ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}
+            >
+              {test.data.ok
+                ? `Works: ${test.data.issuer}. Signing: ${test.data.algorithms.join(', ') || '?'}. ${test.data.refreshTokens ? 'Refresh tokens' : 'No refresh tokens'}, ${test.data.endSession ? 'signs out there too' : 'no sign-out endpoint'}.`
+                : test.data.error}
+            </span>
+          )}
+          {test.error && <Alert>{test.error.message}</Alert>}
+        </div>
+        <p className="text-xs text-zinc-500">
+          Then connect your own account in My account, and sign in from a private window.
+        </p>
+      </fieldset>
+      {save.isError && <Alert>{save.error.message}</Alert>}
+      {save.isSuccess && (
+        <p role="status" className="text-sm text-green-700 dark:text-green-400">
+          Saved.
+        </p>
+      )}
+      <div>
+        <Button type="submit" variant="primary" disabled={save.isPending}>
+          Save
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** Sign-in → Directory (spec 12 §4.1): LDAP / LDAPS, checked when a password isn't ours. */
+function DirectoryForm({ s }: { s: SettingsDto }) {
+  const save = useSave();
+  const d = s['auth.ldap'];
+  const [v, setV] = useState({
+    enabled: d?.enabled ?? false,
+    preset: d?.preset ?? ('ad' as LdapInput['preset']),
+    url: d?.url ?? '',
+    startTls: d?.startTls ?? false,
+    bindDn: d?.bindDn ?? '',
+    bindPassword: '',
+    baseDn: d?.baseDn ?? '',
+    userFilter: d?.userFilter ?? LDAP_PRESETS.ad.userFilter,
+    idAttribute: d?.idAttribute ?? LDAP_PRESETS.ad.idAttribute,
+    emailAttribute: d?.emailAttribute ?? 'mail',
+    nameAttribute: d?.nameAttribute ?? 'displayName',
+    adminFilter: d?.adminFilter ?? '',
+  });
+  const [probe, setProbe] = useState({ testLogin: '', testPassword: '' });
+  const input = (): LdapInput => ({ ...v, bindPassword: v.bindPassword || undefined });
+  const test = useMutation({ mutationFn: () => settingsApi.testLdap({ ...input(), ...probe }) });
+  const set = (k: keyof typeof v) => (e: { target: { value: string } }) =>
+    setV({ ...v, [k]: e.target.value });
+  const preset = (p: LdapInput['preset']) => {
+    const x = LDAP_PRESETS[p];
+    setV({
+      ...v,
+      preset: p,
+      userFilter: x.userFilter,
+      idAttribute: x.idAttribute,
+      adminFilter: x.adminFilter,
+    });
+  };
+  const text = (k: keyof typeof v, label: string, hint?: string, placeholder?: string) => (
+    <Field label={label} hint={hint}>
+      {(a) => (
+        <input
+          {...a}
+          className={inputClass}
+          placeholder={placeholder}
+          value={v[k] as string}
+          onChange={set(k)}
+        />
+      )}
+    </Field>
+  );
+  return (
+    <form
+      className="flex flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate({ 'auth.ldap': v.url.trim() ? input() : null });
+        setV({ ...v, bindPassword: '' });
+      }}
+    >
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 font-medium">Directory (LDAP)</legend>
+        <p className="text-sm text-zinc-500">
+          When a password isn&apos;t the one set here, SelfPhoneNG asks the directory. People sign
+          in with their directory username or email; the first time, they&apos;re matched to their
+          user here by email. Nobody gets a user just for being in the directory.
+        </p>
+        <p className="text-sm text-zinc-500">
+          Every hour, someone no longer in the directory (or no longer matched by the user filter)
+          is disabled here, password and OpenID sign-in included. It never enables anyone again: do
+          that on Users.
+        </p>
+        {s['system.directoryWarning'] && (
+          <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+            {s['system.directoryWarning']}
+          </p>
+        )}
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-4"
+            checked={v.enabled}
+            onChange={(e) => setV({ ...v, enabled: e.target.checked })}
+          />
+          Check passwords against the directory
+        </label>
+        <Field label="Directory type" hint="Fills in the filters below; change them as needed">
+          {(a) => (
+            <select
+              {...a}
+              className={inputClass}
+              value={v.preset}
+              onChange={(e) => preset(e.target.value as LdapInput['preset'])}
+            >
+              {Object.entries(LDAP_PRESETS).map(([id, p]) => (
+                <option key={id} value={id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+        {text(
+          'url',
+          'Address',
+          'ldaps:// (port 636), or ldap:// with StartTLS. Plain ldap:// only to this server itself.',
+          'ldaps://dc1.example.com',
+        )}
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-4"
+            checked={v.startTls}
+            onChange={(e) => setV({ ...v, startTls: e.target.checked })}
+          />
+          StartTLS (for ldap:// addresses)
+        </label>
+        {text(
+          'bindDn',
+          'Service account DN',
+          'An account that may search people. Empty: search anonymously.',
+          'CN=pbx-search,OU=Service,DC=example,DC=com',
+        )}
+        <Field
+          label="Service account password"
+          hint={d?.hasBindPassword ? 'Saved. Type a new one to replace it.' : undefined}
+        >
+          {(a) => (
+            <input
+              {...a}
+              type="password"
+              autoComplete="off"
+              placeholder={d?.hasBindPassword ? '••••••••' : ''}
+              className={inputClass}
+              value={v.bindPassword}
+              onChange={set('bindPassword')}
+            />
+          )}
+        </Field>
+        {text(
+          'baseDn',
+          'Where people are',
+          'Searched with everything under it',
+          'DC=example,DC=com',
+        )}
+        {text(
+          'userFilter',
+          'User filter',
+          '{login} is what they type. To allow one group only, add (memberOf=…) here.',
+        )}
+        {text(
+          'adminFilter',
+          'Admin filter',
+          'People it matches are admins, the others users. Empty: you set roles on Users.',
+        )}
+        {text(
+          'idAttribute',
+          'ID attribute',
+          'Never changes for a person: objectGUID, entryUUID, ipaUniqueID',
+        )}
+        {text('emailAttribute', 'Email attribute')}
+        {text('nameAttribute', 'Name attribute')}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Test login (optional)" hint="Username or email">
+            {(a) => (
+              <input
+                {...a}
+                autoComplete="off"
+                className={inputClass}
+                value={probe.testLogin}
+                onChange={(e) => setProbe({ ...probe, testLogin: e.target.value })}
+              />
+            )}
+          </Field>
+          <Field label="Its password" hint="Only used for this test, never stored">
+            {(a) => (
+              <input
+                {...a}
+                type="password"
+                autoComplete="off"
+                className={inputClass}
+                value={probe.testPassword}
+                onChange={(e) => setProbe({ ...probe, testPassword: e.target.value })}
+              />
+            )}
+          </Field>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button onClick={() => test.mutate()} disabled={test.isPending || !v.url.trim()}>
+            Test
+          </Button>
+          {test.data && (
+            <span
+              role="status"
+              className={`text-sm ${test.data.ok ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}
+            >
+              {!test.data.ok
+                ? test.data.error
+                : `Works: ${test.data.matching >= 1000 ? '1000+' : test.data.matching} people match the user filter.` +
+                  (test.data.user
+                    ? ` ${test.data.user.dn}: ${test.data.user.email ?? 'no email'}, ${test.data.user.admin === null ? 'role set here' : test.data.user.admin ? 'admin' : 'user'}, ${test.data.user.matches ? `signs in as ${test.data.user.matches}` : 'no user here has that email'}.`
+                    : '')}
+            </span>
+          )}
+          {test.error && <Alert>{test.error.message}</Alert>}
+        </div>
+      </fieldset>
       {save.isError && <Alert>{save.error.message}</Alert>}
       {save.isSuccess && (
         <p role="status" className="text-sm text-green-700 dark:text-green-400">

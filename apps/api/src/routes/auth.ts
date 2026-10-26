@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // /api/auth/* (04 §2, §7.3).
 import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   ChangePasswordSchema,
   LoginSchema,
   PasswordConfirmSchema,
   TotpEnableSchema,
   APP_NAME,
+  type AuthMethods,
   type AuthUser,
+  type SignInWays,
   type TotpSetup,
   type TotpStatus,
 } from '@selfphoneng/shared';
@@ -22,7 +24,11 @@ import {
   otpauthUrl,
 } from '../auth/totp.ts';
 import type { Db } from '../db/client.ts';
-import { extensions, users } from '../db/schema.ts';
+import { extensions, sessions, userIdentities, users } from '../db/schema.ts';
+import { endSessionUrl, oidcError } from '../sso/oidc.ts';
+import { directorySignIn, directoryWarning } from '../sso/directory.ts';
+import { ldapAuthenticate } from '../sso/ldap.ts';
+import { getSetting } from '../services/settings.ts';
 import {
   unauthorized,
   rateLimited,
@@ -49,11 +55,32 @@ import {
   setSessionCookie,
 } from '../auth/sessions.ts';
 
+/** 12 §2: the user's password and connected accounts, from their user_identities rows. */
+export const signInWays = (
+  u: { passwordHash: string | null },
+  ids: { kind: 'oidc' | 'ldap'; email: string | null; groups: string[] }[],
+): SignInWays => {
+  const oidc = ids.find((i) => i.kind === 'oidc');
+  return {
+    password: u.passwordHash !== null,
+    oidc: oidc ? { email: oidc.email, groups: oidc.groups } : null,
+    ldap: ids.some((i) => i.kind === 'ldap'),
+  };
+};
+
 export async function toAuthUser(db: Db, u: CurrentUser): Promise<AuthUser> {
   const [ext] = await db
     .select({ id: extensions.id, number: extensions.number, name: extensions.name })
     .from(extensions)
     .where(eq(extensions.userId, u.id));
+  const ids = await db
+    .select({
+      kind: userIdentities.kind,
+      email: userIdentities.email,
+      groups: userIdentities.groups,
+    })
+    .from(userIdentities)
+    .where(eq(userIdentities.userId, u.id));
   return {
     id: u.id,
     email: u.email,
@@ -61,6 +88,7 @@ export async function toAuthUser(db: Db, u: CurrentUser): Promise<AuthUser> {
     role: u.role,
     mustChangePassword: u.mustChangePassword,
     extension: ext ?? null,
+    signIn: signInWays(u, ids),
   };
 }
 
@@ -112,13 +140,24 @@ export async function authRoutes(app: FastifyInstance) {
     return { secret, otpauthUrl: url, qr: await QRCode.toDataURL(url, { margin: 2, width: 240 }) };
   });
 
+  /**
+   * A signed-in person's own password, asked again (two-step on/off, recovery codes, a new
+   * password). Wrong ones count in the login limiter, so a stolen session can't guess it.
+   */
+  async function myPasswordOk(req: FastifyRequest, hash: string | null, password: string) {
+    if (isLoginBlocked(req.ip, req.user!.email)) throw rateLimited();
+    if (hash && (await verifyPassword(hash, password))) return true;
+    recordLoginFailure(req.ip, req.user!.email);
+    return false;
+  }
+
   app.post('/api/auth/totp/enable', { preHandler: requireAuth }, async (req) => {
     adminOnly(req.user!);
     const { secret, code, password } = TotpEnableSchema.parse(req.body);
     const u = await myRow(req.user!.id);
     if (u.totpSecretEnc) throw conflict('Two-step sign-in is already on');
     // Like turning it off: a stolen session alone can't lock the owner out with its own secret.
-    if (!(await verifyPassword(u.passwordHash, password))) throw badRequest('Wrong password');
+    if (!(await myPasswordOk(req, u.passwordHash, password))) throw badRequest('Wrong password');
     const step = checkTotp(secret, code, null);
     if (step === null)
       throw badRequest('That code doesn’t match. Check the phone’s clock and try again.');
@@ -139,15 +178,15 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   /** Turning it off or making new recovery codes needs the password again (on does too). */
-  async function confirmPassword(id: string, body: unknown) {
-    const { password } = PasswordConfirmSchema.parse(body);
-    const u = await myRow(id);
-    if (!(await verifyPassword(u.passwordHash, password))) throw badRequest('Wrong password');
+  async function confirmPassword(req: FastifyRequest) {
+    const { password } = PasswordConfirmSchema.parse(req.body);
+    const u = await myRow(req.user!.id);
+    if (!(await myPasswordOk(req, u.passwordHash, password))) throw badRequest('Wrong password');
     return u;
   }
 
   app.post('/api/auth/totp/disable', { preHandler: requireAuth }, async (req) => {
-    await confirmPassword(req.user!.id, req.body);
+    await confirmPassword(req);
     await db
       .update(users)
       .set({ totpSecretEnc: null, totpLastStep: null, totpRecoveryHashes: [] })
@@ -164,7 +203,7 @@ export async function authRoutes(app: FastifyInstance) {
   });
 
   app.post('/api/auth/totp/recovery-codes', { preHandler: requireAuth }, async (req) => {
-    const u = await confirmPassword(req.user!.id, req.body);
+    const u = await confirmPassword(req);
     if (!u.totpSecretEnc) throw badRequest('Two-step sign-in is off');
     const { codes, hashes } = newRecoveryCodes();
     await db.update(users).set({ totpRecoveryHashes: hashes }).where(eq(users.id, u.id));
@@ -179,15 +218,61 @@ export async function authRoutes(app: FastifyInstance) {
     return { recoveryCodes: codes };
   });
 
+  /** The login page's choices (12 §2). Public: says nothing about any user. */
+  app.get('/api/auth/methods', async (): Promise<AuthMethods> => {
+    const mode = await getSetting(db, 'auth.mode');
+    const oidc = await getSetting(db, 'auth.oidc');
+    return {
+      mode,
+      ldap: Boolean((await getSetting(db, 'auth.ldap'))?.enabled),
+      oidc: oidc && mode !== 'password' ? { label: oidc.label } : null,
+    };
+  });
+
   app.post('/api/auth/login', async (req, reply) => {
-    const body = LoginSchema.parse(req.body);
-    if (isLoginBlocked(req.ip, body.email)) throw rateLimited();
-    const [user] = await db.select().from(users).where(eq(users.email, body.email));
-    const ok = user?.isActive
+    const { login, ...body } = LoginSchema.parse(req.body);
+    if (isLoginBlocked(req.ip, login)) throw rateLimited();
+    let [user] = await db.select().from(users).where(eq(users.email, login));
+    // No password (OpenID only, 12 §3.3) fails like a wrong one, after the same work.
+    let ok = user?.passwordHash
       ? await verifyPassword(user.passwordHash, body.password)
       : (await burnVerify(body.password), false);
-    if (!user || !ok) {
-      recordLoginFailure(req.ip, body.email);
+    let method: 'password' | 'ldap' = 'password';
+    // Not this password here: the directory's, when it's on (12 §4.2).
+    const ldap = ok ? null : await getSetting(db, 'auth.ldap');
+    if (ldap?.enabled) {
+      let entry;
+      try {
+        entry = await ldapAuthenticate(ldap, login, body.password);
+      } catch (err) {
+        // Counted like a wrong password: a 503 must not be a free guess at the local one.
+        recordLoginFailure(req.ip, login);
+        await audit(db, {
+          actorUserId: user?.id,
+          actorIp: req.ip,
+          action: 'login_failed',
+          entityType: 'user',
+          entityId: user?.id,
+          summary: `Failed login for ${login} (the directory can't be reached)`,
+        });
+        req.log.warn({ event: 'auth.ldap', err: (err as Error).message }, 'directory unavailable');
+        await directoryWarning(
+          db,
+          `A directory sign-in failed: the directory couldn't be reached (${(err as Error).message}).`,
+        );
+        throw new HttpError(
+          503,
+          'directory_unavailable',
+          'The directory can’t be reached. Passwords set in SelfPhoneNG still work.',
+        );
+      }
+      const found = entry && (await directorySignIn(db, req.log, entry, req.ip));
+      if (entry && !found)
+        req.log.warn({ event: 'auth.failed', ip: req.ip }, 'directory account has no user here');
+      if (found) [user, ok, method] = [found, true, 'ldap'];
+    }
+    if (!user || !ok || !user.isActive) {
+      recordLoginFailure(req.ip, login);
       req.log.warn({ event: 'auth.failed', ip: req.ip }, 'login failed');
       await audit(db, {
         actorUserId: user?.id,
@@ -195,16 +280,19 @@ export async function authRoutes(app: FastifyInstance) {
         action: 'login_failed',
         entityType: 'user',
         entityId: user?.id,
-        summary: `Failed login for ${body.email}`,
+        summary: `Failed login for ${login}`,
       });
       throw unauthorized('Wrong email or password');
     }
+    // OpenID only (12 §1.1): passwords are for admins, the way in when the provider is down.
+    if (user.role !== 'admin' && (await getSetting(db, 'auth.mode')) === 'oidc')
+      throw forbidden('Use the sign-in button instead', 'password_sign_in_off');
     // Two-step sign-in (08 §2.4): the password was right; now the code.
     if (user.totpSecretEnc) {
       if (!body.totp)
         throw new HttpError(401, 'totp_required', 'Enter the code from your authenticator app');
       if (!(await useSecondFactor(user, body.totp))) {
-        recordLoginFailure(req.ip, body.email);
+        recordLoginFailure(req.ip, login);
         req.log.warn({ event: 'auth.failed', ip: req.ip }, 'login failed: code');
         await audit(db, {
           actorUserId: user.id,
@@ -212,12 +300,18 @@ export async function authRoutes(app: FastifyInstance) {
           action: 'login_failed',
           entityType: 'user',
           entityId: user.id,
-          summary: `Failed login for ${body.email} (wrong authenticator or recovery code)`,
+          summary: `Failed login for ${login} (wrong authenticator or recovery code)`,
         });
         throw new HttpError(401, 'totp_invalid', 'That code is wrong or was used already');
       }
     }
-    const token = await createSession(db, user.id, req.ip, req.headers['user-agent'] ?? null);
+    const token = await createSession(
+      db,
+      user.id,
+      req.ip,
+      req.headers['user-agent'] ?? null,
+      method,
+    );
     setSessionCookie(reply, token);
     await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
     await audit(db, {
@@ -226,14 +320,30 @@ export async function authRoutes(app: FastifyInstance) {
       action: 'login',
       entityType: 'user',
       entityId: user.id,
-      summary: `${user.email} logged in`,
+      summary: `${user.email} logged in${method === 'ldap' ? ' with the directory' : ''}`,
     });
     return { user: await toAuthUser(db, user) };
   });
 
   app.post('/api/auth/logout', { preHandler: requireAuth }, async (req, reply) => {
+    const [sess] = req.sessionId
+      ? await db.select().from(sessions).where(eq(sessions.id, req.sessionId))
+      : [];
     await deleteSession(db, req.cookies[COOKIE]!);
     clearSessionCookie(reply);
+    // Signed in with OpenID: sign out there too (12 §3.5). A provider problem doesn't stop ours.
+    let redirect: string | null = null;
+    const oidc = sess?.idpIdTokenEnc ? await getSetting(db, 'auth.oidc') : null;
+    if (oidc)
+      try {
+        redirect = await endSessionUrl(
+          oidc,
+          app.config.PUBLIC_HOSTNAME,
+          decrypt(sess!.idpIdTokenEnc!),
+        );
+      } catch (err) {
+        req.log.warn({ event: 'auth.oidc', err: oidcError(err) }, 'no sign-out at the provider');
+      }
     await audit(db, {
       actorUserId: req.user!.id,
       actorIp: req.ip,
@@ -242,7 +352,7 @@ export async function authRoutes(app: FastifyInstance) {
       entityId: req.user!.id,
       summary: `${req.user!.email} logged out`,
     });
-    return { ok: true };
+    return redirect ? { ok: true, redirect } : { ok: true };
   });
 
   app.get('/api/auth/me', { preHandler: requireAuth }, async (req) => ({
@@ -252,7 +362,9 @@ export async function authRoutes(app: FastifyInstance) {
   app.post('/api/auth/change-password', { preHandler: requireAuth }, async (req) => {
     const body = ChangePasswordSchema.parse(req.body);
     const user = req.user!;
-    if (!(await verifyPassword(user.passwordHash, body.currentPassword)))
+    if (!user.passwordHash)
+      throw badRequest('You have no password here. Ask an admin to reset it to get one.');
+    if (!(await myPasswordOk(req, user.passwordHash, body.currentPassword)))
       throw badRequest('Current password is wrong');
     if (body.newPassword === body.currentPassword)
       throw badRequest('Choose a password different from the current one');

@@ -22,6 +22,7 @@ import { Dialog } from '../../components/Dialog.tsx';
 import { MohOptions } from '../../components/MohOptions.tsx';
 import { PhoneAppSetup } from '../../components/PhoneAppSetup.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
+import { useAuthMethods } from '../../components/SignInCard.tsx';
 
 type Tab = 'general' | 'phone' | 'calling' | 'emergency' | 'credentials';
 
@@ -164,7 +165,8 @@ function GeneralTab({
           role: v.role,
         });
         userId = r.user.id;
-        created = { email: r.user.email, password: r.temporaryPassword };
+        // OpenID-only mode makes no password: they sign in with the provider (12 §3.3).
+        if (r.temporaryPassword) created = { email: r.user.email, password: r.temporaryPassword };
       }
       // The user's extension: create it, or renumber it.
       if (v.number && !ext)
@@ -190,11 +192,20 @@ function GeneralTab({
         label="Role"
         error={errors.role?.message}
         hint={
-          isSelf ? 'You cannot remove your own admin role if you are the last admin.' : undefined
+          user?.roleFrom
+            ? `From ${user.roleFrom}: change it there.`
+            : isSelf
+              ? 'You cannot remove your own admin role if you are the last admin.'
+              : undefined
         }
       >
         {(a) => (
-          <select {...a} {...form.register('role')} className={inputClass}>
+          <select
+            {...a}
+            {...form.register('role')}
+            disabled={Boolean(user?.roleFrom)}
+            className={inputClass}
+          >
             <option value="user">User</option>
             <option value="admin">Admin</option>
           </select>
@@ -238,6 +249,8 @@ function GeneralTab({
             Creates a new temporary password and signs them out everywhere.
           </p>
           {user.twoStep && <ResetTwoStep user={user} />}
+          {user.signIn.oidc && <ConnectedAccount user={user} kind="oidc" />}
+          {user.signIn.ldap && <ConnectedAccount user={user} kind="ldap" />}
         </div>
       )}
     </form>
@@ -581,6 +594,43 @@ function EmergencyTab({ ext, onSaved }: { ext: ExtensionDto; onSaved: () => void
         {(a) => <input {...a} {...form.register('emergencyLocation')} className={inputClass} />}
       </Field>
     </form>
+  );
+}
+
+/** A connected OpenID or directory account (12 §5): what it sent, and Disconnect. */
+function ConnectedAccount({ user, kind }: { user: UserDto; kind: 'oidc' | 'ldap' }) {
+  const qc = useQueryClient();
+  const oidcLabel = useAuthMethods().data?.oidc?.label ?? 'OpenID';
+  const label = kind === 'oidc' ? oidcLabel : 'Directory';
+  const disconnect = useMutation({
+    mutationFn: () => usersApi.disconnect(user.id, kind),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }),
+  });
+  const oidc = user.signIn.oidc;
+  return (
+    <div className="mt-4 flex flex-col gap-1 text-sm">
+      {kind === 'oidc' && oidc ? (
+        <>
+          <p>
+            <span className="font-medium">{label}</span>: {oidc.email ?? 'connected'}
+          </p>
+          <p className="text-xs text-zinc-500">
+            Groups at the last sign-in: {oidc.groups.length ? oidc.groups.join(', ') : 'none'}
+          </p>
+        </>
+      ) : (
+        <p>
+          <span className="font-medium">{label}</span>: connected, their directory password works
+          here
+        </p>
+      )}
+      <div>
+        <Button onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
+          Disconnect {kind === 'oidc' ? label : 'the directory'}
+        </Button>
+      </div>
+      {disconnect.error && <Alert>{disconnect.error.message}</Alert>}
+    </div>
   );
 }
 

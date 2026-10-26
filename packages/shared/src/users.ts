@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { z } from 'zod';
+import type { SignInWays } from './auth.ts';
 
 export const RoleSchema = z.enum(['admin', 'user']);
 
@@ -34,6 +35,9 @@ export type UserDto = {
   lastLoginAt: string | null;
   createdAt: string;
   extension: { id: string; number: string } | null;
+  signIn: SignInWays;
+  /** Who sets the role (12 §1): the provider's label, "the directory", or null (set here). */
+  roleFrom: string | null;
 };
 
 export type ListResponse<T> = { items: T[]; nextCursor: string | null };
