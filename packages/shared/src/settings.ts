@@ -151,6 +151,8 @@ export const SettingsSchemas = {
     })
     .nullable()
     .default(null),
+  /** Why the directory couldn't be used (12 §4.2, §4.5), for the dashboard; null = fine. */
+  'system.directoryWarning': z.string().nullable().default(null),
   // Not in 02 §3's table but used by the generator (03 §3).
   'system.transportHash': z.string().nullable().default(null),
 };

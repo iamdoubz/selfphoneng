@@ -2,7 +2,9 @@
 // LDAP / LDAPS password check (12 §4) on ldapts: search the person with the service account,
 // bind as them with their password, read whether the admin filter matches them.
 import {
+  AndFilter,
   Client,
+  EqualityFilter,
   FilterParser,
   InvalidCredentialsError,
   NoSuchObjectError,
@@ -175,6 +177,49 @@ export async function ldapAuthenticate(
     if (found.length !== 1) return null;
     if (!(await passwordWorks(s, found[0]!.dn, password))) return null;
     return await toEntry(c, s, found[0]!);
+  } catch (err) {
+    throw unavailable(err);
+  } finally {
+    await c.unbind().catch(() => {});
+  }
+}
+
+/** `(&(<id attribute>=<id>)<userFilter with {login} → *>)`: still there, and still let in (§4.5). */
+export function byIdFilter(s: Pick<LdapSettings, 'idAttribute' | 'userFilter'>, id: string) {
+  // An object, not a string: ldapts parses "\ff" in a string filter to U+00FF and sends it as
+  // UTF-8 (two bytes), so a binary objectGUID would never match. A Buffer goes out as is.
+  const value = s.idAttribute === 'objectGUID' ? Buffer.from(id, 'hex') : id;
+  return new AndFilter({
+    filters: [
+      new EqualityFilter({ attribute: s.idAttribute, value }),
+      FilterParser.parseString(anyLogin(s.userFilter)),
+    ],
+  });
+}
+
+/**
+ * The leaver check (12 §4.5): each id → its entry, when the directory still has it and the user
+ * filter still lets it in. One connection for all. Throws DirectoryUnavailable on any failure,
+ * so a half-done run never reads as "gone".
+ */
+export async function lookupIds(
+  s: LdapSettings,
+  ids: string[],
+): Promise<Map<string, DirectoryEntry>> {
+  const c = await connect(s);
+  try {
+    const found = new Map<string, DirectoryEntry>();
+    for (const id of ids) {
+      const r = await c.search(s.baseDn, {
+        scope: 'sub',
+        filter: byIdFilter(s, id),
+        attributes: attributes(s),
+        explicitBufferAttributes: buffers(s),
+        sizeLimit: 2,
+      });
+      if (r.searchEntries.length === 1) found.set(id, await toEntry(c, s, r.searchEntries[0]!));
+    }
+    return found;
   } catch (err) {
     throw unavailable(err);
   } finally {

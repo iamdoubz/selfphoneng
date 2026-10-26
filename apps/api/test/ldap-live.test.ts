@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// 12 S4 against a real lldap: sign in by uid and by email, connect by email, no user made for a
-// stranger, admin by memberOf, Test, LDAPS. Needs LDAP_LIVE_URL (ldap://127.0.0.1:<port>) and
-// LDAP_LIVE_HTTP (its web port, to make the users); LDAP_LIVE_LDAPS_URL to try LDAPS too, with
-// NODE_EXTRA_CA_CERTS naming the CA of its certificate. Admin password: LDAP_LIVE_ADMIN_PASS.
+// 12 S4-S5 against a real lldap: sign in by uid and by email, connect by email, no user made for
+// a stranger, admin by memberOf, Test, LDAPS, directoryCheck disabling a removed user. Needs
+// LDAP_LIVE_URL (ldap://127.0.0.1:<port>) and LDAP_LIVE_HTTP (its web port, to make the users);
+// LDAP_LIVE_LDAPS_URL to try LDAPS too, with NODE_EXTRA_CA_CERTS naming the CA of its
+// certificate. Admin password: LDAP_LIVE_ADMIN_PASS.
 // Passed against lldap 0.6.3:
 //   docker run -d -p 127.0.0.1:13890:3890 -p 127.0.0.1:16360:6360 -p 127.0.0.1:17170:17170 \
 //     -e LLDAP_JWT_SECRET=… -e LLDAP_KEY_SEED=… -e LLDAP_LDAP_USER_PASS=admin-pass-123 \
@@ -16,6 +17,7 @@ import { encrypt } from '../src/crypto/secrets.ts';
 import { userIdentities, users } from '../src/db/schema.ts';
 import { resetLoginLimiter } from '../src/auth/login-limiter.ts';
 import { setSetting } from '../src/services/settings.ts';
+import { checkDirectory } from '../src/sso/directory.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
 
@@ -35,6 +37,7 @@ describe.skipIf(!hasTestDb || !URL_ || !HTTP)('LDAP with a real lldap (12 S4)', 
   const tag = randomBytes(3).toString('hex');
   const ann = `ann${tag}`;
   const bob = `bob${tag}`;
+  const cat = `cat${tag}`;
   const group = `pbx-admins-${tag}`;
   let t: Awaited<ReturnType<typeof createTestApp>>;
   let jwt: string;
@@ -82,6 +85,7 @@ describe.skipIf(!hasTestDb || !URL_ || !HTTP)('LDAP with a real lldap (12 S4)', 
     for (const [id, name] of [
       [ann, 'Ann Lee'],
       [bob, 'Bob Roe'],
+      [cat, 'Cat Poe'],
     ])
       await gql(
         `mutation { createUser(user: { id: "${id}", email: "${id}@example.com", displayName: "${name}" }) { id } }`,
@@ -92,7 +96,7 @@ describe.skipIf(!hasTestDb || !URL_ || !HTTP)('LDAP with a real lldap (12 S4)', 
     await gql(`mutation { addUserToGroup(userId: "${ann}", groupId: ${g.createGroup.id}) { ok } }`);
     const c = new Client({ url: URL_! });
     await c.bind(`uid=admin,ou=people,${BASE}`, ADMIN_PASS);
-    for (const id of [ann, bob])
+    for (const id of [ann, bob, cat])
       await c.exop(
         '1.3.6.1.4.1.4203.1.11.1',
         passwordModify(`uid=${id},ou=people,${BASE}`, `${id}-directory-pw`),
@@ -103,12 +107,13 @@ describe.skipIf(!hasTestDb || !URL_ || !HTTP)('LDAP with a real lldap (12 S4)', 
     await t.clearMustChange(ADMIN.email);
     admin = await t.login(ADMIN.email, ADMIN.password);
     await t.addUser(`${ann}@example.com`, 'ann-local-pw-12');
+    await t.addUser(`${cat}@example.com`, 'cat-local-pw-12');
     await setSetting(t.db, 'auth.ldap', settings());
   }, 60_000);
 
   afterAll(async () => {
     await t?.close();
-    for (const id of [ann, bob])
+    for (const id of [ann, bob, cat])
       await gql(`mutation { deleteUser(userId: "${id}") { ok } }`).catch(() => {});
   });
 
@@ -191,6 +196,22 @@ describe.skipIf(!hasTestDb || !URL_ || !HTTP)('LDAP with a real lldap (12 S4)', 
       payload: { ...form, testLogin: ann, testPassword: 'nope' },
     });
     expect(bad.json()).toMatchObject({ ok: false, error: expect.stringContaining('refused') });
+  });
+
+  it('directoryCheck disables someone removed from the directory, and only them (§4.5)', async () => {
+    resetLoginLimiter();
+    expect((await login(cat, `${cat}-directory-pw`)).statusCode).toBe(200); // connects cat
+    await gql(`mutation { deleteUser(userId: "${cat}") { ok } }`);
+    await checkDirectory({ db: t.db, log: { info: () => {}, warn: () => {} } });
+    const active = async (who: string) =>
+      (
+        await t.db
+          .select()
+          .from(users)
+          .where(eq(users.email, `${who}@example.com`))
+      )[0]!.isActive;
+    expect(await active(cat)).toBe(false);
+    expect(await active(ann)).toBe(true);
   });
 
   it.skipIf(!LDAPS)('LDAPS with a private CA (NODE_EXTRA_CA_CERTS)', async () => {

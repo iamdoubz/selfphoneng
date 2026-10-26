@@ -2,10 +2,13 @@
 // A directory entry → its SelfPhoneNG user (12 §4.3): connected before, or by the directory's
 // email. Never a new user (owner, 2026-10-25).
 import { and, eq } from 'drizzle-orm';
+import { deleteUserSessions } from '../auth/sessions.ts';
 import type { Db } from '../db/client.ts';
 import { userIdentities, users } from '../db/schema.ts';
+import { isLastAdmin } from '../routes/users.ts';
 import { audit } from '../services/audit.ts';
-import type { DirectoryEntry } from './ldap.ts';
+import { getSetting, setSetting } from '../services/settings.ts';
+import { lookupIds, type DirectoryEntry, type LdapSettings } from './ldap.ts';
 import { applyRole } from './role.ts';
 
 type UserRow = typeof users.$inferSelect;
@@ -68,4 +71,84 @@ export async function directorySignIn(
   await applyRole(db, log, u.id, e.admin, 'the directory', ip);
   const [after] = await db.select().from(users).where(eq(users.id, u.id));
   return after!;
+}
+
+/** The dashboard's directory warning (12 §4.2, §4.5); null clears it. */
+export const directoryWarning = (db: Db, message: string | null) =>
+  setSetting(db, 'system.directoryWarning', message);
+
+type Log = { info(o: object, m: string): void; warn?(o: object, m: string): void };
+
+/**
+ * One run of the directoryCheck job (hourly, 12 §4.5): every active user with a directory
+ * account still in it gets its email and role; one who isn't is disabled. Never re-enables.
+ * `lookup` is for tests.
+ */
+export async function checkDirectory(d: {
+  db: Db;
+  log: Log;
+  lookup?: (s: LdapSettings, ids: string[]) => Promise<Map<string, DirectoryEntry>>;
+}): Promise<void> {
+  const { db, log } = d;
+  const s = await getSetting(db, 'auth.ldap');
+  const rows = s?.enabled
+    ? await db
+        .select({ u: users, subject: userIdentities.subject })
+        .from(userIdentities)
+        .innerJoin(users, eq(users.id, userIdentities.userId))
+        .where(and(eq(userIdentities.kind, 'ldap'), eq(users.isActive, true)))
+    : [];
+  if (!s || !rows.length) return directoryWarning(db, null);
+
+  let found: Map<string, DirectoryEntry>;
+  try {
+    found = await (d.lookup ?? lookupIds)(
+      s,
+      rows.map((r) => r.subject),
+    );
+  } catch (err) {
+    log.warn?.({ err: (err as Error).message }, 'directory check skipped');
+    return directoryWarning(
+      db,
+      `The directory check couldn't reach the directory (${(err as Error).message}), so leavers aren't being disabled.`,
+    );
+  }
+  const gone = rows.filter((r) => !found.has(r.subject));
+  // A broken filter or base DN is likelier than a mass layoff.
+  if (gone.length >= 3 && gone.length * 2 > rows.length) {
+    log.warn?.({ gone: gone.length, of: rows.length }, 'directory check would disable most users');
+    return directoryWarning(
+      db,
+      `The directory check would disable ${gone.length} of ${rows.length} people, so it disabled nobody. Check the base DN and user filter.`,
+    );
+  }
+
+  for (const { u, subject } of rows) {
+    const e = found.get(subject);
+    if (e) {
+      await db
+        .update(userIdentities)
+        .set({ email: e.email })
+        .where(and(eq(userIdentities.userId, u.id), eq(userIdentities.kind, 'ldap')));
+      await applyRole(db, log, u.id, e.admin, 'the directory', null);
+      continue;
+    }
+    if (u.role === 'admin' && u.passwordHash && (await isLastAdmin(db, u.id))) {
+      log.warn?.(
+        { userId: u.id },
+        'kept the last admin with a password, though the directory lost them',
+      );
+      continue;
+    }
+    await db.update(users).set({ isActive: false }).where(eq(users.id, u.id));
+    await deleteUserSessions(db, u.id);
+    await audit(db, {
+      action: 'directory_disabled',
+      entityType: 'user',
+      entityId: u.id,
+      summary: `${u.email} is no longer in the directory`,
+      diff: { before: { isActive: true }, after: { isActive: false } },
+    });
+  }
+  await directoryWarning(db, null);
 }

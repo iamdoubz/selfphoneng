@@ -1640,6 +1640,16 @@ function DirectoryForm({ s }: { s: SettingsDto }) {
           in with their directory username or email; the first time, they&apos;re matched to their
           user here by email. Nobody gets a user just for being in the directory.
         </p>
+        <p className="text-sm text-zinc-500">
+          Every hour, someone no longer in the directory (or no longer matched by the user filter)
+          is disabled here, password and OpenID sign-in included. It never enables anyone again: do
+          that on Users.
+        </p>
+        {s['system.directoryWarning'] && (
+          <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+            {s['system.directoryWarning']}
+          </p>
+        )}
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"

@@ -51,6 +51,7 @@ declare module 'fastify' {
 const READ_ONLY = new Set<string>([
   'system.restartRequired',
   'system.transportHash',
+  'system.directoryWarning',
   'sms.webhookToken',
   'setup.completed',
 ]);
@@ -455,6 +456,12 @@ export async function settingsRoutes(app: FastifyInstance) {
         code: 'backup_old',
         message: "Today's backup hasn't been made. Check the api log, or press Back up now.",
         link: '/admin/settings/backups',
+      });
+    if (s['system.directoryWarning'])
+      items.push({
+        code: 'directory_check',
+        message: s['system.directoryWarning'],
+        link: '/admin/settings/sign-in',
       });
     if (!s.smtp)
       items.push({

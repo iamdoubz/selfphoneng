@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { BerWriter } from 'ldapts';
 import { describe, expect, it } from 'vitest';
-import { anyLogin, assertLdap, ldapAuthenticate, withLogin, type LdapSettings } from './ldap.ts';
+import {
+  anyLogin,
+  assertLdap,
+  byIdFilter,
+  ldapAuthenticate,
+  withLogin,
+  type LdapSettings,
+} from './ldap.ts';
 
 describe('LDAP (12 §4)', () => {
   const f = '(&(objectClass=person)(|(uid={login})(mail={login})))';
@@ -15,6 +23,19 @@ describe('LDAP (12 §4)', () => {
 
   it('{login} → * keeps the other conditions, for the leaver check', () => {
     expect(anyLogin(f)).toBe('(&(objectClass=person)(|(uid=*)(mail=*)))');
+  });
+
+  it('finds a leaver by id, keeping the other conditions of the filter (§4.5)', () => {
+    expect(byIdFilter({ idAttribute: 'entryUUID', userFilter: f }, 'a*b').toString()).toBe(
+      '(&(entryUUID=a\\2ab)(&(objectClass=person)(|(uid=*)(mail=*))))',
+    );
+    // AD: objectGUID is stored as hex and searched as its bytes (§4.4).
+    const guid = byIdFilter({ idAttribute: 'objectGUID', userFilter: '(cn={login})' }, '00ff2a');
+    expect(guid.toString()).toBe('(&(objectGUID=\\00\\ff\\2a)(cn=*))');
+    // …and goes out as those three bytes, not U+00FF in UTF-8.
+    const ber = new BerWriter();
+    guid.write(ber);
+    expect(ber.buffer.includes(Buffer.from([0x04, 0x03, 0x00, 0xff, 0x2a]))).toBe(true);
   });
 
   it('never sends a password in clear text to another host', () => {

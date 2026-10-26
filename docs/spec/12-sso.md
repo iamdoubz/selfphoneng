@@ -385,7 +385,8 @@ For every active user with a directory account, one connection per run:
 - Search `baseDn` for `(&(<idAttribute>=<id>)<userFilter with {login} → *>)`. Replacing `{login}`
   with `*` keeps every other condition of the filter (the group, AD's disabled bit, FreeIPA's lock)
   and makes the login parts presence tests.
-- Found → update email, name, and role (`adminFilter`). Gone → the user is disabled
+- Found → update the identity's email and the role (`adminFilter`); the user's own name and email
+  stay as an admin set them (§8.4). Gone → the user is disabled
   (`is_active = false`, sessions deleted, as an admin's disable), audit `directory_disabled`
   "… is no longer in the directory". The directory account is the company's record of the person,
   so it disables the whole user, password and OpenID account included.
@@ -453,7 +454,7 @@ For every active user with a directory account, one connection per run:
 | S2 | OIDC: settings + Test, start/callback, claims (§3.4), §3.3 (connect, disconnect, email match), `mixed` and `oidc` modes, sign out at the provider, login page and My account, fake provider tests | every §6 OIDC case passes against the fake provider. Done, see §8.2 |
 | S3 | OIDC session check (§3.5); Keycloak live test; admin guide page `docs/admin-guide/sign-in.md` with the §3.6 table | the owner connects their Keycloak account, signs in with it or their password, a Keycloak group makes them admin, signing out also signs out of Keycloak, and disabling them in Keycloak ends their Keycloak session here within 20 min. Done (against a throwaway Keycloak 26.8.1), see §8.3; the owner's own Keycloak still to try |
 | S4 | LDAP: settings + Test, presets, sign-in flow (§4.2), §4.3, unit + lldap live tests | sign-in by uid and email against lldap over LDAPS; admin by group; no user made for a stranger. Done, see §8.4 |
-| S5 | `directoryCheck` (§4.5), dashboard warnings; Samba AD check | a user removed from the directory is disabled within an hour; AD nested-group admin works |
+| S5 | `directoryCheck` (§4.5), dashboard warnings; Samba AD check | a user removed from the directory is disabled within an hour; AD nested-group admin works. Done, see §8.5 |
 
 ### 8.1 As built: S1
 
@@ -526,10 +527,33 @@ For every active user with a directory account, one connection per run:
 - `apps/api/src/sso/ldap.test.ts`, `apps/api/test/ldap-live.test.ts` (`LDAP_LIVE_URL`,
   `LDAP_LIVE_HTTP`, `LDAP_LIVE_LDAPS_URL`; users made through lldap's GraphQL, passwords with an
   RFC 3062 password modify). Passed against lldap 0.6.3 on 2026-10-25, LDAPS with a throwaway CA
-  through `NODE_EXTRA_CA_CERTS`. The AD, FreeIPA and OpenLDAP presets are not checked yet (S5: a
-  Samba AD DC).
+  through `NODE_EXTRA_CA_CERTS`. The AD, FreeIPA and OpenLDAP presets were not checked in S4 (AD:
+  §8.5).
 - Web: Settings → Sign-in → Directory (presets, Test with an optional test login), "Email or
   username" on the login page, the directory account on My settings and the Users drawer.
+
+### 8.5 As built: S5
+
+- `checkDirectory` in `sso/directory.ts` (job `directoryCheck`, hourly, `jobs.ts`), `lookupIds` in
+  `sso/ldap.ts`: one connection, one search per id. Any failure in the run (connect, bind, a
+  wrong base DN's `noSuchObject`) changes nothing, so a half-done run never reads as "gone".
+- **The by-id filter is a filter object, not a string.** ldapts parses `f` in a string filter
+  to U+00FF and sends it as UTF-8 (two bytes), so AD's binary `objectGUID` never matched: every
+  connected AD user looked gone, and the "more than half" guard is what stopped it disabling them
+  all (the Samba check caught it). `EqualityFilter` with a Buffer value goes out as is; the rest is
+  `FilterParser.parseString(userFilter with {login} → *)`. Sign-in never searches by id, so S4 was
+  unaffected.
+- Dashboard warning `directory_check` (04 §7.3): setting `system.directoryWarning` (read-only, set
+  by the system), written by a sign-in's `directory_unavailable` and by the job, cleared by a clean
+  run. Settings → Sign-in → Directory shows it too, with the hourly check's note.
+- The last active admin with a password is kept (logged) when gone, as `applyRole` keeps them.
+- `test/directory-check.test.ts` (a fake lookup: update, disable, down, the half guard, last
+  admin, directory off), `test/ad-live.test.ts` (`AD_LIVE_URL`, `AD_LIVE_ADMIN_PASS`; users and a
+  nested group made over LDAPS): passed against Samba 4 (`diegogslomp/samba-ad-dc`) on 2026-10-25,
+  LDAPS with a throwaway CA: sign-in by sAMAccountName, UPN and mail, admin through a nested group,
+  the disabled bit refused, `objectGUID` as hex, a deleted user disabled. `ldap-live.test.ts`
+  gained a removed user disabled by the check. The OpenLDAP and FreeIPA presets are still
+  unchecked against a real server.
 
 ## 9. Decided
 

@@ -26,7 +26,7 @@ import {
 import type { Db } from '../db/client.ts';
 import { extensions, sessions, userIdentities, users } from '../db/schema.ts';
 import { endSessionUrl, oidcError } from '../sso/oidc.ts';
-import { directorySignIn } from '../sso/directory.ts';
+import { directorySignIn, directoryWarning } from '../sso/directory.ts';
 import { ldapAuthenticate } from '../sso/ldap.ts';
 import { getSetting } from '../services/settings.ts';
 import {
@@ -237,6 +237,10 @@ export async function authRoutes(app: FastifyInstance) {
         entry = await ldapAuthenticate(ldap, login, body.password);
       } catch (err) {
         req.log.warn({ event: 'auth.ldap', err: (err as Error).message }, 'directory unavailable');
+        await directoryWarning(
+          db,
+          `A directory sign-in failed: the directory couldn't be reached (${(err as Error).message}).`,
+        );
         throw new HttpError(
           503,
           'directory_unavailable',

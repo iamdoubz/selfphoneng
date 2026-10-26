@@ -141,6 +141,19 @@ the directory. Their SelfPhoneNG password, if they have one, keeps working too.
    who that login would sign in as here.
 8. Tick **Check passwords against the directory** and **Save**.
 
-If the directory is down, people get "The directory can't be reached" and passwords set in
-SelfPhoneNG still work. Directories without `memberOf` on people (OpenLDAP without the memberof
-overlay) can't map groups yet. Tested against lldap 0.6.3.
+### Leavers
+
+Every hour, SelfPhoneNG looks up each user who has signed in with the directory. Someone deleted
+from it, disabled there (Active Directory's disabled bit, FreeIPA's lock) or no longer matched by
+the user filter (removed from the group you added to it) is **disabled here**: their password and
+OpenID sign-in stop working too, and they're signed out. The role follows the admin filter in the
+same run. Nobody is enabled again automatically: do that on **Users**.
+
+If a run would disable more than half of these people (and at least 3), it disables nobody and
+the dashboard says so: a wrong base DN or filter is likelier than everyone leaving. The last admin
+who has a password is never disabled.
+
+If the directory is down, people get "The directory can't be reached", passwords set in
+SelfPhoneNG still work, and the dashboard shows a warning until the next hourly check reaches it.
+Directories without `memberOf` on people (OpenLDAP without the memberof overlay) can't map groups
+yet. Tested against lldap 0.6.3 and Samba 4 Active Directory (nested groups, the disabled bit).
