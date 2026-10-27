@@ -3,7 +3,6 @@
 // only: nothing here changes a call, and a failure only means there's no answer (and one warning
 // in the log). The contacts test (14 §1) is the caller's: it knows whose books to look in.
 import { and, eq, gt, isNull, sql, type SQL } from 'drizzle-orm';
-import type { FastifyBaseLogger } from 'fastify';
 import {
   SpamStateSchema,
   normalizeNumber,
@@ -23,7 +22,7 @@ import { ftcLookup } from './ftc.ts';
 import { SpamError } from './http.ts';
 import { ipqsCredits, ipqsLookup } from './ipqs.ts';
 
-export type SpamDeps = { db: Db; log: Pick<FastifyBaseLogger, 'warn'> };
+export type SpamDeps = { db: Db; log: { warn(o: object, msg: string): void } };
 
 /** US numbers only (owner, 2026-10-27): 1NXXNXXXXXX after normalizeNumber (00 §8). */
 export const isCheckable = (n: string) => /^1[2-9]\d{2}[2-9]\d{6}$/.test(n);

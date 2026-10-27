@@ -10,10 +10,12 @@ import {
   type CallDto,
   type ListResponse,
   type MyCallDto,
+  type SpamCheck,
 } from '@selfphoneng/shared';
 import { requireAdmin, requireAuth } from '../auth/guards.ts';
 import type { Db } from '../db/client.ts';
 import { callExtensions, calls, cdr, dids, extensions } from '../db/schema.ts';
+import { contactNames } from '../contacts/book.ts';
 import { badRequest, notFound } from '../errors.ts';
 import { getSetting } from '../services/settings.ts';
 
@@ -65,7 +67,8 @@ async function conditions(db: Db, f: Filter): Promise<SQL[]> {
   return where;
 }
 
-async function page(db: Db, where: SQL[], limit: number) {
+/** `viewer`: whose books hide the spam check for a number they name (14 §6). */
+async function page(db: Db, where: SQL[], limit: number, viewer: string) {
   const rows = await db
     .select({ c: calls, did: dids, a: answerer })
     .from(calls)
@@ -76,6 +79,12 @@ async function page(db: Db, where: SQL[], limit: number) {
     .limit(limit + 1);
   const more = rows.length > limit;
   const items = rows.slice(0, limit);
+  const known = await contactNames(
+    db,
+    viewer,
+    items.filter(({ c }) => c.spamRisk).map(({ c }) => c.fromNumber),
+    { wait: false },
+  ).catch(() => null);
   return {
     items: items.map(({ c, did, a }): CallDto => ({
       id: c.id,
@@ -91,6 +100,10 @@ async function page(db: Db, where: SQL[], limit: number) {
       answeredBy: a ? { id: a.id, number: a.number, name: a.name } : null,
       talkSeconds: c.talkSeconds,
       recordingId: c.recordingId,
+      spam:
+        c.spamRisk && known && !known.has(c.fromNumber ?? '')
+          ? ({ risk: c.spamRisk, ...(c.spamInfo as object) } as SpamCheck)
+          : null,
     })),
     nextCursor: more ? encodeCursor(items.at(-1)!.c) : null,
   };
@@ -111,7 +124,7 @@ export async function callRoutes(app: FastifyInstance) {
     { preHandler: requireAdmin },
     async (req): Promise<ListResponse<CallDto>> => {
       const f = CallFilterSchema.parse(req.query);
-      return page(db, await conditions(db, f), f.limit);
+      return page(db, await conditions(db, f), f.limit, req.user!.id);
     },
   );
 
@@ -123,7 +136,7 @@ export async function callRoutes(app: FastifyInstance) {
       'started,direction,status,from,from_name,to,phone_number,answered_by,talk_seconds',
     ];
     // ponytail: one query capped at 50,000 rows; stream with a cursor if exports get bigger.
-    const { items } = await page(db, where, 50_000);
+    const { items } = await page(db, where, 50_000, req.user!.id);
     const fmt = new Intl.DateTimeFormat('sv-SE', {
       timeZone: tz,
       dateStyle: 'short',
@@ -156,7 +169,7 @@ export async function callRoutes(app: FastifyInstance) {
 
   app.get('/api/calls/:id', { preHandler: requireAdmin }, async (req): Promise<CallDetailDto> => {
     const { id } = z.object({ id: z.uuid() }).parse(req.params);
-    const { items } = await page(db, [eq(calls.id, id)], 1);
+    const { items } = await page(db, [eq(calls.id, id)], 1, req.user!.id);
     const [c] = await db.select({ linkedid: calls.linkedid }).from(calls).where(eq(calls.id, id));
     if (!items[0] || !c) throw notFound('Call not found');
     const legs = await db
@@ -189,7 +202,7 @@ export async function callRoutes(app: FastifyInstance) {
         .where(eq(extensions.userId, req.user!.id));
       if (!ext) throw notFound("You don't have an extension yet. Ask your admin.");
       const where = await conditions(db, { ...f, extensionId: ext.id });
-      const result = await page(db, where, f.limit);
+      const result = await page(db, where, f.limit, req.user!.id);
       const ids = result.items.map((c) => c.id);
       const roles = ids.length
         ? await db

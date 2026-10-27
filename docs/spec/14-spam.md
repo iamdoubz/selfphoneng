@@ -236,7 +236,7 @@ log masks it. Validated with zod (`packages/shared`).
 | SD2 | §3: pause, events, the `spam_quota` warning and Dismiss, `spamQuotaCheck` | an exhausted fake pauses, falls back to the FTC list, warns once and resumes; the owner's real key shows the credit call is free. Done but the real-key check, see §9.2 |
 | SD3 | §2.2 sync: paging, pacing, the saved cursor, the window, Sync now | a fake FTC API with 3 days of data syncs, resumes after a 429 and drops old complaints; one real sync with the owner's key. Done but the real sync, see §9.3 |
 | SD4 | §5: `/api/me/caller-check`, the softphone badge and line, the desk phone labels | an unknown number rings the softphone and shows its answer; a contact or a low risk shows nothing; a desk phone shows "SPAM LIKELY" when the answer is in time. Done but a real call, see §9.4 |
-| SD5 | §6 call history; the admin guide page | a checked call keeps its badge in call history after its cache expires |
+| SD5 | §6 call history; the admin guide page | a checked call keeps its badge in call history after its cache expires. Done, see §9.5 |
 
 ### 9.1 As built: SD1
 
@@ -338,6 +338,20 @@ log masks it. Validated with zod (`packages/shared`).
   else's call, not ringing, a contact, low; desk labels, a contact's name, a number nobody has,
   a late answer then the cache, custom labels from the FTC list), `SpamNote.test.ts` (the line).
 - Not checked: a real call in the browser and on a desk phone.
+
+### 9.5 As built: SD5
+
+- `aggregateCall` (04 §5.4) runs `checkNumber(…, { cachedOnly: true })` for inbound calls and
+  writes `spam_risk` and `spam_info` (`{ provider, info }`) with the row. A low answer is kept
+  too (the FTC list answers low for a number nobody reported); null means not checked.
+- `CallDto.spam` on `/api/calls`, `/api/calls/:id` and `/api/me/calls`: null when the viewer's
+  books (theirs and the company's) name the number, or when the books can't be read.
+- Calls pages: `SpamNote` under the caller, on `/me/calls` only for calls to me that the browser
+  doesn't know as a contact. The CSV export has no spam columns.
+- Admin guide: `docs/admin-guide/spam-check.md`.
+- Tests: `test/spam.test.ts` (four calls aggregated: IPQualityScore's answer and the FTC's kept
+  after the cache is emptied, a contact's call shows nothing, an unreported number low, and no
+  request out).
 
 Later, not now:
 - **Report as spam** (owner, 2026-10-27: not now): a button in call history that reports the

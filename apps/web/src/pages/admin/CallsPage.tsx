@@ -11,6 +11,7 @@ import {
   type CallFilter,
 } from '@selfphoneng/shared';
 import { callsApi, extensionsApi, recordingsApi } from '../../api/client.ts';
+import { SpamNote } from '../../components/SpamNote.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
 export const fmtNumber = (n: string | null) =>
@@ -170,6 +171,7 @@ export function CallsPage() {
                 {c.answeredBy && (
                   <span className="text-zinc-500"> · answered by {c.answeredBy.name}</span>
                 )}
+                <SpamNote check={c.spam} />
               </span>
               <StatusBadge status={c.status} />
               <span className="w-12 text-right tabular-nums">{fmtDuration(c.talkSeconds)}</span>

@@ -13,6 +13,7 @@ keeping the system safe, legal and up to date.
 8. [Local AI](ai.md): voicemail transcripts
 9. [Contacts](contacts.md): the builtin phonebook, or Contrack
 10. [Sign-in](sign-in.md): passwords, and OpenID Connect (Keycloak and others)
+11. [Spam check](spam-check.md): IPQualityScore and the FTC complaint list
 
 ---
 

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// SD1, SD2, SD4: the spam check (14): IPQualityScore first, then the local FTC copy, against a fake fetch.
+// SD1, SD2, SD4, SD5: the spam check (14): IPQualityScore first, then the local FTC copy, against a fake fetch.
+import { readFileSync } from 'node:fs';
 import { eq, like, sql } from 'drizzle-orm';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +8,7 @@ import { SPAM_DEFAULTS, type SpamSettings } from '@selfphoneng/shared';
 import { encrypt } from '../src/crypto/secrets.ts';
 import {
   auditLog,
+  cdr,
   ftcComplaints,
   settings as settingsTable,
   spamLookups,
@@ -14,7 +16,9 @@ import {
   users,
 } from '../src/db/schema.ts';
 import type { ActiveCall } from '@selfphoneng/shared';
+import type { AmiMessage } from '../src/ami/events.ts';
 import { callerNameToken } from '../src/contacts/callername.ts';
+import { aggregateCall, toCdrRow } from '../src/services/cdr.ts';
 import { checkNumber, spamQuotaCheck } from '../src/spam/check.ts';
 import { getSetting, setSetting } from '../src/services/settings.ts';
 import { hasTestDb } from './db.ts';
@@ -368,6 +372,42 @@ describe.skipIf(!hasTestDb)('spam check', () => {
       expect(await deskName(SPAMMER)).toBe('SPAM LIKELY'); // from the cache
       await settings({ ...keys.withFtc, deskPhoneLabels: { high: 'JUNK', medium: 'Maybe junk' } });
       expect(await deskName(REPORTED)).toBe('JUNK');
+    });
+
+    it('call history keeps what the check knew, after the cache expires; contacts first', async () => {
+      const fixture = readFileSync(
+        new URL('./fixtures/cdr/inbound-user.json', import.meta.url),
+        'utf8',
+      );
+      const callFrom = async (number: string) => {
+        const events = (JSON.parse(fixture.replaceAll('13125559999', number)) as AmiMessage[]).map(
+          (e) => ({ ...e, LinkedID: `${number}-${String(e.LinkedID)}` }),
+        );
+        for (const e of events) await t.db.insert(cdr).values(toCdrRow(e));
+        await aggregateCall(t.db, String(events[0]!.LinkedID));
+      };
+      await checkNumber(d(), SPAMMER);
+      urls.length = 0;
+      for (const n of [SPAMMER, REPORTED, SHADY, CLEAN]) await callFrom(n);
+      expect(urls).toEqual([]); // cachedOnly: CLEAN isn't asked
+      await t.db.delete(spamLookups);
+      const spamOf = async (n: string) =>
+        (await admin('GET', '/api/calls?direction=inbound'))
+          .json()
+          .items.find((c: { fromNumber: string }) => c.fromNumber === n)?.spam;
+      expect(await spamOf(SPAMMER)).toMatchObject({
+        risk: 'high',
+        provider: 'ipqs',
+        info: { spammer: true },
+      });
+      expect(await spamOf(REPORTED)).toMatchObject({
+        risk: 'high',
+        provider: 'ftc',
+        info: { complaints: 3 },
+      });
+      expect(await spamOf(SHADY)).toBeNull(); // the admin's contact
+      // Not in the cache, never reported: low (the page shows nothing for it).
+      expect(await spamOf(CLEAN)).toMatchObject({ risk: 'low', provider: 'ftc' });
     });
   });
 
