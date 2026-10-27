@@ -6,3 +6,5 @@ data/
 coverage/
 .pnpm-store/
 *.pid
+# The mobile app is its own repo (13), checked out here beside the PBX.
+mobile/

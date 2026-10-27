@@ -134,6 +134,29 @@ export const apiTokens = pgTable('api_tokens', {
   ...timestamps,
 });
 
+/** Paired phones (13 §3): a row waits with a pairing code, then holds the device token. */
+export const mobileDevices = pgTable(
+  'mobile_devices',
+  {
+    id: id(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    name: text(),
+    platform: text(),
+    tokenPrefix: text(),
+    tokenHash: text().unique(),
+    pairCodeHash: text().unique(),
+    pairExpiresAt: tstz(),
+    lastUsedAt: tstz(),
+    ...timestamps,
+  },
+  (t) => [
+    index().on(t.userId),
+    check('mobile_devices_platform_check', sql`${t.platform} in ('android', 'ios')`),
+  ],
+);
+
 // ───────────── extensions ─────────────
 export const outboundClass = pgEnum('outbound_class', [
   'internal',

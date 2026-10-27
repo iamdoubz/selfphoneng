@@ -9,6 +9,8 @@ Legend: 📖 read · 🔨 build · ✅ done when
 ---
 
 ## Backlog (owner's order, 2026-10-21)
+0. **Mobile app** (owner, 2026-10-26: next), tasks MB1–MB8 in [13 §5](13-mobile.md#5-order-of-work):
+   Android and iPhone from one Expo codebase in the `mobile` repo; user portal only, no push in v1.
 0. **Single sign-on** (owner, 2026-10-25: next), tasks S1–S5 in [12 §8](12-sso.md#8-order-of-work):
    OpenID Connect (any provider; the owner uses Keycloak), then LDAP/LDAPS.
 0. Done: **Contacts** (owner, 2026-10-23), tasks C1–C6 in [11 §6](11-contacts.md#6-order-of-work):
@@ -299,7 +301,7 @@ Each one checked against a real account before it's called supported (06's verif
 - Piper TTS for prompts (04 §6).
 - Record prompts by phone.
 - Wallboard page for queues.
-- Push gateway for mobile apps.
+- Push gateway for mobile apps: now 13 §6.
 - Polycom provisioning (07 §3.3).
 - Multi-tenant (big redesign; needs a decision record).
 

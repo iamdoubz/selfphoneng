@@ -23,6 +23,7 @@ import { didRoutes } from './routes/dids.ts';
 import { outboundRouteRoutes } from './routes/outbound.ts';
 import { liveRoutes } from './live/hub.ts';
 import { meRoutes } from './routes/me.ts';
+import { mobileRoutes } from './routes/mobile.ts';
 import { soundRoutes } from './routes/sounds.ts';
 import { ringGroupRoutes } from './routes/ringgroups.ts';
 import { queueRoutes } from './routes/queues.ts';
@@ -159,6 +160,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.register(settingsRoutes);
   app.register(liveRoutes);
   app.register(meRoutes);
+  app.register(mobileRoutes);
   app.register(contactRoutes);
   app.register(soundRoutes);
   app.register(ringGroupRoutes);

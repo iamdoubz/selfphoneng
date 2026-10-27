@@ -106,7 +106,7 @@ Implementation notes (M3):
 | Voicemail | `/me/voicemail` | List (new bold), play (marks read), download, delete, search (transcript, caller). Greetings section: record in the browser (MediaRecorder → upload), upload, or delete for unavail/busy/name |
 | Contacts | `/me/contacts` | Personal + company (read-only) with search, click to call |
 | Messages | `/me/sms` | Threads per DID + remote number, chat bubbles, composer with 160-char segment counter, unread badges (06 §5) |
-| Settings | `/me/settings` | Forwarding rules (always/busy/no answer with number fields), voicemail PIN, email options, call report email (off / hourly / daily at a time / weekly on a day at a time, company time zone; optional summaries of recorded calls, 10 §3; nothing sent for a period without calls), softphone audio devices, notification permission, change password, "Set up a phone app" (QR, 07 §5) |
+| Settings | `/me/settings` | Forwarding rules (always/busy/no answer with number fields), voicemail PIN, email options, call report email (off / hourly / daily at a time / weekly on a day at a time, company time zone; optional summaries of recorded calls, 10 §3; nothing sent for a period without calls), softphone audio devices, notification permission, change password, "Set up a phone app" (QR, 07 §5), "Mobile app" (pair a phone, list and remove paired phones, 13 §2) |
 
 ### 4.1 Presence panel
 Right column on wide screens, a tab on mobile. Lists every extension with its
@@ -161,7 +161,7 @@ class SoftphoneEngine {
 - Ask for microphone permission only when the user first clicks "Enable softphone". Remember the choice in
   localStorage (`softphone.enabled`, try/catch).
 - Incoming call: play `/sounds/ringtone.mp3` (a CC0 file we commit to `apps/web/public/sounds/`, with its license in `SOUNDS-LICENSE.md`) in a loop,
-  show `Notification` if permitted and the tab is hidden, and clicking the notification focuses the tab.
+  show a notification if permitted and the tab is not focused (`document.hasFocus()`), kept up while it rings (`requireInteraction`) and closed once it stops. It comes from a service worker (`apps/web/public/sw.js`) so it can carry **Answer** and **Decline** buttons (Chromium browsers; Firefox and Safari show no buttons); Answer and a plain click focus the softphone tab, Decline doesn't. If notifications are blocked, the softphone panel says how to allow them in the browser's site settings.
   Look up the caller name: contacts → extensions → raw number.
 - Auto-answer header (paging): if the INVITE has `Call-Info: ...;answer-after=0`, answer after a short beep. (Paging only targets desk phones today. Implement the check anyway; it's 5 lines.)
 - Show call quality warnings if `RTCPeerConnection.getStats()` shows packet loss > 5% or jitter > 50 ms over 5 s.

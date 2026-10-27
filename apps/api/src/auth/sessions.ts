@@ -5,7 +5,7 @@ import { and, eq, gt, ne } from 'drizzle-orm';
 import type { FastifyReply } from 'fastify';
 import type { Db } from '../db/client.ts';
 import { encrypt } from '../crypto/secrets.ts';
-import { sessions, users } from '../db/schema.ts';
+import { mobileDevices, sessions, users } from '../db/schema.ts';
 
 export const COOKIE = 'sp_session';
 const DAY = 86_400_000;
@@ -83,8 +83,12 @@ export async function deleteSession(db: Db, token: string) {
   await db.delete(sessions).where(eq(sessions.id, sha256(token)));
 }
 
-/** Logs a user out everywhere except (optionally) the current session. */
+/**
+ * Logs a user out everywhere except (optionally) the current session, paired phones included (13 §2:
+ * a password change, a reset, or disabling them).
+ */
 export async function deleteUserSessions(db: Db, userId: string, keepSessionId?: string) {
+  await db.delete(mobileDevices).where(eq(mobileDevices.userId, userId));
   await db
     .delete(sessions)
     .where(

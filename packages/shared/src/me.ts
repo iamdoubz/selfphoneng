@@ -74,3 +74,37 @@ export const ContrackOptionsSchema = z.object({
   logSummaries: z.boolean().optional(),
 });
 export type ContrackOptions = z.input<typeof ContrackOptionsSchema>;
+
+/** POST /api/mobile/pair (13 §2): the app trades a pairing code for its device token. */
+export const MobilePairSchema = z.object({
+  // Typed by hand from a screen: case and spaces don't matter.
+  code: z
+    .string()
+    .transform((s) => s.toUpperCase().replace(/[^A-Z0-9]/g, ''))
+    .pipe(z.string().length(12)),
+  name: z.string().trim().min(1).max(100),
+  platform: z.enum(['android', 'ios']),
+});
+export type MobilePair = z.input<typeof MobilePairSchema>;
+export type MobilePairResult = { token: string; user: { name: string; email: string } };
+
+/** POST /api/me/mobile-devices/pair: shown on the web as a QR code and as server + code. */
+export type MobilePairCode = {
+  code: string;
+  server: string;
+  link: string;
+  qr: string;
+  expiresAt: string;
+};
+
+export type MobileDeviceDto = {
+  id: string;
+  name: string;
+  platform: 'android' | 'ios';
+  /** "spm_AbC1", to recognize it. */
+  tokenPrefix: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  /** The device making this request. */
+  current: boolean;
+};

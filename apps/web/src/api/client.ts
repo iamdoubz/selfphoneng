@@ -36,6 +36,8 @@ import type {
   ContactShare,
   ContactShareDto,
   MyCallDto,
+  MobileDeviceDto,
+  MobilePairCode,
   RecordingDto,
   AuthUser,
   DidCreate,
@@ -303,6 +305,10 @@ export const meApi = {
   disconnectContrack: () => api<MeDto>('DELETE', '/api/me/contrack'),
   contrackOptions: (o: ContrackOptions) => api<MeDto>('PATCH', '/api/me/contrack', o),
   webrtc: () => api<WebRtcCreds>('GET', '/api/me/webrtc'),
+  pairPhone: () => api<MobilePairCode>('POST', '/api/me/mobile-devices/pair'),
+  phones: () =>
+    api<ListResponse<MobileDeviceDto>>('GET', '/api/me/mobile-devices').then((r) => r.items),
+  removePhone: (id: string) => api<{ ok: true }>('DELETE', `/api/me/mobile-devices/${id}`),
   /** Log in to (unpause) or out of (pause) a queue I'm an agent of. */
   setQueuePaused: (queueId: string, paused: boolean) =>
     api<{ ok: true }>('POST', `/api/me/queues/${queueId}/${paused ? 'pause' : 'unpause'}`),
