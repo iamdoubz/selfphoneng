@@ -435,7 +435,8 @@ As built (M11-T6): `routes/reports.ts`. `from`/`to` are company-time-zone days, 
 | POST | `/api/settings/smtp/test` | `{to}` sends a test email |
 | POST | `/api/settings/spam/ipqs/test`, `/api/settings/spam/ftc/test` | `{key?}`: the typed key, else the saved one; `{ok, detail}` or `{ok: false, error}` (14 §7.1) |
 | POST | `/api/settings/emergency/test` | runs 04 §5.3 steps 2–4 with `TEST` in front (email, ring-out, banner); records nothing and dials nothing (06 §6.5). Returns `{notified}` |
-| GET | `/api/system/warnings` | `{items: [{code, message, link}]}` for the dashboard banner: `restart_required`, `e911_cid_missing` (a trunk exists, no default E911 caller ID), `e911_address_unconfirmed` (that DID has no `e911_address`), `smtp_missing`, `tls_cert` (TLS on and the cert missing or expiring within 14 days, M11-T2), `backup_old` (backups on and today's not made yet though the job had its chance, M11-T3), `directory_check` (12 §4.2, §4.5: the directory unreachable at a sign-in or by `directoryCheck`, or that job refusing to disable most people). "Trunk down" comes from live state in the browser |
+| GET | `/api/system/warnings` | `{items: [{code, message, link, dismissable?}]}` for the dashboard banner: `restart_required`, `e911_cid_missing` (a trunk exists, no default E911 caller ID), `e911_address_unconfirmed` (that DID has no `e911_address`), `smtp_missing`, `tls_cert` (TLS on and the cert missing or expiring within 14 days, M11-T2), `backup_old` (backups on and today's not made yet though the job had its chance, M11-T3), `directory_check` (12 §4.2, §4.5: the directory unreachable at a sign-in or by `directoryCheck`, or that job refusing to disable most people), `spam_quota` (14 §3, dismissable). "Trunk down" comes from live state in the browser |
+| POST | `/api/system/warnings/spam_quota/dismiss` | hides `spam_quota` until IPQualityScore's credits run out again (14 §3) |
 | POST | `/api/settings/network/detect-public-ip` | |
 | GET | `/api/system/status` | `{ db: ok, ami: connected, asteriskVersion, uptime, trunks: [...], disk: {free, total}, restartRequired, lastGeneratorRun }` |
 | GET | `/api/system/tls` | the SIP TLS certificate in `TLS_DIR`: `{ok: true, subject, names, notAfter}` or `{ok: false, error}` (M11-T2) |
@@ -475,6 +476,7 @@ Provisioning and inbound hooks (outside `/api`, no session):
 | `contactsWarm` | every 5 min, Contrack mode | refresh the company's and each connected person's Contrack book, so a ringing phone's caller-name lookup (11 §6.1) finds them |
 | `contrackLog` | every 60 s, Contrack mode | calls ended over 1 min ago (and within 2 days) of people logging calls: one `call` interaction on the matching contact's Contrack timeline (11 §4.4) |
 | `callReports` | every 60 s | each user whose call report period (05 §4) ended over 5 min ago and isn't reported yet: email their calls of that period (by hang-up time) if there were any; `extensions.call_report_sent_at` = the period's end. Changing the schedule sets it to now, so the first report is the next period's |
+| `spamQuotaCheck` | every 6 hours, while IPQualityScore is paused | ask its Credit Usage API; credits back → resume (14 §3) |
 
 Jobs must never overlap with themselves (use a running flag).
 

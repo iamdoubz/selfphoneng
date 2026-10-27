@@ -348,7 +348,8 @@ export type AiTestResult =
   { ok: true; ms: number; detail: string; audio?: string } | { ok: false; error: string };
 
 /** GET /api/system/warnings: shown as the dashboard banner (05 §2). */
-export type Warning = { code: string; message: string; link: string };
+/** `dismissable`: POST /api/system/warnings/{code}/dismiss hides it (14 §3). */
+export type Warning = { code: string; message: string; link: string; dismissable?: boolean };
 
 /** GET /api/system/backups (04 §8.1). */
 export type BackupDto = { name: string; size: number; createdAt: string };

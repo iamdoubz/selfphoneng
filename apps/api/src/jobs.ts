@@ -31,6 +31,7 @@ import { logCallsToContrack } from './contacts/timeline.ts';
 import { checkDirectory } from './sso/directory.ts';
 import { checkOidcSessions } from './sso/oidcCheck.ts';
 import { logEvent } from './services/events.ts';
+import { spamQuotaCheck } from './spam/check.ts';
 import { deliverDue } from './services/webhooks.ts';
 import type { SendMail } from './services/mail.ts';
 import { getSetting, setSetting } from './services/settings.ts';
@@ -277,6 +278,7 @@ export function createJobs(d: JobDeps) {
   };
 
   return {
+    spamQuotaCheck: () => spamQuotaCheck(d.db),
     oidcCheck,
     directoryCheck,
     daily,
@@ -314,6 +316,7 @@ export function startJobs(d: JobDeps): () => void {
     run('contrackLog', j.contrackLog);
     if (minute % 5 === 0) run('oidcCheck', j.oidcCheck);
     if (minute % 60 === 0) run('directoryCheck', j.directoryCheck);
+    if (minute % 360 === 0) run('spamQuotaCheck', j.spamQuotaCheck);
     run('callTranscripts', async () => {
       await transcribeCalls({ db: d.db, dir: resolve(d.config.RECORDINGS_DIR), log: d.log });
     });

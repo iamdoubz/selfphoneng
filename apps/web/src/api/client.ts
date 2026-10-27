@@ -256,6 +256,8 @@ export const settingsApi = {
       '/api/settings/emergency/test',
     ),
   warnings: () => api<{ items: Warning[] }>('GET', '/api/system/warnings').then((r) => r.items),
+  dismissWarning: (code: string) =>
+    api<{ ok: true }>('POST', `/api/system/warnings/${code}/dismiss`),
   testOidc: (v: OidcInput) => api<OidcTestResult>('POST', '/api/settings/auth/oidc/test', v),
   /** 12 §4.1 */
   testLdap: (v: LdapInput & { testLogin?: string; testPassword?: string }) =>

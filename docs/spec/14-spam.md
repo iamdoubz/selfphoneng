@@ -51,7 +51,7 @@ for that check only; nothing is remembered about the failure. Neither set up →
   `line_type`, `carrier`, `name`, `city`, `region`.
 - Credit Usage API: `GET https://www.ipqualityscore.com/api/json/account/{key}` → `credits` (left
   in this billing period), `usage`, `phone_usage`. Used by Test, the Settings tab and §3.
-  `// TODO(spec): confirm in SD2 that this call costs no credit.`
+  `// TODO(spec): confirm with the owner's real key that this call costs no credit (SD2).`
 
 ### 2.2 FTC Do Not Call complaints (`spam/ftc.ts`)
 
@@ -234,7 +234,7 @@ log masks it. Validated with zod (`packages/shared`).
 | Task | What | Done when |
 |---|---|---|
 | SD1 | Decision 0006; this spec; the §7 migration and settings; `spam/check.ts` with both providers' lookups, the cache and the shared requests; Settings → Spam check with keys, Test, privacy confirmation | `pnpm lint && typecheck && test` pass; checks, cache times, the order (IPQualityScore, then the FTC list) and failures are tested against fake HTTP. Done, see §9.1 |
-| SD2 | §3: pause, events, the `spam_quota` warning and Dismiss, `spamQuotaCheck` | an exhausted fake pauses, falls back to the FTC list, warns once and resumes; the owner's real key shows the credit call is free |
+| SD2 | §3: pause, events, the `spam_quota` warning and Dismiss, `spamQuotaCheck` | an exhausted fake pauses, falls back to the FTC list, warns once and resumes; the owner's real key shows the credit call is free. Done but the real-key check, see §9.2 |
 | SD3 | §2.2 sync: paging, pacing, the saved cursor, the window, Sync now | a fake FTC API with 3 days of data syncs, resumes after a 429 and drops old complaints; one real sync with the owner's key |
 | SD4 | §5: `/api/me/caller-check`, the softphone badge and line, the desk phone labels | an unknown number rings the softphone and shows its answer; a contact or a low risk shows nothing; a desk phone shows "SPAM LIKELY" when the answer is in time |
 | SD5 | §6 call history; the admin guide page | a checked call keeps its badge in call history after its cache expires |
@@ -249,8 +249,7 @@ log masks it. Validated with zod (`packages/shared`).
   (`getJson`, 4 s timeout, and `SpamError`, the only error text that is logged or shown: never
   the URL or fetch's own error). A provider message is cut to 200 characters with the key taken
   out, in case it quotes it.
-- "Insufficient credits" is a failure until SD2: logged, the FTC list asked, and the next check
-  tries IPQualityScore again.
+- "Insufficient credits": see §9.2.
 - Settings: the `spam` key holds the admin's choices, `spam.state` is read-only to PATCH (like
   `system.*`). PATCH refuses a provider with no key typed or saved ("Enter the IPQualityScore
   key", "Enter the api.data.gov key") and spam check on with neither provider. Labels are 1–20 of
@@ -264,8 +263,28 @@ log masks it. Validated with zod (`packages/shared`).
   14 §8 confirmation first.
 - `retentionCleanup` deletes expired `spam_lookups` rows.
 - Tests: `test/spam.test.ts` with a stubbed `fetch` (risk, kept fields, cache days and expiry,
-  the shared request, IPQualityScore down / timing out / out of credits → the FTC list, warnings
-  without the key, `cachedOnly`, the settings and Test routes).
+  the shared request, IPQualityScore down / timing out → the FTC list, warnings without the key,
+  `cachedOnly`, the settings and Test routes).
+
+### 9.2 As built: SD2
+
+- `spam/check.ts` `patchSpamState(db, patch, onlyIf?)` merges into `spam.state` in one
+  statement (`value || patch`), so a check and a job never overwrite each other's fields; SD3's
+  cursor uses it too. Pausing is `onlyIf` not paused yet, so of several checks running out at
+  once, one logs the warning and the `spam.quotaExhausted` event.
+- Paused: the cache still answers (14 §4), IPQualityScore isn't asked, nothing is logged.
+- `spamQuotaCheck` runs at start and every 6 hours; it does nothing unless paused. A failing
+  account call throws `SpamError` (no key in it), which the job's log line shows.
+- Also resumed (owner's intent, not in §3): saving a newly typed IPQualityScore key, so a new
+  account isn't paused for up to 6 hours.
+- `Warning` has `dismissable`; the dashboard shows **Dismiss** next to **Fix** for it. Pausing
+  clears `warningDismissedAt`, so the warning comes back the next time.
+- Not done: the owner's real key showing that the Credit Usage API costs no credit (the TODO in
+  §2.1). If it does cost one, 4 calls a day while paused is the price.
+- Tests: `test/spam.test.ts` (two checks running out at once: one warning, one event; the FTC
+  list answering; no requests while paused; the warning and Dismiss; the job leaving it paused at
+  0 credits and resuming above; the "are off" text without the FTC list; a new key; the job
+  asking nothing unless paused and failing without the key).
 
 Later, not now:
 - **Report as spam** (owner, 2026-10-27: not now): a button in call history that reports the

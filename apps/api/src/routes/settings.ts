@@ -46,6 +46,7 @@ import { assertIssuer, oidcConfig, oidcError, testOidc, type OidcSettings } from
 import { ftcTest } from '../spam/ftc.ts';
 import { SpamError } from '../spam/http.ts';
 import { ipqsCredits } from '../spam/ipqs.ts';
+import { patchSpamState, resumeIpqs } from '../spam/check.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -350,6 +351,8 @@ export async function settingsRoutes(app: FastifyInstance) {
     }
     for (const [key, value] of Object.entries(values))
       await setSetting(db, key as SettingKey, value as never);
+    // A new IPQualityScore key may have credits: don't wait for spamQuotaCheck (14 §3).
+    if ((body.spam as SpamInput | undefined)?.ipqs?.key) await resumeIpqs(db, 'a new key');
     const changed = Object.keys(values).filter(
       (k) => JSON.stringify(before[k as keyof typeof before]) !== JSON.stringify(values[k]),
     );
@@ -556,6 +559,14 @@ export async function settingsRoutes(app: FastifyInstance) {
         message: s['system.directoryWarning'],
         link: '/admin/settings/sign-in',
       });
+    const st = s['spam.state'];
+    if (s.spam.enabled && s.spam.ipqs && st.ipqsPausedAt && !st.warningDismissedAt)
+      items.push({
+        code: 'spam_quota',
+        message: `IPQualityScore's lookups are used up. Spam checks ${s.spam.ftc ? 'use the FTC list' : 'are off'} until they come back.`,
+        link: '/admin/settings/spam',
+        dismissable: true,
+      });
     if (!s.smtp)
       items.push({
         code: 'smtp_missing',
@@ -563,5 +574,11 @@ export async function settingsRoutes(app: FastifyInstance) {
         link: '/admin/settings/email',
       });
     return { items };
+  });
+
+  /** Hidden until the next time the credits run out (14 §3). */
+  app.post('/api/system/warnings/spam_quota/dismiss', async () => {
+    await patchSpamState(db, { warningDismissedAt: new Date().toISOString() });
+    return { ok: true };
   });
 }

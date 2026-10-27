@@ -1,12 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// SD1: the spam check (14): IPQualityScore first, then the local FTC copy, against a fake fetch.
-import { eq, sql } from 'drizzle-orm';
+// SD1, SD2: the spam check (14): IPQualityScore first, then the local FTC copy, against a fake fetch.
+import { eq, like, sql } from 'drizzle-orm';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SPAM_DEFAULTS, type SpamSettings } from '@selfphoneng/shared';
 import { encrypt } from '../src/crypto/secrets.ts';
-import { auditLog, ftcComplaints, spamLookups } from '../src/db/schema.ts';
-import { checkNumber } from '../src/spam/check.ts';
+import {
+  auditLog,
+  ftcComplaints,
+  settings as settingsTable,
+  spamLookups,
+  systemEvents,
+} from '../src/db/schema.ts';
+import { checkNumber, spamQuotaCheck } from '../src/spam/check.ts';
 import { getSetting, setSetting } from '../src/services/settings.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
@@ -32,6 +38,7 @@ describe.skipIf(!hasTestDb)('spam check', () => {
   const urls: string[] = [];
   /** What the fake IPQualityScore does: answer, fail, or say the credits are used up. */
   let ipqs: 'ok' | 'down' | 'exhausted' | 'slow' = 'ok';
+  let credits = 912;
   const log = { warn: vi.fn() };
   const d = () => ({ db: t.db, log });
 
@@ -73,6 +80,7 @@ describe.skipIf(!hasTestDb)('spam check', () => {
     urls.length = 0;
     log.warn.mockClear();
     ipqs = 'ok';
+    credits = 912;
     vi.stubGlobal('fetch', async (url: string, init?: RequestInit) => {
       urls.push(url);
       const json = (j: unknown, status = 200) => new Response(JSON.stringify(j), { status });
@@ -83,7 +91,7 @@ describe.skipIf(!hasTestDb)('spam check', () => {
       const account = /\/api\/json\/account\/([^/]+)$/.exec(url);
       if (account)
         return account[1] === IPQS_KEY
-          ? json({ success: true, credits: 912, usage: 88 })
+          ? json({ success: true, credits, usage: 88 })
           : json({ success: false, message: `Invalid or unauthorized key: ${account[1]}` });
       const phone = /\/api\/json\/phone\/[^/]+\/(\d+)\?country\[\]=US$/.exec(url);
       if (!phone) return json({}, 404);
@@ -101,6 +109,8 @@ describe.skipIf(!hasTestDb)('spam check', () => {
   afterEach(async () => {
     vi.unstubAllGlobals();
     await t.db.delete(spamLookups);
+    await t.db.delete(settingsTable).where(eq(settingsTable.key, 'spam.state'));
+    await t.db.delete(systemEvents).where(like(systemEvents.code, 'spam.%'));
   });
 
   it('checks nothing while off, and only US numbers', async () => {
@@ -165,7 +175,7 @@ describe.skipIf(!hasTestDb)('spam check', () => {
 
   it('IPQualityScore failing: one warning without the key, nothing cached, the FTC answers', async () => {
     await settings({ ...keys.withIpqs, ...keys.withFtc });
-    for (const mode of ['down', 'slow', 'exhausted'] as const) {
+    for (const mode of ['down', 'slow'] as const) {
       ipqs = mode;
       expect(await checkNumber(d(), REPORTED)).toEqual({
         risk: 'high',
@@ -178,11 +188,9 @@ describe.skipIf(!hasTestDb)('spam check', () => {
         },
       });
     }
-    expect(log.warn).toHaveBeenCalledTimes(3);
     expect(log.warn.mock.calls.map((c) => c[0])).toEqual([
       { provider: 'ipqs', reason: 'HTTP 503' },
       { provider: 'ipqs', reason: 'no answer in 4 s' },
-      { provider: 'ipqs' },
     ]);
     expect(JSON.stringify(log.warn.mock.calls)).not.toContain(IPQS_KEY);
     expect(await t.db.select().from(spamLookups)).toEqual([]);
@@ -202,6 +210,89 @@ describe.skipIf(!hasTestDb)('spam check', () => {
     expect(urls).toEqual([]);
     await settings({});
     expect(await checkNumber(d(), REPORTED)).toBeNull();
+  });
+
+  it('out of credits: paused once, the FTC answers, the warning, Dismiss, and back', async () => {
+    await settings({ ...keys.withIpqs, ...keys.withFtc });
+    const warning = async () =>
+      (await admin('GET', '/api/system/warnings'))
+        .json()
+        .items.find((w: { code: string }) => w.code === 'spam_quota');
+    const events = async () =>
+      (
+        await t.db
+          .select({ code: systemEvents.code })
+          .from(systemEvents)
+          .where(like(systemEvents.code, 'spam.%'))
+          .orderBy(systemEvents.createdAt)
+      ).map((e) => e.code);
+    ipqs = 'exhausted';
+    const both = await Promise.all([checkNumber(d(), REPORTED), checkNumber(d(), SHADY)]);
+    expect(both.map((a) => a?.provider)).toEqual(['ftc', 'ftc']);
+    expect((await getSetting(t.db, 'spam.state')).ipqsPausedAt).not.toBeNull();
+    expect(log.warn).toHaveBeenCalledTimes(1);
+    expect(await events()).toEqual(['spam.quotaExhausted']);
+    expect(await warning()).toEqual({
+      code: 'spam_quota',
+      message:
+        "IPQualityScore's lookups are used up. Spam checks use the FTC list until they come back.",
+      link: '/admin/settings/spam',
+      dismissable: true,
+    });
+
+    // Paused: IPQualityScore isn't asked and nothing is logged.
+    urls.length = 0;
+    expect((await checkNumber(d(), CLEAN))?.provider).toBe('ftc');
+    expect(urls).toEqual([]);
+    expect(log.warn).toHaveBeenCalledTimes(1);
+
+    expect((await admin('POST', '/api/system/warnings/spam_quota/dismiss')).statusCode).toBe(200);
+    expect(await warning()).toBeUndefined();
+
+    credits = 0;
+    await spamQuotaCheck(t.db);
+    expect((await getSetting(t.db, 'spam.state')).ipqsPausedAt).not.toBeNull();
+    credits = 5;
+    await spamQuotaCheck(t.db);
+    expect((await getSetting(t.db, 'spam.state')).ipqsPausedAt).toBeNull();
+    expect(await events()).toEqual(['spam.quotaExhausted', 'spam.quotaRestored']);
+    ipqs = 'ok';
+    expect((await checkNumber(d(), SPAMMER))?.provider).toBe('ipqs');
+
+    // Out again: the warning comes back though it was dismissed; without the FTC list, "off".
+    await settings(keys.withIpqs);
+    ipqs = 'exhausted';
+    expect(await checkNumber(d(), SHADY)).toBeNull();
+    expect((await warning())?.message).toBe(
+      "IPQualityScore's lookups are used up. Spam checks are off until they come back.",
+    );
+
+    // A new key doesn't wait for the job.
+    const r = await admin('PATCH', '/api/settings', {
+      spam: {
+        ...SPAM_DEFAULTS,
+        enabled: true,
+        ipqs: { key: IPQS_KEY },
+      },
+    });
+    expect(r.statusCode).toBe(200);
+    expect((await getSetting(t.db, 'spam.state')).ipqsPausedAt).toBeNull();
+    expect(await warning()).toBeUndefined();
+  });
+
+  it('spamQuotaCheck asks nothing unless paused, and a failure throws without the key', async () => {
+    await settings(keys.withIpqs);
+    await spamQuotaCheck(t.db);
+    expect(urls).toEqual([]);
+    await setSetting(t.db, 'spam.state', {
+      ...(await getSetting(t.db, 'spam.state')),
+      ipqsPausedAt: new Date().toISOString(),
+    });
+    await settings({ ipqs: { keyEnc: encrypt('wrong-key') } });
+    const err = await spamQuotaCheck(t.db).catch((e: unknown) => e as Error);
+    expect(err).toBeInstanceOf(Error);
+    expect(err!.message).toBe('Invalid or unauthorized key: ***');
+    expect((await getSetting(t.db, 'spam.state')).ipqsPausedAt).not.toBeNull();
   });
 
   it('cachedOnly never asks IPQualityScore', async () => {
