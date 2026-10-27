@@ -7,7 +7,7 @@
 A fully open source, self-hosted business phone system. Bring your own SIP trunk and numbers
 (reference provider: voip.ms). Built on Asterisk 24 + TypeScript + PostgreSQL 18, runs in Docker.
 
-**Status:** pre-1.0 (v0.0.9), for testing. See [what's left for v1](docs/v1-checklist.md).
+**Status:** pre-1.0 (v0.0.10), for testing. See [what's left for v1](docs/v1-checklist.md).
 
 ## What it does today
 
@@ -19,6 +19,9 @@ A fully open source, self-hosted business phone system. Bring your own SIP trunk
   pickup, conference rooms, paging and intercom, music on hold.
 - **Voicemail** with email (and transcripts by local AI), **call history**, **recordings**, a **live dashboard** (listen,
   whisper, barge) and reports.
+- **Spam check** (off until you turn it on): outside callers who aren't contacts are looked up
+  with IPQualityScore or the FTC complaint list, and flagged in the browser phone, on desk phones
+  and in call history. Calls are never blocked.
 - **Running it:** updates (`scripts/update.sh` for compose installs; a backup before every
   database change), backups and restore, background health checks, webhooks and API tokens,
   two-step sign-in for admins, limits on outside calls at once.

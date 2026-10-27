@@ -5,6 +5,28 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
+## v0.0.10 — 2026-10-27
+
+**Before you update:** this version changes the database (spam check); the api backs up first,
+by itself. Portainer: change both tags to `0.0.10` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.10`.
+
+- **Spam check** (spec 14, off until you turn it on in Settings → Spam check): when an outside
+  US caller isn't in the company's or your contacts, the number is looked up and what's known
+  shows while it rings. The browser phone shows a **Likely spam** or **Possible spam** badge with
+  a line such as "Fraud score 92 · spammer · VOIP"; desk phones show the caller's name as
+  **SPAM LIKELY** or **Spam risk** (you can change these) when the answer is quick; call
+  history keeps the badge. It's information only: calls are never blocked or delayed, and a
+  failed lookup just shows nothing. Two sources, either or both:
+  - **IPQualityScore** (1,000 lookups a month free): sends callers' numbers to IPQualityScore,
+    so turning it on asks you to confirm. Answers are kept 14 days for flagged numbers and 3 for
+    the rest. When the lookups run out the dashboard says so, checks fall back to the FTC list,
+    and it carries on by itself when lookups are back.
+  - **FTC complaint list** (free api.data.gov key): downloaded to the server, so nothing leaves
+    it. The first download takes about 7 hours; then it fetches what's new every 24 hours.
+  - See the [admin guide](docs/admin-guide/spam-check.md), including privacy and GDPR.
+- Database changes: `spam_lookups`, `ftc_complaints` (the api backs up first).
+
 ## v0.0.9 — 2026-10-27
 
 **Before you update:** this version changes the database (paired phones); the api backs up first,
