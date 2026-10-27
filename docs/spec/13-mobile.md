@@ -104,8 +104,8 @@ What the app uses besides these (all exist): `GET|PATCH /api/me`, `GET /api/me/w
 
 ### 5.2 As built: MB3 (mobile `6e4bc2b`)
 
-- Expo SDK 58, React Native 0.88, Expo Router; app id `bet.dou.selfphoneng` (Android and iOS).
-  `// TODO(spec)`: confirm the app id before any store listing (it can't change after).
+- Expo SDK 58, React Native 0.88, Expo Router; app id `bet.dou.selfphoneng` (Android and iOS),
+  confirmed by the owner (it can't change after a store listing).
 - Screens: `pair` (scan, type, or a `selfphoneng://pair` link filled in and waiting for a tap, so
   a link someone sends can't pair the phone to their server unnoticed) and home (name, server,
   extension from `GET /api/me`, the rings-only-while-open notice, Sign out). Sign out deletes the
