@@ -9,6 +9,9 @@ Legend: 📖 read · 🔨 build · ✅ done when
 ---
 
 ## Backlog (owner's order, 2026-10-21)
+0. **Spam check** (owner, 2026-10-27: spec reviewed by the owner; SD1 next), tasks SD1–SD5
+   in [14 §9](14-spam.md#9-order-of-work): IPQualityScore and the FTC complaint list for outside
+   callers who aren't in anyone's contacts; information only, off by default.
 0. **Mobile app** (owner, 2026-10-26: next), tasks MB1–MB8 in [13 §5](13-mobile.md#5-order-of-work):
    Android and iPhone from one Expo codebase in the `mobile` repo; user portal only, no push in v1.
 0. **Single sign-on** (owner, 2026-10-25: next), tasks S1–S5 in [12 §8](12-sso.md#8-order-of-work):
