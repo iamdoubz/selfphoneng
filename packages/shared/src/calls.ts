@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Call history (02 calls, call_extensions; 04 §5.4, §7.3).
 import { z } from 'zod';
+import type { SpamCheck } from './spam.ts';
 
 export const CALL_DIRECTIONS = ['inbound', 'outbound', 'internal'] as const;
 export const CALL_STATUSES = [
@@ -43,6 +44,8 @@ export type CallDto = {
   answeredBy: { id: string; number: string; name: string } | null;
   talkSeconds: number;
   recordingId: string | null;
+  /** 14 §6: what the spam check knew as it ended; null when not checked or in the viewer's books. */
+  spam: SpamCheck | null;
 };
 
 /** One raw CDR leg, for the expanded row. */

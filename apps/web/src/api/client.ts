@@ -3,6 +3,8 @@
 import type {
   LdapInput,
   LdapTestResult,
+  SpamCheck,
+  SpamTestResult,
   AuthMethods,
   OidcInput,
   OidcTestResult,
@@ -255,10 +257,16 @@ export const settingsApi = {
       '/api/settings/emergency/test',
     ),
   warnings: () => api<{ items: Warning[] }>('GET', '/api/system/warnings').then((r) => r.items),
+  dismissWarning: (code: string) =>
+    api<{ ok: true }>('POST', `/api/system/warnings/${code}/dismiss`),
   testOidc: (v: OidcInput) => api<OidcTestResult>('POST', '/api/settings/auth/oidc/test', v),
   /** 12 §4.1 */
   testLdap: (v: LdapInput & { testLogin?: string; testPassword?: string }) =>
     api<LdapTestResult>('POST', '/api/settings/auth/ldap/test', v),
+  /** 14 §7.1: the typed key, else the saved one. */
+  syncFtc: () => api<{ ok: true }>('POST', '/api/settings/spam/ftc/sync'),
+  testSpam: (provider: 'ipqs' | 'ftc', key?: string) =>
+    api<SpamTestResult>('POST', `/api/settings/spam/${provider}/test`, { key }),
 };
 
 /** Sign out, and when the session came from OpenID, at the provider too (12 §3.5). */
@@ -299,6 +307,12 @@ export const meApi = {
   calls: (cursor?: string) =>
     api<ListResponse<MyCallDto>>('GET', `/api/me/calls${cursor ? `?cursor=${cursor}` : ''}`),
   get: () => api<MeDto>('GET', '/api/me'),
+  /** 14 §5.1: only for a caller ringing me now. */
+  callerCheck: (number: string) =>
+    api<{ check: SpamCheck | null }>(
+      'GET',
+      `/api/me/caller-check?number=${encodeURIComponent(number)}`,
+    ).then((r) => r.check),
   softphoneQr: () => api<SoftphoneQr>('GET', '/api/me/softphone-qr'),
   update: (m: MeUpdate) => api<MeDto>('PATCH', '/api/me', m),
   connectContrack: (token: string) => api<MeDto>('PUT', '/api/me/contrack', { token }),

@@ -630,9 +630,44 @@ export const calls = pgTable(
     answeredByExtensionId: uuid().references(() => extensions.id, { onDelete: 'set null' }),
     talkSeconds: integer().notNull().default(0),
     recordingId: uuid().references(() => recordings.id, { onDelete: 'set null' }),
+    /** The spam check of an incoming call's number (14 §6); null = not checked. */
+    spamRisk: text(),
+    spamInfo: jsonb(),
     ...timestamps,
   },
   (t) => [index().on(t.startedAt.desc())],
+);
+
+// ───────────── spam check (14 §7) ─────────────
+/** IPQualityScore answers, so a caller who rings again costs no credit (14 §4). */
+export const spamLookups = pgTable(
+  'spam_lookups',
+  {
+    number: text().primaryKey(),
+    provider: text().notNull(),
+    risk: text().notNull(),
+    info: jsonb().notNull(),
+    expiresAt: tstz().notNull(),
+    ...timestamps,
+  },
+  (t) => [
+    index().on(t.expiresAt),
+    check('spam_lookups_risk_check', sql`${t.risk} in ('low', 'medium', 'high')`),
+  ],
+);
+
+/** The local copy of the FTC's Do Not Call complaints (14 §2.2). */
+export const ftcComplaints = pgTable(
+  'ftc_complaints',
+  {
+    id: text().primaryKey(),
+    number: text().notNull(),
+    reportedAt: tstz().notNull(),
+    subject: text(),
+    robocall: boolean(),
+    createdAt: createdAt(),
+  },
+  (t) => [index().on(t.number), index().on(t.reportedAt)],
 );
 
 export const callExtensions = pgTable(

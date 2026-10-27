@@ -10,6 +10,7 @@ import type { Db } from './db/client.ts';
 import {
   extensions,
   sessions,
+  spamLookups,
   systemEvents,
   trunks,
   users,
@@ -30,6 +31,8 @@ import { logCallsToContrack } from './contacts/timeline.ts';
 import { checkDirectory } from './sso/directory.ts';
 import { checkOidcSessions } from './sso/oidcCheck.ts';
 import { logEvent } from './services/events.ts';
+import { spamQuotaCheck } from './spam/check.ts';
+import { ftcSync } from './spam/ftc.ts';
 import { deliverDue } from './services/webhooks.ts';
 import type { SendMail } from './services/mail.ts';
 import { getSetting, setSetting } from './services/settings.ts';
@@ -42,7 +45,11 @@ export type JobDeps = {
   generator: Pick<Generator, 'apply'>;
   voicemail: { scan(ext: string): Promise<void> };
   send: SendMail;
-  log: { info(o: object, m: string): void; error(o: object, m: string): void };
+  log: {
+    info(o: object, m: string): void;
+    warn(o: object, m: string): void;
+    error(o: object, m: string): void;
+  };
   now?: () => Date;
   statfs?: typeof statfs;
 };
@@ -70,7 +77,8 @@ export async function mailAdmins(d: JobDeps, subject: string, text: string) {
     await d.send({ to, subject, text }).catch((err: unknown) => d.log.error({ err }, subject));
 }
 
-/** Recordings, voicemail, expired sessions and old webhook deliveries (04 §8 retentionCleanup). */
+/** Recordings, voicemail, expired sessions, old webhook deliveries and spam check answers
+ *  (04 §8 retentionCleanup, 14 §4). */
 export async function retentionCleanup(d: JobDeps) {
   const recordings = await cleanupRecordings(
     d.db,
@@ -113,6 +121,7 @@ export async function retentionCleanup(d: JobDeps) {
   await d.db
     .delete(systemEvents)
     .where(lt(systemEvents.createdAt, sql`now() - interval '90 days'`));
+  await d.db.delete(spamLookups).where(lt(spamLookups.expiresAt, sql`now()`));
   await cleanupContactShares(d.db);
   if (recordings || voicemail) d.log.info({ recordings, voicemail }, 'old messages deleted');
 }
@@ -274,6 +283,12 @@ export function createJobs(d: JobDeps) {
   };
 
   return {
+    spamQuotaCheck: () => spamQuotaCheck(d.db),
+    /** 14 §2.2: a failure is logged when it changes, and shown on Settings → Spam check. */
+    spamFtcSync: async () => {
+      const reason = await ftcSync(d.db, { now: now() });
+      if (reason) d.log.warn({ provider: 'ftc', reason }, 'FTC complaint download failed');
+    },
     oidcCheck,
     directoryCheck,
     daily,
@@ -311,6 +326,8 @@ export function startJobs(d: JobDeps): () => void {
     run('contrackLog', j.contrackLog);
     if (minute % 5 === 0) run('oidcCheck', j.oidcCheck);
     if (minute % 60 === 0) run('directoryCheck', j.directoryCheck);
+    if (minute % 360 === 0) run('spamQuotaCheck', j.spamQuotaCheck);
+    run('spamFtcSync', j.spamFtcSync);
     run('callTranscripts', async () => {
       await transcribeCalls({ db: d.db, dir: resolve(d.config.RECORDINGS_DIR), log: d.log });
     });

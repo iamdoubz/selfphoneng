@@ -391,6 +391,7 @@ Auth & self:
 | GET | `/api/me/greetings/:kind/audio` | user | the wav |
 | PUT/DELETE | `/api/me/greetings/:kind` | user | PUT body is the raw audio (a MediaRecorder Blob or a picked File, any `Content-Type`, max 20 MB), not multipart: no extra dependency. ffmpeg converts it (§6) |
 | GET | `/api/me/voicemail/:id/audio?download=1` | user | same, as an attachment |
+| GET | `/api/me/caller-check?number=` | user | the spam check for a caller ringing one of my extensions now, else `{check: null}` (14 §5.1, §9.4) |
 | GET/POST/PATCH/DELETE | `/api/me/contacts[/:id]` | user | my contacts; GET lists the company's too (11 §3). `POST /import`, `POST /share`, `GET /shares`, `POST /shares/accept\|deny` (11 §2.1, §3.1), `POST /copy-to-contrack` (11 §6.2) |
 | POST | `/api/me/queues/:id/pause`, `/unpause` | user | log out of / in to a queue I'm an agent of (Home, 05 §4), same as `*45<queue>` |
 | POST | `/api/me/click-to-call` | user | `{number}` → AMI `Originate Channel: PJSIP/<ext>, Context: sp-from-ext, Exten: <normalized>, Priority: 1, CallerID: "<number>" <<ext>>, Async: true`. The user's phone rings first, then the call goes out |
@@ -433,8 +434,11 @@ As built (M11-T6): `routes/reports.ts`. `from`/`to` are company-time-zone days, 
 | GET | `/api/audit-log` | |
 | GET/PATCH | `/api/settings` | whole settings object; PATCH merges known keys only. `smtp` comes back as `{host, port, secure, username, from, hasPassword}` and is written with an optional `password` (empty keeps the stored one). `system.*`, `sms.webhookToken` and `setup.completed` are read-only. References (DIDs, extensions, destinations) are checked, and a transport a trunk uses can't be turned off |
 | POST | `/api/settings/smtp/test` | `{to}` sends a test email |
+| POST | `/api/settings/spam/ftc/sync` | Download now: the FTC download starts at the next minute (14 §9.3) |
+| POST | `/api/settings/spam/ipqs/test`, `/api/settings/spam/ftc/test` | `{key?}`: the typed key, else the saved one; `{ok, detail}` or `{ok: false, error}` (14 §7.1) |
 | POST | `/api/settings/emergency/test` | runs 04 §5.3 steps 2–4 with `TEST` in front (email, ring-out, banner); records nothing and dials nothing (06 §6.5). Returns `{notified}` |
-| GET | `/api/system/warnings` | `{items: [{code, message, link}]}` for the dashboard banner: `restart_required`, `e911_cid_missing` (a trunk exists, no default E911 caller ID), `e911_address_unconfirmed` (that DID has no `e911_address`), `smtp_missing`, `tls_cert` (TLS on and the cert missing or expiring within 14 days, M11-T2), `backup_old` (backups on and today's not made yet though the job had its chance, M11-T3), `directory_check` (12 §4.2, §4.5: the directory unreachable at a sign-in or by `directoryCheck`, or that job refusing to disable most people). "Trunk down" comes from live state in the browser |
+| GET | `/api/system/warnings` | `{items: [{code, message, link, dismissable?}]}` for the dashboard banner: `restart_required`, `e911_cid_missing` (a trunk exists, no default E911 caller ID), `e911_address_unconfirmed` (that DID has no `e911_address`), `smtp_missing`, `tls_cert` (TLS on and the cert missing or expiring within 14 days, M11-T2), `backup_old` (backups on and today's not made yet though the job had its chance, M11-T3), `directory_check` (12 §4.2, §4.5: the directory unreachable at a sign-in or by `directoryCheck`, or that job refusing to disable most people), `spam_quota` (14 §3, dismissable). "Trunk down" comes from live state in the browser |
+| POST | `/api/system/warnings/spam_quota/dismiss` | hides `spam_quota` until IPQualityScore's credits run out again (14 §3) |
 | POST | `/api/settings/network/detect-public-ip` | |
 | GET | `/api/system/status` | `{ db: ok, ami: connected, asteriskVersion, uptime, trunks: [...], disk: {free, total}, restartRequired, lastGeneratorRun }` |
 | GET | `/api/system/tls` | the SIP TLS certificate in `TLS_DIR`: `{ok: true, subject, names, notAfter}` or `{ok: false, error}` (M11-T2) |
@@ -465,7 +469,7 @@ Provisioning and inbound hooks (outside `/api`, no session):
 | Job | Schedule | Does |
 |---|---|---|
 | `nightlyRegenerate` | 00:05 daily | `generator.apply({trigger:'nightly', force:true})` (holidays roll over), aggregate orphan CDRs |
-| `retentionCleanup` | 02:00 daily | delete recordings older than `recordings.retentionDays` (file + row), voicemail older than `voicemail.retentionDays` if > 0, sessions past expiry, webhook_deliveries older than 30 days |
+| `retentionCleanup` | 02:00 daily | delete recordings older than `recordings.retentionDays` (file + row), voicemail older than `voicemail.retentionDays` if > 0, sessions past expiry, webhook_deliveries older than 30 days, expired `spam_lookups` (14 §4) |
 | `backup` | `backup.time` daily if enabled | §8.1 |
 | `publicIpWatch` | every 5 min if enabled | detect IP; if changed: update settings, apply, set restartRequired, email admins |
 | `webhookDelivery` | every 10 s | send pending deliveries (§9) |
@@ -474,6 +478,8 @@ Provisioning and inbound hooks (outside `/api`, no session):
 | `contactsWarm` | every 5 min, Contrack mode | refresh the company's and each connected person's Contrack book, so a ringing phone's caller-name lookup (11 §6.1) finds them |
 | `contrackLog` | every 60 s, Contrack mode | calls ended over 1 min ago (and within 2 days) of people logging calls: one `call` interaction on the matching contact's Contrack timeline (11 §4.4) |
 | `callReports` | every 60 s | each user whose call report period (05 §4) ended over 5 min ago and isn't reported yet: email their calls of that period (by hang-up time) if there were any; `extensions.call_report_sent_at` = the period's end. Changing the schedule sets it to now, so the first report is the next period's |
+| `spamFtcSync` | every 60 s, when due or under way | the FTC complaint download, 15 pages a minute (14 §2.2, §9.3) |
+| `spamQuotaCheck` | every 6 hours, while IPQualityScore is paused | ask its Credit Usage API; credits back → resume (14 §3) |
 
 Jobs must never overlap with themselves (use a running flag).
 

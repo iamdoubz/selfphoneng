@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { and, asc, eq, inArray, isNull, lt } from 'drizzle-orm';
 import { field, type AmiMessage } from '../ami/events.ts';
 import type { Db } from '../db/client.ts';
+import { checkNumber, usNumber, type SpamDeps } from '../spam/check.ts';
 import { callExtensions, calls, cdr, dids, extensions, recordings } from '../db/schema.ts';
 import { durationMs } from '../media/audio.ts';
 
@@ -160,7 +161,7 @@ async function linkRecording(db: Db | Tx, dir: string, s: CallSummary, linkedid:
 export async function aggregateCall(
   db: Db,
   linkedid: string,
-  opts: { recordingsDir?: string } = {},
+  opts: { recordingsDir?: string; log?: SpamDeps['log'] } = {},
 ): Promise<void> {
   const rows = await db
     .select()
@@ -180,6 +181,13 @@ export async function aggregateCall(
   const [d] = s.did
     ? await db.select({ id: dids.id }).from(dids).where(eq(dids.number, s.did))
     : [];
+  // 14 §6: what the spam check knows now (the cache, the local FTC copy), kept with the call.
+  const spam =
+    s.direction === 'inbound' && s.fromNumber
+      ? await checkNumber({ db, log: opts.log ?? { warn() {} } }, usNumber(s.fromNumber), {
+          cachedOnly: true,
+        })
+      : null;
   await db.transaction(async (tx) => {
     await tx.delete(calls).where(eq(calls.linkedid, linkedid));
     const [call] = await tx
@@ -197,6 +205,8 @@ export async function aggregateCall(
         didId: d?.id ?? null,
         answeredByExtensionId: idOf(s.answeredBy),
         talkSeconds: s.talkSeconds,
+        spamRisk: spam?.risk ?? null,
+        spamInfo: spam && { provider: spam.provider, info: spam.info },
         recordingId: opts.recordingsDir
           ? await linkRecording(tx, opts.recordingsDir, s, linkedid)
           : null,
@@ -218,7 +228,7 @@ export async function aggregateCall(
 
 export type CdrDeps = {
   db: Db;
-  log: { error(o: object, msg: string): void };
+  log: { error(o: object, msg: string): void; warn(o: object, msg: string): void };
   /** How long after a call's last Cdr event to aggregate it (04 §5.4: 5 s). */
   settleMs?: number;
   /** Where MixMonitor writes (RECORDINGS_DIR); recordings are linked to their calls. */
@@ -233,7 +243,7 @@ export function watchCdr(d: CdrDeps, ami: Pick<EventEmitter, 'on'>) {
       linkedid,
       setTimeout(() => {
         timers.delete(linkedid);
-        void aggregateCall(d.db, linkedid, { recordingsDir: d.recordingsDir }).catch(
+        void aggregateCall(d.db, linkedid, { recordingsDir: d.recordingsDir, log: d.log }).catch(
           (err: unknown) => d.log.error({ err, linkedid }, 'call aggregation failed'),
         );
       }, d.settleMs ?? 5000),
@@ -257,7 +267,7 @@ export function watchCdr(d: CdrDeps, ami: Pick<EventEmitter, 'on'>) {
         .leftJoin(calls, eq(calls.linkedid, cdr.linkedid))
         .where(and(isNull(calls.id), lt(cdr.createdAt, new Date(Date.now() - 60_000))));
       for (const o of orphans)
-        await aggregateCall(d.db, o.linkedid, { recordingsDir: d.recordingsDir });
+        await aggregateCall(d.db, o.linkedid, { recordingsDir: d.recordingsDir, log: d.log });
     },
     stop: () => timers.forEach(clearTimeout),
   };

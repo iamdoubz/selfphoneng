@@ -11,6 +11,7 @@ import {
   OidcInputSchema,
   SettingsSchemas,
   SmtpInputSchema,
+  SpamInputSchema,
   type AiTestResult,
   type AuthMode,
   type Destination,
@@ -19,13 +20,16 @@ import {
   type OidcTestResult,
   type SettingKey,
   type SettingsDto,
+  type SpamInput,
+  type SpamSettings,
+  type SpamTestResult,
   type Warning,
 } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
 import { dids, extensions, trunks } from '../db/schema.ts';
 import { HttpError, badRequest } from '../errors.ts';
 import { SLOW, requireAdmin } from '../auth/guards.ts';
-import { encrypt } from '../crypto/secrets.ts';
+import { decrypt, encrypt } from '../crypto/secrets.ts';
 import { audit } from '../services/audit.ts';
 import { assertDestinationExists } from '../services/destinations.ts';
 import { getAllSettings, getSetting, setSetting } from '../services/settings.ts';
@@ -39,6 +43,10 @@ import { forgetBook } from '../contacts/contrack.ts';
 import { assertLdap, testLdap, type LdapSettings } from '../sso/ldap.ts';
 import { directoryUserFor } from '../sso/directory.ts';
 import { assertIssuer, oidcConfig, oidcError, testOidc, type OidcSettings } from '../sso/oidc.ts';
+import { ftcTest } from '../spam/ftc.ts';
+import { SpamError } from '../spam/http.ts';
+import { ipqsCredits } from '../spam/ipqs.ts';
+import { patchSpamState, resumeIpqs } from '../spam/check.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -52,6 +60,7 @@ const READ_ONLY = new Set<string>([
   'system.restartRequired',
   'system.transportHash',
   'system.directoryWarning',
+  'spam.state',
   'sms.webhookToken',
   'setup.completed',
 ]);
@@ -62,10 +71,20 @@ async function toDto(db: Db): Promise<SettingsDto> {
     'contacts.contrack': ctk,
     'auth.oidc': oidc,
     'auth.ldap': ldap,
+    spam,
     ...rest
   } = await getAllSettings(db);
   return {
     ...rest,
+    spam: {
+      ...spam,
+      ipqs: spam.ipqs && { hasKey: true },
+      ftc: spam.ftc && {
+        hasKey: true,
+        syncHours: spam.ftc.syncHours,
+        windowDays: spam.ftc.windowDays,
+      },
+    },
     'auth.ldap': ldap && {
       enabled: ldap.enabled,
       preset: ldap.preset,
@@ -209,6 +228,28 @@ export async function settingsRoutes(app: FastifyInstance) {
       trustEmail: input.trustEmail,
     };
   }
+  /** The stored form of `spam` (14 §7): keys are write-only (empty keeps the stored one). */
+  async function spamFromInput(input: SpamInput): Promise<SpamSettings> {
+    const v = SpamInputSchema.parse(input);
+    const old = await getSetting(db, 'spam');
+    const keyEnc = (typed: string | undefined, stored: string | undefined, name: string) => {
+      if (typed) return encrypt(typed);
+      if (stored) return stored;
+      throw badRequest(`Enter the ${name} key`);
+    };
+    const ipqs = v.ipqs && {
+      keyEnc: keyEnc(v.ipqs.key, old.ipqs?.keyEnc, 'IPQualityScore'),
+    };
+    const ftc = v.ftc && {
+      keyEnc: keyEnc(v.ftc.key, old.ftc?.keyEnc, 'api.data.gov'),
+      syncHours: v.ftc.syncHours,
+      windowDays: v.ftc.windowDays,
+    };
+    if (v.enabled && !ipqs && !ftc)
+      throw badRequest('Set up IPQualityScore or the FTC list to turn spam check on');
+    return { ...v, ipqs, ftc };
+  }
+
   app.addHook('preHandler', requireAdmin);
 
   app.get('/api/settings', () => toDto(db));
@@ -258,6 +299,8 @@ export async function settingsRoutes(app: FastifyInstance) {
         forgetBook(null);
       } else if (key === 'auth.ldap') {
         values[key] = await ldapFromInput(raw);
+      } else if (key === 'spam') {
+        values[key] = await spamFromInput(raw as SpamInput);
       } else if (key === 'auth.oidc') {
         values[key] = await oidcFromInput(raw === null ? null : OidcInputSchema.parse(raw));
       } else values[key] = SettingsSchemas[key as SettingKey].parse(raw);
@@ -308,6 +351,8 @@ export async function settingsRoutes(app: FastifyInstance) {
     }
     for (const [key, value] of Object.entries(values))
       await setSetting(db, key as SettingKey, value as never);
+    // A new IPQualityScore key may have credits: don't wait for spamQuotaCheck (14 §3).
+    if ((body.spam as SpamInput | undefined)?.ipqs?.key) await resumeIpqs(db, 'a new key');
     const changed = Object.keys(values).filter(
       (k) => JSON.stringify(before[k as keyof typeof before]) !== JSON.stringify(values[k]),
     );
@@ -403,6 +448,32 @@ export async function settingsRoutes(app: FastifyInstance) {
     },
   );
 
+  /**
+   * Settings → Spam check → Test (14 §7.1), with the typed key or else the saved one. IPQualityScore
+   * answers with its credits left, which spends none.
+   */
+  for (const provider of ['ipqs', 'ftc'] as const)
+    app.post(
+      `/api/settings/spam/${provider}/test`,
+      { config: SLOW },
+      async (req): Promise<SpamTestResult> => {
+        const { key } = z
+          .object({ key: z.string().trim().max(200).optional() })
+          .parse(req.body ?? {});
+        const keyEnc = (await getSetting(db, 'spam'))[provider]?.keyEnc;
+        const k = key || (keyEnc && decrypt(keyEnc));
+        if (!k) return { ok: false, error: 'Enter the key first' };
+        try {
+          if (provider === 'ftc') return { ok: true, detail: await ftcTest(k) };
+          const credits = await ipqsCredits(k);
+          return { ok: true, detail: `Works: ${credits} credits left this billing period.` };
+        } catch (err) {
+          if (err instanceof SpamError) return { ok: false, error: err.message };
+          throw err;
+        }
+      },
+    );
+
   /** The server's public IPv4, as an outside service sees it (only sent when asked). */
   app.post('/api/settings/network/detect-public-ip', { config: SLOW }, async () => {
     const ip = await detectPublicIp();
@@ -488,6 +559,14 @@ export async function settingsRoutes(app: FastifyInstance) {
         message: s['system.directoryWarning'],
         link: '/admin/settings/sign-in',
       });
+    const st = s['spam.state'];
+    if (s.spam.enabled && s.spam.ipqs && st.ipqsPausedAt && !st.warningDismissedAt)
+      items.push({
+        code: 'spam_quota',
+        message: `IPQualityScore's lookups are used up. Spam checks ${s.spam.ftc ? 'use the FTC list' : 'are off'} until they come back.`,
+        link: '/admin/settings/spam',
+        dismissable: true,
+      });
     if (!s.smtp)
       items.push({
         code: 'smtp_missing',
@@ -495,5 +574,18 @@ export async function settingsRoutes(app: FastifyInstance) {
         link: '/admin/settings/email',
       });
     return { items };
+  });
+
+  /** Settings → Spam check → Download now (14 §2.2): due at the next minute, unless under way. */
+  app.post('/api/settings/spam/ftc/sync', async () => {
+    if (!(await getSetting(db, 'spam')).ftc) throw badRequest('Set up the FTC list first');
+    await patchSpamState(db, { ftcLastSyncAt: null });
+    return { ok: true };
+  });
+
+  /** Hidden until the next time the credits run out (14 §3). */
+  app.post('/api/system/warnings/spam_quota/dismiss', async () => {
+    await patchSpamState(db, { warningDismissedAt: new Date().toISOString() });
+    return { ok: true };
   });
 }

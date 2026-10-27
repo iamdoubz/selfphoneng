@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Dashboard (05 §2). Warnings, telephony link, trunks, calls in progress (hang up / transfer)
 // queue tiles, parked calls and extensions online.
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
-import type { ActiveCall, QueueLive } from '@selfphoneng/shared';
+import type { ActiveCall, QueueLive, Warning } from '@selfphoneng/shared';
 import { Link } from 'react-router';
 import { liveApi, settingsApi, type SpyMode } from '../../api/client.ts';
 import { ConfirmDialog } from '../../components/Dialog.tsx';
@@ -144,7 +144,12 @@ function Warnings({ trunkDown }: { trunkDown: boolean }) {
     queryFn: settingsApi.warnings,
     refetchInterval: 30_000,
   });
-  const items = [
+  const qc = useQueryClient();
+  const dismiss = useMutation({
+    mutationFn: settingsApi.dismissWarning,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['warnings'] }),
+  });
+  const items: Warning[] = [
     ...(trunkDown
       ? [
           {
@@ -168,6 +173,19 @@ function Warnings({ trunkDown }: { trunkDown: boolean }) {
           <Link to={w.link} className="font-medium underline">
             Fix
           </Link>
+          {w.dismissable && (
+            <>
+              {' '}
+              <button
+                type="button"
+                className="font-medium underline"
+                disabled={dismiss.isPending}
+                onClick={() => dismiss.mutate(w.code)}
+              >
+                Dismiss
+              </button>
+            </>
+          )}
         </li>
       ))}
     </ul>

@@ -8,7 +8,7 @@ Conventions:
 - Primary keys: `uuid` with `default gen_random_uuid()` unless stated (built into PostgreSQL 18, so no pgcrypto extension is needed).
 - Every table has `created_at timestamptz not null default now()` and
   `updated_at timestamptz not null default now()` (left out below to save space,
-  **but add them**). Exceptions: `cdr`, `audit_log`, `system_events`, `webhook_deliveries`, `generator_runs` (append-only, `created_at` only).
+  **but add them**). Exceptions: `cdr`, `audit_log`, `system_events`, `webhook_deliveries`, `generator_runs`, `ftc_complaints` (append-only, `created_at` only).
 - Columns ending in `_enc` hold secrets encrypted with AES-256-GCM using
   `APP_SECRET` (format: `base64(iv[12] | tag[16] | ciphertext)`). Only
   `crypto/secrets.ts` encrypts and decrypts. API responses never include `_enc`
@@ -451,9 +451,34 @@ create table calls (                                  -- one row per logical cal
   did_id                uuid references dids(id) on delete set null,
   answered_by_extension_id uuid references extensions(id) on delete set null,
   talk_seconds          int not null default 0,
-  recording_id          uuid references recordings(id) on delete set null
+  recording_id          uuid references recordings(id) on delete set null,
+  spam_risk             text,                     -- 14 §6: 'low' | 'medium' | 'high'; null = not checked
+  spam_info             jsonb                     -- 14 §6: what the check said
 );
 create index on calls (started_at desc);
+
+-- Spam check (14 §7): IPQualityScore answers, and the local copy of the FTC complaints.
+create table spam_lookups (            -- IPQualityScore answers (14 §4)
+  number      text primary key,        -- 1NXXNXXXXXX
+  provider    text not null,           -- 'ipqs'
+  risk        text not null check (risk in ('low', 'medium', 'high')),
+  info        jsonb not null,          -- the 14 §2.1 fields only
+  expires_at  timestamptz not null,    -- updated_at is when it was checked
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+create index on spam_lookups (expires_at);
+
+create table ftc_complaints (          -- the FTC copy (14 §2.2), kept windowDays; append-only
+  id           text primary key,       -- the FTC's id
+  number       text not null,          -- 1NXXNXXXXXX
+  reported_at  timestamptz not null,   -- the complaint's created-date
+  subject      text,
+  robocall     boolean,
+  created_at   timestamptz not null default now()
+);
+create index on ftc_complaints (number);
+create index on ftc_complaints (reported_at);
 
 create table call_extensions (                        -- which extensions were involved (for per-user history)
   call_id       uuid not null references calls(id) on delete cascade,
@@ -654,3 +679,5 @@ with a zod schema per key and a default. Missing rows return the default.
 | `provisioning.lanOnly` | boolean | false | only serve `/prov` to clients from local nets |
 | `provisioning.enabled` | boolean | true | |
 | `system.restartRequired` | boolean | false | set by generator |
+| `spam` | object | off, no providers | spam check (14 §7): `enabled`, `ipqs {keyEnc}`, `ftc {keyEnc, syncHours, windowDays}`, `cache {flaggedDays, cleanDays}`, `deskPhoneLabels {high, medium}` |
+| `spam.state` | object | `{}` | set by the system (14 §3, §2.2): IPQualityScore paused, the warning dismissed, the FTC sync's progress |

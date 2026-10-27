@@ -9,6 +9,7 @@ import { Alert, Button } from '../../components/ui.tsx';
 import { softphone } from '../../softphone/SoftphoneEngine.ts';
 import { DIRECTION_TEXT, StatusBadge, fmtDuration, fmtNumber } from '../admin/CallsPage.tsx';
 import { AddToContacts, useContactName } from './ContactsPage.tsx';
+import { SpamNote } from '../../components/SpamNote.tsx';
 
 /** The other side of the call, from where I sit. */
 export const otherParty = (c: MyCallDto) =>
@@ -84,6 +85,7 @@ export function MyCallsPage() {
                 {!known && other.number && c.direction !== 'internal' && (
                   <AddToContacts number={other.number} name={other.name} />
                 )}
+                {c.myRole === 'in' && !known && <SpamNote check={c.spam} />}
               </span>
               {c.recordingId && (
                 <audio
