@@ -48,11 +48,23 @@ function warn(d: SpamDeps, provider: string, err: unknown) {
  * IPQualityScore first when it's set up, then the FTC list (owner, 2026-10-27). `cachedOnly`:
  * the cache and the local FTC copy, never a request out (call history, 14 §6).
  */
-export async function checkNumber(
+export function checkNumber(
   d: SpamDeps,
   number: string,
   opts: { cachedOnly?: boolean } = {},
 ): Promise<SpamCheck | null> {
+  if (opts.cachedOnly) return check(d, number, true);
+  // Shared from the start, before anything is awaited: else a check that finishes between
+  // another's cache read and its look here would cost a second request.
+  let p = pending.get(number);
+  if (!p) {
+    p = check(d, number, false).finally(() => pending.delete(number));
+    pending.set(number, p);
+  }
+  return p;
+}
+
+async function check(d: SpamDeps, number: string, cachedOnly: boolean): Promise<SpamCheck | null> {
   if (!isCheckable(number)) return null;
   const s = await getSetting(d.db, 'spam');
   if (!s.enabled) return null;
@@ -63,13 +75,8 @@ export async function checkNumber(
       .where(and(eq(spamLookups.number, number), gt(spamLookups.expiresAt, sql`now()`)));
     if (hit) return { risk: hit.risk as SpamRisk, provider: 'ipqs', info: hit.info as IpqsInfo };
     // Paused (14 §3): the cache still answers, IPQualityScore isn't asked.
-    if (!opts.cachedOnly && !(await getSetting(d.db, 'spam.state')).ipqsPausedAt) {
-      let p = pending.get(number);
-      if (!p) {
-        p = askIpqs(d, s, s.ipqs.keyEnc, number).finally(() => pending.delete(number));
-        pending.set(number, p);
-      }
-      const answer = await p;
+    if (!cachedOnly && !(await getSetting(d.db, 'spam.state')).ipqsPausedAt) {
+      const answer = await askIpqs(d, s, s.ipqs.keyEnc, number);
       if (answer) return answer;
     }
   }
