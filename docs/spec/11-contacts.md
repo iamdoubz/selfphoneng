@@ -302,6 +302,8 @@ As built (C5, `contacts/timeline.ts`):
   agent or a forward does its own lookup in its own user's book, and never sees another's.
 - The prefix of a number, ring group or queue ("Sales:") is kept in front:
   `__SP_CNAM_PREFIX` grows the same way `CALLERID(name)` does.
+- No contact: with spam check on, the route waits up to 1.2 s for its answer and names a likely
+  or possible spammer with `spam.deskPhoneLabels` (14 §5.2, §9.4).
 - Globals `SP_CNAM_URL` (http://127.0.0.1:API_PORT/…) and `SP_CNAM_TOKEN` (HMAC-SHA256 of
   APP_SECRET, so it survives restarts). The route answers 404 unless the request comes from this
   machine without `X-Forwarded-For` (not through the reverse proxy) and with the key, and isn't

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// SD1, SD2: the spam check (14): IPQualityScore first, then the local FTC copy, against a fake fetch.
+// SD1, SD2, SD4: the spam check (14): IPQualityScore first, then the local FTC copy, against a fake fetch.
 import { eq, like, sql } from 'drizzle-orm';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -11,7 +11,10 @@ import {
   settings as settingsTable,
   spamLookups,
   systemEvents,
+  users,
 } from '../src/db/schema.ts';
+import type { ActiveCall } from '@selfphoneng/shared';
+import { callerNameToken } from '../src/contacts/callername.ts';
 import { checkNumber, spamQuotaCheck } from '../src/spam/check.ts';
 import { getSetting, setSetting } from '../src/services/settings.ts';
 import { hasTestDb } from './db.ts';
@@ -37,7 +40,7 @@ describe.skipIf(!hasTestDb)('spam check', () => {
   let admin: Req;
   const urls: string[] = [];
   /** What the fake IPQualityScore does: answer, fail, or say the credits are used up. */
-  let ipqs: 'ok' | 'down' | 'exhausted' | 'slow' = 'ok';
+  let ipqs: 'ok' | 'down' | 'exhausted' | 'slow' | 'late' = 'ok';
   let credits = 912;
   const log = { warn: vi.fn() };
   const d = () => ({ db: t.db, log });
@@ -102,7 +105,7 @@ describe.skipIf(!hasTestDb)('spam check', () => {
           success: false,
           message: 'You have insufficient credits to make this query.',
         });
-      await new Promise((r) => setTimeout(r, 20));
+      await new Promise((r) => setTimeout(r, ipqs === 'late' ? 1500 : 20));
       return json({ success: true, valid: true, ...(ANSWERS[phone[1]!] ?? { fraud_score: 0 }) });
     });
   });
@@ -301,6 +304,71 @@ describe.skipIf(!hasTestDb)('spam check', () => {
     await checkNumber(d(), SPAMMER);
     expect((await checkNumber(d(), SPAMMER, { cachedOnly: true }))?.provider).toBe('ipqs');
     expect(urls).toHaveLength(1);
+  });
+
+  describe('while it rings', () => {
+    let ringing: ActiveCall[] = [];
+    const call = (from: string, ext: string): ActiveCall => ({
+      linkedid: `l-${from}`,
+      startedAt: new Date().toISOString(),
+      direction: 'inbound',
+      from: { number: from },
+      to: { number: '13125559999' },
+      state: 'ringing',
+      extensions: [ext],
+      channels: [],
+      recording: false,
+    });
+    const check = async (number: string) =>
+      (await admin('GET', `/api/me/caller-check?number=${number}`)).json().check;
+    const deskName = async (number: string, ext = '101') =>
+      (
+        await t.app.inject({
+          method: 'GET',
+          url: `/api/internal/caller-name?ext=${ext}&number=${number}&token=${callerNameToken(t.app.config.APP_SECRET)}`,
+        })
+      ).body;
+
+    beforeAll(async () => {
+      const [me] = await t.db.select().from(users).where(eq(users.email, ADMIN.email));
+      expect(
+        (await admin('POST', '/api/extensions', { number: '101', name: 'Admin', userId: me!.id }))
+          .statusCode,
+      ).toBe(201);
+      await admin('POST', '/api/me/contacts', {
+        name: 'Pizza Place',
+        numbers: [{ number: SHADY.slice(1) }],
+      });
+      t.app.live.calls.list = () => ringing;
+    });
+    beforeEach(() => settings({ ...keys.withIpqs, ...keys.withFtc }));
+
+    it('the softphone: only callers ringing me now, never my contacts', async () => {
+      ringing = [call(SPAMMER.slice(1), '101'), call(CLEAN, '102'), call(SHADY, '101')];
+      expect(await check(SPAMMER)).toMatchObject({ risk: 'high', provider: 'ipqs' });
+      expect(await check(`+1 ${SPAMMER.slice(1)}`)).toMatchObject({ risk: 'high' });
+      expect(await check(CLEAN)).toBeNull(); // ringing someone else
+      expect(await check(REPORTED)).toBeNull(); // not ringing
+      expect(await check(SHADY)).toBeNull(); // a contact
+      expect(urls).toHaveLength(1);
+      ringing = [call(CLEAN, '101')];
+      expect(await check(CLEAN)).toMatchObject({ risk: 'low' }); // low: the softphone hides it
+      expect((await admin('GET', '/api/me/caller-check?number=nonsense')).json().check).toBeNull();
+    });
+
+    it('desk phones: the label in time, nothing for a contact, low risk or a late answer', async () => {
+      expect(await deskName(SPAMMER)).toBe('SPAM LIKELY');
+      expect(await deskName(SHADY)).toBe('Pizza Place');
+      expect(await deskName(SHADY, '999')).toBe('Spam risk'); // nobody's contact there
+      expect(await deskName(CLEAN)).toBe('');
+      await t.db.delete(spamLookups);
+      ipqs = 'late';
+      expect(await deskName(SPAMMER)).toBe('');
+      await vi.waitFor(async () => expect(await t.db.select().from(spamLookups)).toHaveLength(1));
+      expect(await deskName(SPAMMER)).toBe('SPAM LIKELY'); // from the cache
+      await settings({ ...keys.withFtc, deskPhoneLabels: { high: 'JUNK', medium: 'Maybe junk' } });
+      expect(await deskName(REPORTED)).toBe('JUNK');
+    });
   });
 
   describe('Settings → Spam check', () => {

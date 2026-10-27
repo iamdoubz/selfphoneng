@@ -2,10 +2,12 @@
 // Softphone on every /me page (05 §5.3): a bar at the bottom that opens a panel with the
 // dialpad and audio devices; call cards with mute/hold/keypad/transfer; the incoming call dialog.
 // Not yet: DND toggle (M6), Record via *1 and recent calls (M7).
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { formatNumber } from '@selfphoneng/shared';
 import { meApi } from '../api/client.ts';
 import { Dialog } from '../components/Dialog.tsx';
+import { SpamNote } from '../components/SpamNote.tsx';
 import { Button, inputClass } from '../components/ui.tsx';
 import { useLive } from '../live/store.ts';
 import { onTakeOver, stepDown, takeOver, tryLead } from './leader.ts';
@@ -76,6 +78,19 @@ function useNameOf() {
     contact(c.remote) ??
     c.remoteName ??
     (c.remote.length > 6 ? formatNumber(c.remote) : c.remote || 'Unknown');
+}
+
+/** The spam check for an outside caller (14 §5.1): asked once, as it starts ringing. */
+function CallerCheck({ call }: { call: CallInfo }) {
+  const contact = useContactName();
+  const check = useQuery({
+    queryKey: ['caller-check', call.remote],
+    queryFn: () => meApi.callerCheck(call.remote),
+    enabled: call.direction === 'in' && call.remote.length >= 10 && !contact(call.remote),
+    staleTime: Infinity,
+    retry: false,
+  });
+  return <SpamNote check={check.data} />;
 }
 
 function useNow(on: boolean) {
@@ -257,6 +272,7 @@ export function SoftphoneDock() {
             )}
           </p>
         )}
+        {dialogCall && <CallerCheck call={dialogCall} />}
       </Dialog>
     </section>
   );
@@ -361,6 +377,7 @@ function CallCard({
           {call.poorQuality && (
             <span className="ml-2 text-amber-700 dark:text-amber-400">Poor connection</span>
           )}
+          <CallerCheck call={call} />
         </span>
         {call.state === 'incoming' ? (
           <>

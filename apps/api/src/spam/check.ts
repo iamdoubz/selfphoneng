@@ -6,12 +6,14 @@ import { and, eq, gt, isNull, sql, type SQL } from 'drizzle-orm';
 import type { FastifyBaseLogger } from 'fastify';
 import {
   SpamStateSchema,
+  normalizeNumber,
   type IpqsInfo,
   type SpamCheck,
   type SpamRisk,
   type SpamSettings,
   type SpamState,
 } from '@selfphoneng/shared';
+import { contactNames } from '../contacts/book.ts';
 import type { Db } from '../db/client.ts';
 import { settings, spamLookups } from '../db/schema.ts';
 import { decrypt } from '../crypto/secrets.ts';
@@ -25,6 +27,15 @@ export type SpamDeps = { db: Db; log: Pick<FastifyBaseLogger, 'warn'> };
 
 /** US numbers only (owner, 2026-10-27): 1NXXNXXXXXX after normalizeNumber (00 §8). */
 export const isCheckable = (n: string) => /^1[2-9]\d{2}[2-9]\d{6}$/.test(n);
+
+/** `n` as 1NXXNXXXXXX-style digits (00 §8), or '' when it isn't a number. */
+export const usNumber = (n: string) => {
+  try {
+    return normalizeNumber(n);
+  } catch {
+    return '';
+  }
+};
 
 /** A check under way, by number: a ring group ringing five people costs one credit (14 §4). */
 const pending = new Map<string, Promise<SpamCheck | null>>();
@@ -69,6 +80,33 @@ export async function checkNumber(
   } catch (err) {
     warn(d, 'ftc', err);
     return null;
+  }
+}
+
+/**
+ * The check for a call ringing `userId` (14 §5): nothing for a number in their books (or when
+ * the books can't be read), else the answer if it comes within `waitMs`. A later answer still
+ * fills the cache.
+ */
+export async function checkCaller(
+  d: SpamDeps,
+  userId: string | null,
+  number: string,
+  waitMs: number,
+): Promise<SpamCheck | null> {
+  if (!isCheckable(number)) return null;
+  const known = await contactNames(d.db, userId, [number], { wait: false }).catch(() => null);
+  if (!known || known.size) return null;
+  const check = checkNumber(d, number).catch((err: unknown) => {
+    warn(d, 'check', err);
+    return null;
+  });
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<null>((r) => (timer = setTimeout(r, waitMs, null)));
+  try {
+    return await Promise.race([check, late]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

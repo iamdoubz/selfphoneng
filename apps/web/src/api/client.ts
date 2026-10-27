@@ -3,6 +3,7 @@
 import type {
   LdapInput,
   LdapTestResult,
+  SpamCheck,
   SpamTestResult,
   AuthMethods,
   OidcInput,
@@ -306,6 +307,12 @@ export const meApi = {
   calls: (cursor?: string) =>
     api<ListResponse<MyCallDto>>('GET', `/api/me/calls${cursor ? `?cursor=${cursor}` : ''}`),
   get: () => api<MeDto>('GET', '/api/me'),
+  /** 14 §5.1: only for a caller ringing me now. */
+  callerCheck: (number: string) =>
+    api<{ check: SpamCheck | null }>(
+      'GET',
+      `/api/me/caller-check?number=${encodeURIComponent(number)}`,
+    ).then((r) => r.check),
   softphoneQr: () => api<SoftphoneQr>('GET', '/api/me/softphone-qr'),
   update: (m: MeUpdate) => api<MeDto>('PATCH', '/api/me', m),
   connectContrack: (token: string) => api<MeDto>('PUT', '/api/me/contrack', { token }),

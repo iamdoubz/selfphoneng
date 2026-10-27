@@ -111,9 +111,9 @@ list until they come back." (or "…are off until they come back." without the F
 
 ## 5. Where checks happen
 
-Everything goes through `spam/check.ts` `checkNumber(number, { wait })` → `{ risk, provider,
-info } | null`. It runs the §1 rules, then the cache, then the providers (§2). It doesn't do the
-contacts test: each caller of it does that for its own user.
+Everything goes through `spam/check.ts` `checkNumber(number, { cachedOnly })` → `{ risk,
+provider, info } | null`. It runs the §1 rules, then the cache, then the providers (§2). It
+doesn't do the contacts test: `checkCaller` (§9.4) does that for the user being rung.
 
 ### 5.1 Browser softphone
 
@@ -123,7 +123,6 @@ contacts test: each caller of it does that for its own user.
 - Only for a number that is ringing at one of the user's extensions, or rang there in the last
   2 minutes (live state, 04 §5.1); otherwise `null` without checking. A user can't spend
   credits on numbers that never called.
-  `// TODO(spec): live state must keep the caller's number per ringing channel; check in SD4.`
 - The softphone asks once per incoming call, as it starts ringing, and doesn't retry.
 - Shown under the caller's name, in the ringing dialog and on the call card, for **high** and
   **medium** only; **low** shows nothing (owner, 2026-10-27):
@@ -236,7 +235,7 @@ log masks it. Validated with zod (`packages/shared`).
 | SD1 | Decision 0006; this spec; the §7 migration and settings; `spam/check.ts` with both providers' lookups, the cache and the shared requests; Settings → Spam check with keys, Test, privacy confirmation | `pnpm lint && typecheck && test` pass; checks, cache times, the order (IPQualityScore, then the FTC list) and failures are tested against fake HTTP. Done, see §9.1 |
 | SD2 | §3: pause, events, the `spam_quota` warning and Dismiss, `spamQuotaCheck` | an exhausted fake pauses, falls back to the FTC list, warns once and resumes; the owner's real key shows the credit call is free. Done but the real-key check, see §9.2 |
 | SD3 | §2.2 sync: paging, pacing, the saved cursor, the window, Sync now | a fake FTC API with 3 days of data syncs, resumes after a 429 and drops old complaints; one real sync with the owner's key. Done but the real sync, see §9.3 |
-| SD4 | §5: `/api/me/caller-check`, the softphone badge and line, the desk phone labels | an unknown number rings the softphone and shows its answer; a contact or a low risk shows nothing; a desk phone shows "SPAM LIKELY" when the answer is in time |
+| SD4 | §5: `/api/me/caller-check`, the softphone badge and line, the desk phone labels | an unknown number rings the softphone and shows its answer; a contact or a low risk shows nothing; a desk phone shows "SPAM LIKELY" when the answer is in time. Done but a real call, see §9.4 |
 | SD5 | §6 call history; the admin guide page | a checked call keeps its badge in call history after its cache expires |
 
 ### 9.1 As built: SD1
@@ -313,6 +312,32 @@ log masks it. Validated with zod (`packages/shared`).
   until `syncHours`, then from the newest day less one; 15 pages a minute with the place saved; a
   429 stopping and the next minute carrying on without duplicates; the same failure logged once;
   a refused key). `test/spam.test.ts`: Download now.
+
+### 9.4 As built: SD4
+
+- `spam/check.ts` `checkCaller(deps, userId, number, waitMs)`: the contacts test (that user's
+  books and the company's, `contactNames` without waiting on Contrack; books that can't be read
+  count as "known", so nothing is shown), then `checkNumber` raced against `waitMs`. A late
+  answer still fills the cache. `usNumber` normalizes (00 §8) or gives ''.
+- `GET /api/me/caller-check?number=` (5 s): only for an inbound call in live state (04 §5.1)
+  from that number with one of my extensions among its channels (the browser's
+  `PJSIP/101-web-…` and ring group / queue `Local/101@…` legs count). Live state already keeps
+  the caller's number (the first channel's caller ID), so nothing was added there.
+- Not built: "or rang there in the last 2 minutes". The softphone asks as the call starts
+  ringing, so it's in live state; a call gone before its question arrives has nothing to show.
+- `GET /api/internal/caller-name`: no contact → `checkCaller(…, 1200)`; high or medium →
+  `deskPhoneLabels` and, from IPQualityScore, its name for the line. The label **replaces** the
+  carrier's caller ID name rather than going in front of it: the dialplan doesn't send that
+  name, and §5.2 keeps the dialplan as it is. Its failures log through the app's logger (the
+  route's own is silent: the token is in the query).
+- Softphone: `CallerCheck` in `SoftphoneDock.tsx`, in the ringing dialog and on each call card
+  (so the note stays after answering). Asked once per number (react-query, no retry), only for
+  an incoming call from 10+ digits that the browser doesn't already know as a contact.
+- `components/SpamNote.tsx`: the badge and line (`spamLine`), for SD5's call history too.
+- Tests: `test/spam.test.ts` "while it rings" (only callers ringing me, +1 formatting, someone
+  else's call, not ringing, a contact, low; desk labels, a contact's name, a number nobody has,
+  a late answer then the cache, custom labels from the FTC list), `SpamNote.test.ts` (the line).
+- Not checked: a real call in the browser and on a desk phone.
 
 Later, not now:
 - **Report as spam** (owner, 2026-10-27: not now): a button in call history that reports the

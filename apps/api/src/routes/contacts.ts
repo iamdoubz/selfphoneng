@@ -15,6 +15,7 @@ import {
   type ContactImportResult,
   type ContactShareDto,
   type ListResponse,
+  type SpamCheck,
 } from '@selfphoneng/shared';
 import { NO_LIMIT, SLOW, requireAdmin, requireAuth } from '../auth/guards.ts';
 import {
@@ -37,6 +38,7 @@ import { getSetting } from '../services/settings.ts';
 import { decrypt } from '../crypto/secrets.ts';
 import { contrackCheck } from '../contacts/contrack.ts';
 import { callerNameToken, phoneSafeName, sameToken } from '../contacts/callername.ts';
+import { checkCaller, usNumber } from '../spam/check.ts';
 
 const IdParams = z.object({ id: z.uuid() });
 const CommitQuery = z.object({ commit: z.enum(['0', '1']).default('0') });
@@ -187,12 +189,52 @@ export async function contactRoutes(app: FastifyInstance) {
         .select({ userId: extensions.userId })
         .from(extensions)
         .where(eq(extensions.number, q.data.ext));
-      const names = await contactNames(db, e?.userId ?? null, [q.data.number], {
+      const owner = e?.userId ?? null;
+      const names = await contactNames(db, owner, [q.data.number], {
         wait: false,
       }).catch(() => new Map<string, string>());
-      return reply
-        .type('text/plain; charset=utf-8')
-        .send(phoneSafeName(names.get(q.data.number) ?? ''));
+      let name = names.get(q.data.number) ?? '';
+      // 14 §5.2: no contact → the spam check's label, if it answers in 1.2 s (of the 2 s).
+      // app.log: this route's own log is silent (the token is in the query).
+      // ponytail: the label replaces the carrier's caller ID name, which the dialplan doesn't
+      // send; IPQualityScore's name for the line follows it when it has one.
+      if (!name) {
+        const c = await checkCaller({ db, log: app.log }, owner, usNumber(q.data.number), 1200);
+        if (c && c.risk !== 'low') {
+          const labels = (await getSetting(db, 'spam')).deskPhoneLabels;
+          name = `${labels[c.risk]} ${c.provider === 'ipqs' ? (c.info.name ?? '') : ''}`;
+        }
+      }
+      return reply.type('text/plain; charset=utf-8').send(phoneSafeName(name));
+    },
+  );
+
+  /**
+   * The softphone's spam check (14 §5.1): only for a caller ringing one of my extensions right
+   * now, so nobody can spend the credits on numbers that never called.
+   */
+  app.get(
+    '/api/me/caller-check',
+    { preHandler: requireAuth },
+    async (req): Promise<{ check: SpamCheck | null }> => {
+      const { number } = z.object({ number: z.string().max(30) }).parse(req.query);
+      const n = usNumber(number);
+      const mine = (
+        await db
+          .select({ number: extensions.number })
+          .from(extensions)
+          .where(eq(extensions.userId, req.user!.id))
+      ).map((x) => x.number);
+      const ringing = app.live.calls
+        .list()
+        .some(
+          (c) =>
+            c.direction === 'inbound' &&
+            usNumber(c.from.number) === n &&
+            c.extensions.some((x) => mine.includes(x)),
+        );
+      if (!n || !ringing) return { check: null };
+      return { check: await checkCaller({ db, log: req.log }, req.user!.id, n, 5000) };
     },
   );
 
