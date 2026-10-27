@@ -187,7 +187,7 @@ Settings (02 §3):
 | Key | Type | Default | Notes |
 |---|---|---|---|
 | `spam` | object | below | the admin's choices |
-| `spam.state` | object | `{}` | read-only to the API, like `system.*`: `ipqsPausedAt`, `warningDismissedAt`, `ftcSyncedTo`, `ftcCursor`, `ftcLastSyncAt`, `ftcLastError` |
+| `spam.state` | object | `{}` | read-only to the API, like `system.*`: `ipqsPausedAt`, `warningDismissedAt`, `ftcCursor` (`{day, offset}` while a download is under way), `ftcLastSyncAt`, `ftcLastError` |
 
 ```ts
 spam = {
@@ -235,7 +235,7 @@ log masks it. Validated with zod (`packages/shared`).
 |---|---|---|
 | SD1 | Decision 0006; this spec; the §7 migration and settings; `spam/check.ts` with both providers' lookups, the cache and the shared requests; Settings → Spam check with keys, Test, privacy confirmation | `pnpm lint && typecheck && test` pass; checks, cache times, the order (IPQualityScore, then the FTC list) and failures are tested against fake HTTP. Done, see §9.1 |
 | SD2 | §3: pause, events, the `spam_quota` warning and Dismiss, `spamQuotaCheck` | an exhausted fake pauses, falls back to the FTC list, warns once and resumes; the owner's real key shows the credit call is free. Done but the real-key check, see §9.2 |
-| SD3 | §2.2 sync: paging, pacing, the saved cursor, the window, Sync now | a fake FTC API with 3 days of data syncs, resumes after a 429 and drops old complaints; one real sync with the owner's key |
+| SD3 | §2.2 sync: paging, pacing, the saved cursor, the window, Sync now | a fake FTC API with 3 days of data syncs, resumes after a 429 and drops old complaints; one real sync with the owner's key. Done but the real sync, see §9.3 |
 | SD4 | §5: `/api/me/caller-check`, the softphone badge and line, the desk phone labels | an unknown number rings the softphone and shows its answer; a contact or a low risk shows nothing; a desk phone shows "SPAM LIKELY" when the answer is in time |
 | SD5 | §6 call history; the admin guide page | a checked call keeps its badge in call history after its cache expires |
 
@@ -245,7 +245,7 @@ log masks it. Validated with zod (`packages/shared`).
   can't wait (14 §5.1, §5.2) races it against its own timer, and the check carries on and fills
   the cache. The cache is only read while IPQualityScore is set up; turning it off leaves the
   rows to expire.
-- `spam/ipqs.ts`, `spam/ftc.ts` (the local lookup and Test; the sync is SD3), `spam/http.ts`
+- `spam/ipqs.ts`, `spam/ftc.ts` (the local lookup and Test; the sync is §9.3), `spam/http.ts`
   (`getJson`, 4 s timeout, and `SpamError`, the only error text that is logged or shown: never
   the URL or fetch's own error). A provider message is cut to 200 characters with the key taken
   out, in case it quotes it.
@@ -285,6 +285,34 @@ log masks it. Validated with zod (`packages/shared`).
   list answering; no requests while paused; the warning and Dismiss; the job leaving it paused at
   0 credits and resuming above; the "are off" text without the FTC list; a new key; the job
   asking nothing unless paused and failing without the key).
+
+### 9.3 As built: SD3
+
+- `spam/ftc.ts` `ftcSync(db, { now, budget })`, job `spamFtcSync` **every minute**. It does
+  nothing unless spam check and the FTC list are on and a download is due (`ftcLastSyncAt`
+  older than `syncHours`, or never) or under way (`ftcCursor`).
+- One FTC date at a time (`created_date_from` / `_to` that day, `sort_order=ASC`, 50 a page,
+  `offset`), so an offset never grows past one day's complaints. A short page moves on to the
+  next day; today's short page ends the download: complaints older than `windowDays` are
+  deleted and `ftcLastSyncAt` set.
+- Pacing: at most 15 pages a minute (900 an hour), and the place (`ftcCursor`) saved after each
+  run, so a restart carries on. The first 30 days take about 7 hours.
+- Where a download starts: the newest complaint kept, less a day (for ones posted late, as on
+  weekends), but no further back than `windowDays`. Ids make the overlap harmless.
+- The FTC's dates have no zone: taken as Eastern, so a day is midnight to midnight in
+  Washington. Complaints without a 10-digit US number or a full date are skipped.
+- A failure (403 "api.data.gov refused the key", a 429 "…over its hourly limit", a timeout)
+  keeps the place and is saved in `ftcLastError`; the next minute tries again from the same page.
+  The job logs it (`warn`) only when it differs from the last one, so a long outage is one line.
+- Settings → Spam check: "Downloading: at the complaints of {day}", "Last download {time}", the
+  last failure, and **Download now** (`POST /api/settings/spam/ftc/sync`, which clears
+  `ftcLastSyncAt` so the next minute starts one; 400 without the FTC list).
+- Not done: one real download with the owner's api.data.gov key.
+- Tests: `test/ftc-sync.test.ts` against a fake api.ftc.gov (off; the first download a day at a
+  time with three pages on one day, old complaints dropped, robocall and Eastern time; not again
+  until `syncHours`, then from the newest day less one; 15 pages a minute with the place saved; a
+  429 stopping and the next minute carrying on without duplicates; the same failure logged once;
+  a refused key). `test/spam.test.ts`: Download now.
 
 Later, not now:
 - **Report as spam** (owner, 2026-10-27: not now): a button in call history that reports the

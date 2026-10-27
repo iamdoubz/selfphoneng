@@ -315,6 +315,20 @@ describe.skipIf(!hasTestDb)('spam check', () => {
       },
     });
 
+    it('Download now: due at the next minute; refused without the FTC list', async () => {
+      await settings(keys.withIpqs);
+      const r = await admin('POST', '/api/settings/spam/ftc/sync');
+      expect(r.statusCode).toBe(400);
+      expect(r.body).toMatch('Set up the FTC list first');
+      await settings(keys.withFtc);
+      await setSetting(t.db, 'spam.state', {
+        ...(await getSetting(t.db, 'spam.state')),
+        ftcLastSyncAt: new Date().toISOString(),
+      });
+      expect((await admin('POST', '/api/settings/spam/ftc/sync')).statusCode).toBe(200);
+      expect((await getSetting(t.db, 'spam.state')).ftcLastSyncAt).toBeNull();
+    });
+
     it('keys are write-only, and empty keeps the saved one', async () => {
       await setSetting(t.db, 'spam', SPAM_DEFAULTS);
       const r = await admin('PATCH', '/api/settings', body());

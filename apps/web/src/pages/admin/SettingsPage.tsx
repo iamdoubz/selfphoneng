@@ -1400,6 +1400,39 @@ function SpamTest({ provider, keyText }: { provider: 'ipqs' | 'ftc'; keyText: st
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : null);
 
+/** Where the FTC download is, and Download now (14 §2.2). */
+function FtcSyncStatus({ st }: { st: SettingsDto['spam.state'] }) {
+  const qc = useQueryClient();
+  const sync = useMutation({
+    mutationFn: settingsApi.syncFtc,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
+  return (
+    <div className="flex flex-col gap-1 text-sm">
+      <p className="text-zinc-500">
+        {st.ftcCursor
+          ? `Downloading: at the complaints of ${st.ftcCursor.day}.`
+          : st.ftcLastSyncAt
+            ? `Last download ${when(st.ftcLastSyncAt)}.`
+            : 'Not downloaded yet: it starts within a minute.'}
+      </p>
+      {st.ftcLastError && (
+        <p className="text-amber-700 dark:text-amber-400">
+          The last try failed: {st.ftcLastError}. It tries again every minute.
+        </p>
+      )}
+      {!st.ftcCursor && (
+        <div>
+          <Button onClick={() => sync.mutate()} disabled={sync.isPending}>
+            Download now
+          </Button>
+        </div>
+      )}
+      {sync.isError && <Alert>{sync.error.message}</Alert>}
+    </div>
+  );
+}
+
 /** Spam check (spec 14 §7.1): IPQualityScore first, then the FTC list. Information only. */
 function SpamTab({ s }: { s: SettingsDto }) {
   const save = useSave();
@@ -1540,12 +1573,7 @@ function SpamTab({ s }: { s: SettingsDto }) {
               {num('syncHours', 'Download again every (hours, 1–168)')}
               {num('windowDays', 'Keep complaints for (days, 7–365)')}
             </div>
-            {st.ftcLastSyncAt && (
-              <p className="text-sm text-zinc-500">
-                Last download {when(st.ftcLastSyncAt)}
-                {st.ftcLastError ? `: ${st.ftcLastError}` : '.'}
-              </p>
-            )}
+            {sp.ftc && <FtcSyncStatus st={st} />}
           </>
         )}
       </fieldset>

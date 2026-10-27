@@ -263,6 +263,7 @@ export const settingsApi = {
   testLdap: (v: LdapInput & { testLogin?: string; testPassword?: string }) =>
     api<LdapTestResult>('POST', '/api/settings/auth/ldap/test', v),
   /** 14 §7.1: the typed key, else the saved one. */
+  syncFtc: () => api<{ ok: true }>('POST', '/api/settings/spam/ftc/sync'),
   testSpam: (provider: 'ipqs' | 'ftc', key?: string) =>
     api<SpamTestResult>('POST', `/api/settings/spam/${provider}/test`, { key }),
 };

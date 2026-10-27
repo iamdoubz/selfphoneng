@@ -73,8 +73,11 @@ export const SPAM_DEFAULTS: SpamSettings = {
 export const SpamStateSchema = z.object({
   ipqsPausedAt: z.string().nullable().default(null),
   warningDismissedAt: z.string().nullable().default(null),
-  ftcSyncedTo: z.string().nullable().default(null),
-  ftcCursor: z.number().int().nullable().default(null),
+  /** A sync under way (14 §2.2): the FTC's date (Eastern) being read and how far into it. */
+  ftcCursor: z
+    .object({ day: z.iso.date(), offset: z.number().int().min(0) })
+    .nullable()
+    .default(null),
   ftcLastSyncAt: z.string().nullable().default(null),
   ftcLastError: z.string().nullable().default(null),
 });

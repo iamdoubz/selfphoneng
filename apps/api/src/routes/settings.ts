@@ -576,6 +576,13 @@ export async function settingsRoutes(app: FastifyInstance) {
     return { items };
   });
 
+  /** Settings → Spam check → Download now (14 §2.2): due at the next minute, unless under way. */
+  app.post('/api/settings/spam/ftc/sync', async () => {
+    if (!(await getSetting(db, 'spam')).ftc) throw badRequest('Set up the FTC list first');
+    await patchSpamState(db, { ftcLastSyncAt: null });
+    return { ok: true };
+  });
+
   /** Hidden until the next time the credits run out (14 §3). */
   app.post('/api/system/warnings/spam_quota/dismiss', async () => {
     await patchSpamState(db, { warningDismissedAt: new Date().toISOString() });
