@@ -94,6 +94,8 @@ const EXPECTED: Record<string, Record<string, string>> = {
     answered_by_extension_id: 'uuid|YES|',
     talk_seconds: 'integer|NO|0',
     recording_id: 'uuid|YES|',
+    spam_risk: 'text|YES|',
+    spam_info: 'jsonb|YES|',
     ...ts,
   },
   audit_log: {
@@ -115,11 +117,11 @@ describe.skipIf(!hasTestDb)('schema matches spec 02', () => {
   beforeAll(async () => ({ db, drop } = await createTestDb()));
   afterAll(() => drop?.());
 
-  it('creates all 45 tables', async () => {
+  it('creates all 47 tables', async () => {
     const r = await db.execute(
       sql`select count(*)::int as n from information_schema.tables where table_schema = 'public'`,
     );
-    expect(r.rows[0]).toEqual({ n: 45 });
+    expect(r.rows[0]).toEqual({ n: 47 });
   });
 
   it.each(Object.keys(EXPECTED))('%s columns', async (table) => {

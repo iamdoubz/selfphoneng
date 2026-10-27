@@ -433,6 +433,7 @@ As built (M11-T6): `routes/reports.ts`. `from`/`to` are company-time-zone days, 
 | GET | `/api/audit-log` | |
 | GET/PATCH | `/api/settings` | whole settings object; PATCH merges known keys only. `smtp` comes back as `{host, port, secure, username, from, hasPassword}` and is written with an optional `password` (empty keeps the stored one). `system.*`, `sms.webhookToken` and `setup.completed` are read-only. References (DIDs, extensions, destinations) are checked, and a transport a trunk uses can't be turned off |
 | POST | `/api/settings/smtp/test` | `{to}` sends a test email |
+| POST | `/api/settings/spam/ipqs/test`, `/api/settings/spam/ftc/test` | `{key?}`: the typed key, else the saved one; `{ok, detail}` or `{ok: false, error}` (14 §7.1) |
 | POST | `/api/settings/emergency/test` | runs 04 §5.3 steps 2–4 with `TEST` in front (email, ring-out, banner); records nothing and dials nothing (06 §6.5). Returns `{notified}` |
 | GET | `/api/system/warnings` | `{items: [{code, message, link}]}` for the dashboard banner: `restart_required`, `e911_cid_missing` (a trunk exists, no default E911 caller ID), `e911_address_unconfirmed` (that DID has no `e911_address`), `smtp_missing`, `tls_cert` (TLS on and the cert missing or expiring within 14 days, M11-T2), `backup_old` (backups on and today's not made yet though the job had its chance, M11-T3), `directory_check` (12 §4.2, §4.5: the directory unreachable at a sign-in or by `directoryCheck`, or that job refusing to disable most people). "Trunk down" comes from live state in the browser |
 | POST | `/api/settings/network/detect-public-ip` | |
@@ -465,7 +466,7 @@ Provisioning and inbound hooks (outside `/api`, no session):
 | Job | Schedule | Does |
 |---|---|---|
 | `nightlyRegenerate` | 00:05 daily | `generator.apply({trigger:'nightly', force:true})` (holidays roll over), aggregate orphan CDRs |
-| `retentionCleanup` | 02:00 daily | delete recordings older than `recordings.retentionDays` (file + row), voicemail older than `voicemail.retentionDays` if > 0, sessions past expiry, webhook_deliveries older than 30 days |
+| `retentionCleanup` | 02:00 daily | delete recordings older than `recordings.retentionDays` (file + row), voicemail older than `voicemail.retentionDays` if > 0, sessions past expiry, webhook_deliveries older than 30 days, expired `spam_lookups` (14 §4) |
 | `backup` | `backup.time` daily if enabled | §8.1 |
 | `publicIpWatch` | every 5 min if enabled | detect IP; if changed: update settings, apply, set restartRequired, email admins |
 | `webhookDelivery` | every 10 s | send pending deliveries (§9) |

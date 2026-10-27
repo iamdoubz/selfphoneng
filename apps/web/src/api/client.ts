@@ -3,6 +3,7 @@
 import type {
   LdapInput,
   LdapTestResult,
+  SpamTestResult,
   AuthMethods,
   OidcInput,
   OidcTestResult,
@@ -259,6 +260,9 @@ export const settingsApi = {
   /** 12 §4.1 */
   testLdap: (v: LdapInput & { testLogin?: string; testPassword?: string }) =>
     api<LdapTestResult>('POST', '/api/settings/auth/ldap/test', v),
+  /** 14 §7.1: the typed key, else the saved one. */
+  testSpam: (provider: 'ipqs' | 'ftc', key?: string) =>
+    api<SpamTestResult>('POST', `/api/settings/spam/${provider}/test`, { key }),
 };
 
 /** Sign out, and when the session came from OpenID, at the provider too (12 §3.5). */

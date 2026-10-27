@@ -157,25 +157,27 @@ contacts test: each caller of it does that for its own user.
 Migration (SD1):
 
 ```sql
-create table spam_lookups (            -- IPQualityScore answers (§4)
+create table spam_lookups (            -- IPQualityScore answers (14 §4)
   number      text primary key,        -- 1NXXNXXXXXX
   provider    text not null,           -- 'ipqs'
   risk        text not null check (risk in ('low', 'medium', 'high')),
-  info        jsonb not null,          -- the §2.1 fields only
-  checked_at  timestamptz not null,
-  expires_at  timestamptz not null
+  info        jsonb not null,          -- the 14 §2.1 fields only
+  expires_at  timestamptz not null,    -- updated_at is when it was checked
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
 );
 create index on spam_lookups (expires_at);
 
-create table ftc_complaints (          -- the FTC copy (§2.2), kept windowDays
-  id          text primary key,        -- the FTC's id
-  number      text not null,           -- 1NXXNXXXXXX
-  created_at  timestamptz not null,    -- the complaint's created-date
-  subject     text,
-  robocall    boolean
+create table ftc_complaints (          -- the FTC copy (14 §2.2), kept windowDays; append-only
+  id           text primary key,       -- the FTC's id
+  number       text not null,          -- 1NXXNXXXXXX
+  reported_at  timestamptz not null,   -- the complaint's created-date
+  subject      text,
+  robocall     boolean,
+  created_at   timestamptz not null default now()
 );
 create index on ftc_complaints (number);
-create index on ftc_complaints (created_at);
+create index on ftc_complaints (reported_at);
 
 alter table calls add column spam_risk text, add column spam_info jsonb;
 ```
@@ -231,11 +233,39 @@ log masks it. Validated with zod (`packages/shared`).
 
 | Task | What | Done when |
 |---|---|---|
-| SD1 | Decision 0006; this spec; the §7 migration and settings; `spam/check.ts` with both providers' lookups, the cache and the shared requests; Settings → Spam check with keys, Test, privacy confirmation | `pnpm lint && typecheck && test` pass; checks, cache times, the order (IPQualityScore, then the FTC list) and failures are tested against fake HTTP |
+| SD1 | Decision 0006; this spec; the §7 migration and settings; `spam/check.ts` with both providers' lookups, the cache and the shared requests; Settings → Spam check with keys, Test, privacy confirmation | `pnpm lint && typecheck && test` pass; checks, cache times, the order (IPQualityScore, then the FTC list) and failures are tested against fake HTTP. Done, see §9.1 |
 | SD2 | §3: pause, events, the `spam_quota` warning and Dismiss, `spamQuotaCheck` | an exhausted fake pauses, falls back to the FTC list, warns once and resumes; the owner's real key shows the credit call is free |
 | SD3 | §2.2 sync: paging, pacing, the saved cursor, the window, Sync now | a fake FTC API with 3 days of data syncs, resumes after a 429 and drops old complaints; one real sync with the owner's key |
 | SD4 | §5: `/api/me/caller-check`, the softphone badge and line, the desk phone labels | an unknown number rings the softphone and shows its answer; a contact or a low risk shows nothing; a desk phone shows "SPAM LIKELY" when the answer is in time |
 | SD5 | §6 call history; the admin guide page | a checked call keeps its badge in call history after its cache expires |
+
+### 9.1 As built: SD1
+
+- `spam/check.ts` `checkNumber(deps, number, { cachedOnly })`. There's no `wait`: a caller that
+  can't wait (14 §5.1, §5.2) races it against its own timer, and the check carries on and fills
+  the cache. The cache is only read while IPQualityScore is set up; turning it off leaves the
+  rows to expire.
+- `spam/ipqs.ts`, `spam/ftc.ts` (the local lookup and Test; the sync is SD3), `spam/http.ts`
+  (`getJson`, 4 s timeout, and `SpamError`, the only error text that is logged or shown: never
+  the URL or fetch's own error). A provider message is cut to 200 characters with the key taken
+  out, in case it quotes it.
+- "Insufficient credits" is a failure until SD2: logged, the FTC list asked, and the next check
+  tries IPQualityScore again.
+- Settings: the `spam` key holds the admin's choices, `spam.state` is read-only to PATCH (like
+  `system.*`). PATCH refuses a provider with no key typed or saved ("Enter the IPQualityScore
+  key", "Enter the api.data.gov key") and spam check on with neither provider. Labels are 1–20 of
+  `phoneSafeName`'s characters, runs of spaces made one. The audit log masks `keyEnc` (its
+  `…Enc` rule).
+- `POST /api/settings/spam/ipqs/test` and `/ftc/test` `{ key? }` → `{ ok, detail | error }`: the
+  typed key, else the saved one. IPQualityScore's is the Credit Usage API ("Works: 912 credits
+  left this billing period."); the FTC's is one request for one complaint.
+- Settings → Spam check (`SpamTab`): the switch, a section per provider with its key and Test,
+  the cache days and the desk phone labels. Saving with IPQualityScore newly in use opens the
+  14 §8 confirmation first.
+- `retentionCleanup` deletes expired `spam_lookups` rows.
+- Tests: `test/spam.test.ts` with a stubbed `fetch` (risk, kept fields, cache days and expiry,
+  the shared request, IPQualityScore down / timing out / out of credits → the FTC list, warnings
+  without the key, `cachedOnly`, the settings and Test routes).
 
 Later, not now:
 - **Report as spam** (owner, 2026-10-27: not now): a button in call history that reports the

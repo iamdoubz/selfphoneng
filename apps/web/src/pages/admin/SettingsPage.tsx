@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Settings (05 §2). M3: Email and Emergency; M7: Recording; M11: Network (public IP watch), Security (phone ACL, provisioning, SIP TLS), Backups,
-// Webhooks, API tokens; AI (spec 10).
+// Webhooks, API tokens; AI (spec 10); Spam check (spec 14).
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Fragment, useState } from 'react';
 import { NavLink, useParams } from 'react-router';
@@ -43,6 +43,7 @@ const TABS = [
   { id: 'ai', label: 'AI' },
   { id: 'contacts', label: 'Contacts' },
   { id: 'sign-in', label: 'Sign-in' },
+  { id: 'spam', label: 'Spam check' },
 ] as const;
 
 export function SettingsPage() {
@@ -79,6 +80,7 @@ export function SettingsPage() {
       {tab === 'tokens' && <TokensTab />}
       {settings.data && tab === 'ai' && <AiTab s={settings.data} />}
       {settings.data && tab === 'contacts' && <ContactsTab s={settings.data} />}
+      {settings.data && tab === 'spam' && <SpamTab s={settings.data} />}
       {settings.data && tab === 'sign-in' && (
         <div className="flex flex-col gap-10">
           <SignInTab s={settings.data} />
@@ -1369,6 +1371,251 @@ export function ContactsTab({ s }: { s: SettingsDto }) {
           Save
         </Button>
       </div>
+    </form>
+  );
+}
+
+/** Test for one spam check provider (14 §7.1): the typed key, else the saved one. */
+function SpamTest({ provider, keyText }: { provider: 'ipqs' | 'ftc'; keyText: string }) {
+  const test = useMutation({
+    mutationFn: () => settingsApi.testSpam(provider, keyText || undefined),
+  });
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Button onClick={() => test.mutate()} disabled={test.isPending}>
+        Test
+      </Button>
+      {test.isError && <Alert>{test.error.message}</Alert>}
+      {test.data && (
+        <span
+          role="status"
+          className={`text-sm ${test.data.ok ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}
+        >
+          {test.data.ok ? test.data.detail : test.data.error}
+        </span>
+      )}
+    </div>
+  );
+}
+
+const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString() : null);
+
+/** Spam check (spec 14 §7.1): IPQualityScore first, then the FTC list. Information only. */
+function SpamTab({ s }: { s: SettingsDto }) {
+  const save = useSave();
+  const sp = s.spam;
+  const st = s['spam.state'];
+  const [v, setV] = useState({
+    enabled: sp.enabled,
+    useIpqs: sp.ipqs !== null,
+    ipqsKey: '',
+    useFtc: sp.ftc !== null,
+    ftcKey: '',
+    syncHours: String(sp.ftc?.syncHours ?? 24),
+    windowDays: String(sp.ftc?.windowDays ?? 30),
+    flaggedDays: String(sp.cache.flaggedDays),
+    cleanDays: String(sp.cache.cleanDays),
+    high: sp.deskPhoneLabels.high,
+    medium: sp.deskPhoneLabels.medium,
+  });
+  const [confirming, setConfirming] = useState(false);
+  const text = (k: keyof typeof v) => (e: { target: { value: string } }) =>
+    setV({ ...v, [k]: e.target.value });
+  const flag = (k: 'enabled' | 'useIpqs' | 'useFtc') => (e: { target: { checked: boolean } }) =>
+    setV({ ...v, [k]: e.target.checked });
+  const submit = () => {
+    setConfirming(false);
+    save.mutate(
+      {
+        spam: {
+          enabled: v.enabled,
+          ipqs: v.useIpqs ? { key: v.ipqsKey || undefined } : null,
+          ftc: v.useFtc
+            ? {
+                key: v.ftcKey || undefined,
+                syncHours: Number(v.syncHours),
+                windowDays: Number(v.windowDays),
+              }
+            : null,
+          cache: { flaggedDays: Number(v.flaggedDays), cleanDays: Number(v.cleanDays) },
+          deskPhoneLabels: { high: v.high, medium: v.medium },
+        },
+      },
+      { onSuccess: () => setV((x) => ({ ...x, ipqsKey: '', ftcKey: '' })) },
+    );
+  };
+  // 14 §8: sending callers' numbers out is confirmed once, when IPQualityScore starts being used.
+  const sendsOut = v.enabled && v.useIpqs && !(sp.enabled && sp.ipqs);
+  const num = (k: 'syncHours' | 'windowDays' | 'flaggedDays' | 'cleanDays', label: string) => (
+    <Field label={label}>
+      {(a) => (
+        <input {...a} inputMode="numeric" className={inputClass} value={v[k]} onChange={text(k)} />
+      )}
+    </Field>
+  );
+  const keyField = (k: 'ipqsKey' | 'ftcKey', label: string, saved: boolean, hint: string) => (
+    <Field label={label} hint={saved ? 'Saved. Paste a new one to replace it.' : hint}>
+      {(a) => (
+        <input
+          {...a}
+          type="password"
+          autoComplete="off"
+          placeholder={saved ? '••••••••' : undefined}
+          className={inputClass}
+          value={v[k]}
+          onChange={text(k)}
+        />
+      )}
+    </Field>
+  );
+  return (
+    <form
+      className="flex flex-col gap-4"
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (sendsOut) setConfirming(true);
+        else submit();
+      }}
+    >
+      <p className="text-sm text-zinc-500">
+        When an outside caller from the US isn&rsquo;t in anyone&rsquo;s contacts, look the number
+        up and show what&rsquo;s known about them while it rings. Information only: calls are never
+        blocked or sent elsewhere. IPQualityScore answers first when it&rsquo;s set up; the FTC list
+        answers when it isn&rsquo;t, or can&rsquo;t.
+      </p>
+      <label className="flex items-center gap-2 text-sm font-medium">
+        <input type="checkbox" checked={v.enabled} onChange={flag('enabled')} className="size-4" />
+        Spam check on
+      </label>
+
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 font-medium">IPQualityScore</legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={v.useIpqs}
+            onChange={flag('useIpqs')}
+            className="size-4"
+          />
+          Use IPQualityScore: a live lookup with a fraud score. It sends the caller&rsquo;s number
+          to IPQualityScore. The free plan has 1,000 lookups a month.
+        </label>
+        {v.useIpqs && (
+          <>
+            {keyField(
+              'ipqsKey',
+              'API key',
+              !!sp.ipqs?.hasKey,
+              'From your IPQualityScore account settings.',
+            )}
+            <SpamTest provider="ipqs" keyText={v.ipqsKey} />
+            {st.ipqsPausedAt && (
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                Paused since {when(st.ipqsPausedAt)}: its lookups are used up until they come back.
+              </p>
+            )}
+          </>
+        )}
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 font-medium">FTC complaint list</legend>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={v.useFtc} onChange={flag('useFtc')} className="size-4" />
+          Use the FTC list: complaints people filed with the FTC about unwanted calls, downloaded to
+          this server. Free, and nothing about your calls is sent out. The reports aren&rsquo;t
+          verified, and spammers fake real people&rsquo;s numbers.
+        </label>
+        {v.useFtc && (
+          <>
+            {keyField(
+              'ftcKey',
+              'api.data.gov key',
+              !!sp.ftc?.hasKey,
+              'Free, from api.data.gov/signup.',
+            )}
+            <SpamTest provider="ftc" keyText={v.ftcKey} />
+            <div className="grid grid-cols-2 gap-3">
+              {num('syncHours', 'Download again every (hours, 1–168)')}
+              {num('windowDays', 'Keep complaints for (days, 7–365)')}
+            </div>
+            {st.ftcLastSyncAt && (
+              <p className="text-sm text-zinc-500">
+                Last download {when(st.ftcLastSyncAt)}
+                {st.ftcLastError ? `: ${st.ftcLastError}` : '.'}
+              </p>
+            )}
+          </>
+        )}
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 font-medium">Keep IPQualityScore answers</legend>
+        <div className="grid grid-cols-2 gap-3">
+          {num('flaggedDays', 'Possible or likely spam (days, 1–365)')}
+          {num('cleanDays', 'Everything else (days, 1–365)')}
+        </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1 font-medium">Desk phones</legend>
+        <p className="text-sm text-zinc-500">
+          Shown in front of the caller&rsquo;s name when the answer comes in before the phone rings.
+          Letters, digits, spaces and . &apos; &amp; @ - only.
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Likely spam">
+            {(a) => (
+              <input
+                {...a}
+                maxLength={20}
+                className={inputClass}
+                value={v.high}
+                onChange={text('high')}
+              />
+            )}
+          </Field>
+          <Field label="Possible spam">
+            {(a) => (
+              <input
+                {...a}
+                maxLength={20}
+                className={inputClass}
+                value={v.medium}
+                onChange={text('medium')}
+              />
+            )}
+          </Field>
+        </div>
+      </fieldset>
+
+      {save.isError && <Alert>{save.error.message}</Alert>}
+      {save.isSuccess && (
+        <p role="status" className="text-sm text-green-700 dark:text-green-400">
+          Saved.
+        </p>
+      )}
+      <div>
+        <Button type="submit" variant="primary" disabled={save.isPending}>
+          Save
+        </Button>
+      </div>
+      <ConfirmDialog
+        open={confirming}
+        title="Send callers' numbers to IPQualityScore?"
+        message={
+          <>
+            The numbers of outside callers who aren&rsquo;t in your contacts will be sent to
+            IPQualityScore. You may need to say so in your privacy notice, and to have a data
+            processing agreement with them. In the EU and UK the GDPR applies.
+          </>
+        }
+        confirmLabel="Turn on"
+        onConfirm={submit}
+        onCancel={() => setConfirming(false)}
+        busy={save.isPending}
+      />
     </form>
   );
 }

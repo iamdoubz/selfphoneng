@@ -9,7 +9,7 @@ Legend: 📖 read · 🔨 build · ✅ done when
 ---
 
 ## Backlog (owner's order, 2026-10-21)
-0. **Spam check** (owner, 2026-10-27: spec reviewed by the owner; SD1 next), tasks SD1–SD5
+0. **Spam check** (owner, 2026-10-27: SD1 done; SD2 next), tasks SD1–SD5
    in [14 §9](14-spam.md#9-order-of-work): IPQualityScore and the FTC complaint list for outside
    callers who aren't in anyone's contacts; information only, off by default.
 0. **Mobile app** (owner, 2026-10-26: next), tasks MB1–MB8 in [13 §5](13-mobile.md#5-order-of-work):

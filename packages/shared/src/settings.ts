@@ -2,6 +2,12 @@
 // One zod schema (with its default) per settings key (spec 02 §3).
 import { z } from 'zod';
 import { DestinationSchema } from './destination.ts';
+import {
+  SPAM_DEFAULTS,
+  SpamSettingsSchema,
+  SpamStateSchema,
+  type SpamSettingsDto,
+} from './spam.ts';
 
 const range = (from: number, to: number) =>
   z
@@ -151,6 +157,10 @@ export const SettingsSchemas = {
     })
     .nullable()
     .default(null),
+  /** Spam check (spec 14 §7): off until the admin turns it on. */
+  spam: SpamSettingsSchema.default(SPAM_DEFAULTS),
+  /** What the system keeps about the spam check's providers (14 §3, §2.2). */
+  'spam.state': SpamStateSchema.default(SpamStateSchema.parse({})),
   /** Why the directory couldn't be used (12 §4.2, §4.5), for the dashboard; null = fine. */
   'system.directoryWarning': z.string().nullable().default(null),
   // Not in 02 §3's table but used by the generator (03 §3).
@@ -317,12 +327,13 @@ export type SettingsDto = {
   [
     K in Exclude<
       SettingKey,
-      'smtp' | 'sms.webhookToken' | 'contacts.contrack' | 'auth.oidc' | 'auth.ldap'
+      'smtp' | 'sms.webhookToken' | 'contacts.contrack' | 'auth.oidc' | 'auth.ldap' | 'spam'
     >
   ]: SettingValue<K>;
 } & {
   smtp: (Omit<SmtpInput, 'password'> & { hasPassword: boolean }) | null;
   'contacts.contrack': { url: string; publicUrl: string | null; hasCompanyToken: boolean } | null;
+  spam: SpamSettingsDto;
   'auth.oidc':
     (Omit<OidcInput, 'clientSecret' | 'clearClientSecret'> & { hasClientSecret: boolean }) | null;
   'auth.ldap':

@@ -10,6 +10,7 @@ import type { Db } from './db/client.ts';
 import {
   extensions,
   sessions,
+  spamLookups,
   systemEvents,
   trunks,
   users,
@@ -70,7 +71,8 @@ export async function mailAdmins(d: JobDeps, subject: string, text: string) {
     await d.send({ to, subject, text }).catch((err: unknown) => d.log.error({ err }, subject));
 }
 
-/** Recordings, voicemail, expired sessions and old webhook deliveries (04 §8 retentionCleanup). */
+/** Recordings, voicemail, expired sessions, old webhook deliveries and spam check answers
+ *  (04 §8 retentionCleanup, 14 §4). */
 export async function retentionCleanup(d: JobDeps) {
   const recordings = await cleanupRecordings(
     d.db,
@@ -113,6 +115,7 @@ export async function retentionCleanup(d: JobDeps) {
   await d.db
     .delete(systemEvents)
     .where(lt(systemEvents.createdAt, sql`now() - interval '90 days'`));
+  await d.db.delete(spamLookups).where(lt(spamLookups.expiresAt, sql`now()`));
   await cleanupContactShares(d.db);
   if (recordings || voicemail) d.log.info({ recordings, voicemail }, 'old messages deleted');
 }

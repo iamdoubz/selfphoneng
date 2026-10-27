@@ -27,3 +27,4 @@ export * from './blocked.ts';
 export * from './calls.ts';
 export * from './contacts.ts';
 export * from './integrations.ts';
+export * from './spam.ts';
