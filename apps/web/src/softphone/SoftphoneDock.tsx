@@ -31,6 +31,19 @@ const remember = (on: boolean) => {
   }
 };
 
+// The incoming call notification comes from public/sw.js so it can have Answer/Decline buttons.
+// No service worker (plain http, some private windows): no notification, the ringtone still plays.
+const sw = 'serviceWorker' in navigator ? navigator.serviceWorker : null;
+void sw?.register('/sw.js').catch(() => {});
+const notifyCall = (id: string, body: string) =>
+  void sw?.ready.then((r) => r.active?.postMessage({ notifyCall: { id, body } }));
+// ponytail: a call that stops ringing before its notification is up leaves it showing; its
+// buttons then do nothing (answer/decline ignore unknown calls). Close it from sw.js if that bites.
+const closeCallNotes = (id?: string) =>
+  void sw?.ready
+    .then((r) => r.getNotifications(id ? { tag: id } : {}))
+    .then((ns) => ns.forEach((n) => n.close()));
+
 onTakeOver(async () => {
   await softphone.stop();
   softphone.setElsewhere();
@@ -95,30 +108,51 @@ export function SoftphoneDock() {
       startSoftphone().catch((e: Error) => setProblem(e.message));
   }, []);
 
-  // Ring while anything is ringing here; tell a hidden tab with a notification.
+  // Ring while anything is ringing here; tell an unfocused tab with a notification that stays
+  // up until the call stops ringing (answered, declined, or the caller hung up).
   const incoming = calls.filter((c) => c.state === 'incoming');
   const ringingIds = incoming.map((c) => c.id).join(',');
   const notified = useRef(new Set<string>());
   useEffect(() => {
     if (ringingIds) startRinging();
     else stopRinging();
-    for (const c of softphone.state.calls.filter((x) => x.state === 'incoming')) {
+    const ringing = softphone.state.calls.filter((x) => x.state === 'incoming');
+    for (const id of notified.current) {
+      if (ringing.some((c) => c.id === id)) continue;
+      closeCallNotes(id);
+      notified.current.delete(id);
+    }
+    for (const c of ringing) {
       if (notified.current.has(c.id)) continue;
       notified.current.add(c.id);
       if (
-        document.hidden &&
+        !document.hasFocus() &&
         typeof Notification !== 'undefined' &&
         Notification.permission === 'granted'
-      ) {
-        const n = new Notification('Incoming call', { body: nameOf(c), tag: c.id });
-        n.onclick = () => {
-          window.focus();
-          n.close();
-        };
-      }
+      )
+        notifyCall(c.id, nameOf(c));
     }
   }, [ringingIds, nameOf]);
-  useEffect(() => stopRinging, []);
+  useEffect(
+    () => () => {
+      stopRinging();
+      closeCallNotes();
+    },
+    [],
+  );
+  // The notification's Answer/Decline buttons (sw.js); stale ids are ignored by the engine.
+  useEffect(() => {
+    if (!sw) return;
+    const onMessage = (e: MessageEvent<{ softphone?: string; id?: string }>) => {
+      const { softphone: action, id } = e.data ?? {};
+      if (!id) return;
+      if (action === 'answer') run(softphone.answer(id));
+      else if (action === 'decline') run(softphone.decline(id));
+    };
+    sw.addEventListener('message', onMessage);
+    sw.startMessages();
+    return () => sw.removeEventListener('message', onMessage);
+  }, []);
 
   async function enable() {
     setProblem(null);
@@ -498,6 +532,12 @@ function Devices() {
         <Button onClick={() => void Notification.requestPermission().then(setPerm)}>
           Notify me of calls
         </Button>
+      )}
+      {perm === 'denied' && (
+        <p className="text-zinc-600 dark:text-zinc-400">
+          Call notifications are blocked. To get them, allow notifications for this site in your
+          browser’s site settings (the icon left of the address), then reload the page.
+        </p>
       )}
     </div>
   );
