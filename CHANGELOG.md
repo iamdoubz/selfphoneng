@@ -5,6 +5,24 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
+## v0.0.9 — 2026-10-27
+
+**Before you update:** this version changes the database (paired phones); the api backs up first,
+by itself. Portainer: change both tags to `0.0.9` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.9`.
+
+- **Answer from the notification**: the softphone's incoming call notification has **Answer** and
+  **Decline** buttons (Chrome and Edge; Firefox and Safari show it without buttons). It now shows
+  whenever the softphone tab isn't in front, not only when it's hidden, stays up while the call
+  rings and goes away once it stops. If notifications are blocked, the softphone panel says how
+  to allow them.
+- **Pair the mobile app** (spec 13): My settings → Mobile app shows a one-time code (QR, or
+  server + code, good for 10 minutes) that our own Android/iPhone app trades for a device token.
+  A paired phone acts as its user, never as an admin, and is listed there to remove. Changing or
+  resetting a password, or disabling a user, removes their paired phones. The app itself is
+  still in testing and not in the app stores.
+- Database changes: `mobile_devices` (the api backs up first).
+
 ## v0.0.8 — 2026-10-26
 
 **Before you update:** this version changes the database (sign-in); the api backs up first, by
