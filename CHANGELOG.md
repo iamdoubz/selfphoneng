@@ -5,6 +5,41 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
+## v0.0.12 — 2026-10-28
+
+**Before you update:** this version changes the database (spam reports); the api backs up first,
+by itself. Portainer: change both tags to `0.0.12` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.12`. If you run the network test probe, update it too (see
+**Probe key** below).
+
+- **My reports:** everyone with an extension gets a Reports tab: the calls that rang them, how
+  many they answered and missed, talk time, calls and missed calls per day, and their busiest
+  hours.
+- **Report spam:** on the Calls page, an incoming outside call has a **Report spam** button. When
+  the spam check flagged the call, its finding is the reason; otherwise the person types one.
+  Reports wait at the top of **Blocked numbers** for an admin to Block or Dismiss, and the
+  Dashboard counts them.
+- **Second security review** (spec 08 §7), eight findings fixed, none critical:
+  - Signing in by email (OpenID or directory) no longer matches admins or anyone who already has
+    a connected sign-in, and connecting an OpenID account only finishes in the browser that
+    started it.
+  - **Recordings, transcripts and AI summaries** only go to whoever made or answered the call.
+    Ring group and queue members whose phone only rang no longer get a coworker's recording, nor
+    its summary in their call report email or on their Contrack timeline.
+  - The `voicemail.new` webhook no longer carries the voicemail's transcript.
+  - Changing the Contrack address asks for the company token again, and everyone reconnects
+    their own Contrack token.
+  - A directory account can only be swapped for another by an admin.
+- **Probe key** (strongly recommended): Settings → Network → **Generate key**, then set it as
+  `PROBE_KEY` on the probe and restart it. The probe then only answers your server. Without a key
+  it still works, and Diagnostics warns. Behind your own reverse proxy (`TRUST_PROXY=true`), the
+  proxy must run on the probe's machine.
+- **Asterisk 24.0.0-rc3.** TLS trunks get a health check again, and Test checks them too (rc2
+  couldn't check them over TLS). `pnpm test:asterisk-upgrade` now checks what SelfPhoneNG relies
+  on Asterisk doing before any version change.
+- **Docs:** a CrowdSec rule for slow SIP scanners, and how to check that CrowdSec bans
+  ([network](docs/admin-guide/network.md#crowdsec)).
+
 ## v0.0.11 — 2026-10-28
 
 **Updating:** no database changes. Portainer: change both tags to `0.0.11` and redeploy. Compose:
