@@ -228,6 +228,102 @@ labels:
 
 and run `systemctl reload crowdsec`.
 
+#### Slow scanners: add a second rule
+
+The collection's rules (`crowdsecurity/asterisk_bf`, and `asterisk_user_enum` for many different
+usernames from one address) hold 5 failed sign-ins per address and let one go every 10 seconds.
+An address is banned only after 6 failures in about a minute. That stops fast password guessers,
+but not the common SIP scanners that space their tries out. Each try writes two failures
+(`InvalidAccountID`, then `ChallengeResponseFailed`), and the scanner comes back every 20 seconds
+or slower, so the count drains as fast as it fills and the scanner is never banned. You see it as
+`log_failed_request ... No matching endpoint found` / `Failed to authenticate` in the Asterisk log,
+from the same address, for hours.
+
+Add a slower rule next to the stock ones, `/etc/crowdsec/scenarios/selfphoneng-asterisk-slow.yaml`:
+
+```yaml
+type: leaky
+name: selfphoneng/asterisk-slow-bf
+description: "Asterisk failed sign-ins spread over time (slow SIP scanners)"
+filter: evt.Meta.log_type == 'asterisk_failed_auth'
+groupby: evt.Meta.source_ip
+capacity: 10
+leakspeed: 5m
+blackhole: 5m
+labels:
+  service: asterisk
+  confidence: 3
+  spoofable: 0
+  classification:
+    - attack.T1110
+  behavior: "sip:bruteforce"
+  label: "Asterisk slow bruteforce"
+  remediation: true
+```
+
+```sh
+systemctl reload crowdsec
+cscli scenarios list | grep selfphoneng   # listed, marked local
+```
+
+It counts the same failures from the same parser; only the bucket is different:
+
+|                   | Stock: `crowdsecurity/asterisk_bf`        | This rule: `selfphoneng/asterisk-slow-bf`        |
+| ----------------- | ----------------------------------------- | ------------------------------------------------ |
+| Holds             | 5 failures                                | 10 failures                                      |
+| Lets one go every | 10 seconds                                | 5 minutes                                        |
+| Bans after        | 6 failures within about a minute          | 11 failures, at more than one per 5 minutes      |
+| A scanner every…  | 20 s: never banned                        | 20 s: banned after about 2 minutes               |
+| Comes from        | the CrowdSec hub (`cscli hub upgrade`)    | this file; change it as you like                 |
+
+Keep both: the stock rule still bans fast guessers within a minute. How long a ban lasts is set by
+CrowdSec's profiles, the same for both (4 hours by default, `/etc/crowdsec/profiles.yaml`).
+fail2ban's settings above (5 failures in 10 minutes) already catch slow scanners.
+
+The catch: one of your own phones with an old password, signing in from outside your networks,
+adds up failures too and is banned after about 11 tries. CrowdSec's standard whitelist
+(`crowdsecurity/whitelists`) skips private addresses, so phones in the office are safe. Add the public address of any other office or remote worker
+to a whitelist, `/etc/crowdsec/parsers/s02-enrich/selfphoneng-whitelist.yaml`:
+
+```yaml
+name: selfphoneng/whitelist
+description: "Our offices and remote phones"
+whitelist:
+  reason: "our offices"
+  ip:
+    - "198.51.100.7"
+```
+
+#### Checking CrowdSec
+
+```sh
+cscli metrics show acquisition parsers scenarios
+```
+
+- **Acquisition:** `security.log`'s _Lines read_ goes up as Asterisk writes. _Lines parsed_ is
+  lower, and that's normal: only failed sign-ins are parsed, other security events (challenges
+  sent, successful sign-ins) are left out.
+- **Scenarios:** _Overflows_ for `asterisk_bf` and `selfphoneng/asterisk-slow-bf` is the number of
+  bans each has made.
+
+To follow one log line through the parser and the rules, give `cscli explain` a line from
+`security.log`:
+
+```sh
+cscli explain --type asterisk \
+  --log "$(grep ChallengeResponseFailed /opt/selfphoneng/data/asterisk-logs/security.log | tail -1)"
+```
+
+Point `--file` at the log itself, never at `acquis.d/selfphoneng.yaml`: that parses the YAML's own
+lines as if they were log lines, and every one shows as a parser failure.
+
+To ban an address now, and to see the bans:
+
+```sh
+cscli decisions add --ip 203.0.113.5 --duration 7d --reason "SIP scanner"
+cscli decisions list
+```
+
 ## Web sign-in attacks
 
 The web sign-in is rate limited. Failed attempts are written to the api's log as
