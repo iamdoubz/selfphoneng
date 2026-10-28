@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 FROM debian:trixie-slim AS build
-ARG ASTERISK_VERSION=24.0.0-rc2
+ARG ASTERISK_VERSION=24.0.0-rc3
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential ca-certificates curl wget pkg-config autoconf automake libtool \

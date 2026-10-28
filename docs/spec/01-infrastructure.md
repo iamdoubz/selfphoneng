@@ -142,10 +142,10 @@ missing or invalid, it logs a clear message and exits with code 1.
 ## 2. Asterisk image (`asterisk/Dockerfile`)
 
 Build Asterisk **24 LTS from source**. Pin an exact version: the newest 24.x release on the day you write it, recorded here in
-the same commit. **Pinned: `24.0.0-rc2` (2026-10-17).** The file in the repo is the source of truth; this copy is kept in sync.
+the same commit. **Pinned: `24.0.0-rc3` (2026-10-28).** The file in the repo is the source of truth; this copy is kept in sync.
 
 > **Asterisk 24 status (checked 2026-10-17):** Asterisk 24 is the LTS line, but
-> only release candidates are published so far (24.0.0-rc2). Until 24.0.0 is final,
+> only release candidates are published so far (24.0.0-rc3 on 2026-10-28). Until 24.0.0 is final,
 > develop against the newest 24.0.0-rcN. Release candidates may sit under a
 > different download folder than `releases/`, so check the directory listing. Switch to 24.0.0 (or newer
 > 24.x) as soon as it is final, and don't ship v1.0 on a release candidate. If a module, option
@@ -164,7 +164,7 @@ that moved with what depends on it) and `pnpm test:asterisk`, change what moved,
 ```dockerfile
 # SPDX-License-Identifier: AGPL-3.0-or-later
 FROM debian:trixie-slim AS build
-ARG ASTERISK_VERSION=24.0.0-rc2
+ARG ASTERISK_VERSION=24.0.0-rc3
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential ca-certificates curl wget pkg-config autoconf automake libtool \
@@ -209,7 +209,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build /out/ /
 COPY conf/ /etc/asterisk/
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh && mkdir -p /etc/asterisk/selfphoneng /var/lib/asterisk/db /var/lib/asterisk/moh /var/run/asterisk \
+COPY sp-vm-pincheck /usr/local/bin/sp-vm-pincheck
+RUN chmod +x /entrypoint.sh /usr/local/bin/sp-vm-pincheck && mkdir -p /etc/asterisk/selfphoneng /var/lib/asterisk/db /var/lib/asterisk/moh /var/run/asterisk \
  && chown -R asterisk:asterisk /etc/asterisk /var/lib/asterisk /var/spool/asterisk /var/log/asterisk /var/run/asterisk
 ENTRYPOINT ["/entrypoint.sh"]
 ```

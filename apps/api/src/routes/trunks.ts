@@ -208,21 +208,18 @@ export async function trunkRoutes(app: FastifyInstance) {
     if (!t.enabled) throw badRequest('Turn the trunk on first');
     if (!app.live.amiConnected)
       throw new HttpError(503, 'unavailable', 'Asterisk is not connected');
-    // No OPTIONS over TLS (see the trunk's aor in generator/pjsip.ts).
-    const { live, rttMs } = await app.live.testTrunk(id, { qualify: t.transport !== 'tls' });
+    const { live, rttMs } = await app.live.testTrunk(id);
     const reg = t.authMode === 'registration';
     const detail =
       reg && live.registration === 'registered'
         ? `Registered with ${t.serverHost}`
         : reg && live.registration === 'rejected'
           ? `${t.serverHost} rejected the username or password`
-          : !reg && t.transport === 'tls'
-            ? `Can't check a TLS trunk without registration from here: make a test call.`
-            : !live.reachable
-              ? `${t.serverHost} doesn't answer. Check the server name and that this server can reach it on port ${t.serverPort}.`
-              : reg
-                ? `${t.serverHost} answers but the registration hasn't completed yet. Try again in a minute.`
-                : `${t.serverHost} answers (IP authentication: no registration)`;
+          : !live.reachable
+            ? `${t.serverHost} doesn't answer. Check the server name and that this server can reach it on port ${t.serverPort}.`
+            : reg
+              ? `${t.serverHost} answers but the registration hasn't completed yet. Try again in a minute.`
+              : `${t.serverHost} answers (IP authentication: no registration)`;
     return { registration: reg ? live.registration : 'unknown', rttMs, detail };
   });
 

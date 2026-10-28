@@ -322,8 +322,8 @@ For `auth_mode = 'ip'`, leave out the `-auth` and `-reg` sections and the `outbo
 (and `from_user` when there is no username).
 Skip disabled trunks entirely.
 For TCP/TLS trunks, `server_uri`, `client_uri` and the AOR `contact` get `;transport=tcp|tls`.
-As built (M11-T2): TLS trunks get `qualify_frequency = 0` (Asterisk 24 checks a qualify's certificate
-against the IP, see 08 §2.1); their health comes from the registration.
+TLS trunks are qualified like the others (`qualify_frequency = 60`) since 24.0.0-rc3. On rc2 they
+had `qualify_frequency = 0`, because rc2 checked a qualify's certificate against the IP (08 §2.1).
 `identify` resolves `match` when the config loads, and an unresolvable name is an ERROR that drops the
 trunk's identify (verified), so the API refuses a server name that doesn't resolve, and a transport
 that isn't turned on in Settings → SIP.

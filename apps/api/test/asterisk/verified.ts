@@ -4,7 +4,7 @@
 // `pnpm test:asterisk-upgrade` on the new image, act on each change it lists, then update this.
 import { readFileSync } from 'node:fs';
 
-export const VERIFIED_ASTERISK = '24.0.0-rc2';
+export const VERIFIED_ASTERISK = '24.0.0-rc3';
 
 /** The version asterisk/Dockerfile builds. */
 export function pinnedAsterisk(): string {
@@ -57,11 +57,11 @@ export const FACTS = {
     where: 'services/cdr.ts utc() adds the Z itself',
   },
   tlsQualifyByHostname: {
-    expect: false,
+    expect: true,
     what: 'a qualify OPTIONS over TLS checks the certificate against the host name, not the IP',
     where:
-      'generator/pjsip.ts sets qualify_frequency = 0 on TLS trunks because of this (08 §2.1); ' +
-      '24.0.0-rc3 says it fixes it ("Preserve target hostname for qualified OPTIONS destination")',
+      'generator/pjsip.ts qualifies TLS trunks and Test sends PJSIPQualify (08 §2.1). False on ' +
+      '24.0.0-rc2: a TLS trunk then showed as unreachable, so it had qualify_frequency = 0',
   },
 } as const;
 

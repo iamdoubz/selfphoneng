@@ -15,12 +15,14 @@ describe('the pinned Asterisk', () => {
     ).toBe(VERIFIED_ASTERISK);
   });
 
-  it('is the one spec 01 §2 names', () => {
+  it('is the one spec 01 §2 names, and its copy of the Dockerfile is the file', () => {
     const spec = readFileSync(
       new URL('../../../docs/spec/01-infrastructure.md', import.meta.url),
       'utf8',
     );
     expect(spec).toContain(`**Pinned: \`${pinnedAsterisk()}\``);
-    expect(spec).toContain(`ARG ASTERISK_VERSION=${pinnedAsterisk()}`);
+    const copy = /^## 2\. [\s\S]*?^```dockerfile\n([\s\S]*?)^```$/m.exec(spec)?.[1];
+    const file = readFileSync(new URL('../../../asterisk/Dockerfile', import.meta.url), 'utf8');
+    expect(copy, 'spec 01 §2 has a copy of asterisk/Dockerfile: keep it the same').toBe(file);
   });
 });
