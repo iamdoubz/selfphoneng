@@ -118,7 +118,8 @@ how to fix it.
     `deploy/probe/selfphoneng-probe.service` runs it under systemd with `DynamicUser` and a
     read-only system. About 45 MB of memory.
   - `POST /v1/check {host, tests}`: the probe tests **only the address the request came from** (the
-    last X-Forwarded-For entry with `TRUST_PROXY=true`), so it can't be aimed at anyone else; 20
+    last X-Forwarded-For entry with `TRUST_PROXY=true`, believed only from a proxy on 127.0.0.1
+    or ::1, where the probe then listens by default; 08 §7 #4), so it can't be aimed at anyone else; 20
     tests at most, 10 checks per address per 10 minutes, 4 s per test.
   - Quick: HTTP 80, HTTPS 443 `/healthz` (status and certificate), SIP OPTIONS over UDP (and TCP
     when on) to `sip.udpPort`. Complete adds SIP over TLS (when on), a WebSocket upgrade on `/ws`
@@ -237,3 +238,34 @@ Fixed after the review (owner, 2026-10-21):
   exist; with credentials it counts as a failure (`devices.test.ts`).
 - The login limiter forgets keys past every window, swept at most once a minute
   (`login-limiter.test.ts`).
+
+## 7. Security review 2 (2026-10-28)
+
+Everything since §6 (`8d5475c..`): contacts and Contrack, single sign-on, call reports, local AI,
+spam check, the mobile app's pairing, my reports and spam reports. Two passes again: one against
+the code by the author, and an independent review agent (read-only, told to prove each finding
+end to end). Each fix came with a test that failed before it and passes now. Nothing Critical or
+High.
+
+| # | Severity | Finding | Fix | Proof |
+|---|---|---|---|---|
+| 1 | Medium | A directory sign-in matched by email a user who signs in with OpenID only. Where people can edit their own `mail`, Mallory set hers to the victim's and her own directory password opened the victim's account | the email match also needs no connected account of any kind (12 §4.3 step 2) | `directory-signin.test.ts` |
+| 2 | Medium | An OpenID sign-in matched by verified email an admin, or a user who signs in through the directory (no password, no OpenID account yet): a provider account with that email got their session, admin included | not an admin, and no connected account of any kind (12 §3.3 step 2) | `oidc.test.ts`, both key types |
+| 3 | Medium, privacy | Everyone whose phone **rang** counted as on the call: a ring group or queue member who didn't answer could play a coworker's recording, read its transcript, and got its summary in their call report email and on their Contrack timeline. The audio part predates §6 | `ON_THE_CALL` (`services/cdr.ts`): only the `caller` and `answered` roles, in `mayHear`, `/api/me/calls` (no `recordingId`), the call report and the timeline | `recordings.test.ts`, `call-reports.test.ts`, `contrack.test.ts` |
+| 4 | Low | The probe with `TRUST_PROXY=true` believed any X-Forwarded-For and listened on every address: reached directly, anyone could have it test any address and ports | X-Forwarded-For only from 127.0.0.1 or ::1; `HOST` defaults to 127.0.0.1 with `TRUST_PROXY=true` (§2.6) | `probe.test.ts` |
+| 5 | Low | A user could swap their directory account for another one they know the password of (a shared mailbox): the leaver check then followed the wrong account | `POST /api/me/identities/ldap` → 409 `connected_other` when a different one is connected; an admin disconnects first (12 §4.3) | `directory-signin.test.ts` |
+| 6 | Low, privacy | The `voicemail.new` webhook carried the transcript, though webhooks leave the server and 10 §1 says transcripts don't | the webhook has no `transcript` (04 §9) | `voicemail.test.ts` |
+| 7 | Low | Contrack's saved company token went to any address: Test with another URL, or saving a new URL, sent it there (SMTP, LDAP and OpenID already refused) | the saved token only for the saved address; a new address needs it typed again and clears everyone's own token (11 §4.3) | `contrack.test.ts` |
+| 8 | Low | The OpenID connect callback wasn't tied to the browser that asked: a planted `sp_oidc` (a sibling subdomain can set it) connected the victim's provider account to the attacker's user | the callback's own session must be the one in `sp_oidc`, else `expired` (12 §3.3) | `oidc.test.ts`, both key types |
+
+The independent agent found 1, 2, 4, 5 and 8, the author 3; both found 6 and 7. The agent had
+checked the recording rule and called it sound: it's the same rule as the audio, which §6 also
+passed.
+
+Checked and sound (both passes): every new route's guard and ownership check (contacts and
+sharing, spam reports, my reports, caller check, mobile devices); a paired phone is never an admin
+and can't make pairing codes, and codes are single-use; OpenID PKCE, state, nonce, `safeNext` and
+encrypted provider tokens; LDAP filter escaping and no empty binds; the caller-name lookup only
+for Asterisk on this machine with its token; phonebook XML and timeline HTML escaped, report
+emails plain text; AI and Contrack addresses literal local IPs with redirects refused; the spam
+provider key kept out of errors; every new raw SQL parameterized; no secret in any GET.

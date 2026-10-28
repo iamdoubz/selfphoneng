@@ -8,6 +8,8 @@ Tick a box only with proof: a date and what was seen.
 
 - [x] Milestones M0–M11 built and tested (simulated phones and a simulated voip.ms).
 - [x] Security review (M11-T8), with an independent review (08 §6).
+- [x] Second security review of everything after it, with an independent review; all eight
+      findings fixed with tests (08 §7, 2026-10-28).
 
 ## Real voip.ms account (M3)
 
