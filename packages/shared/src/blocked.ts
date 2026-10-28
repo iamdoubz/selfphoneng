@@ -17,8 +17,27 @@ export const BlockedCreateSchema = z.object({
         return z.NEVER;
       }
     }),
-  reason: z.string().trim().max(100).nullable().optional(),
+  reason: z.string().trim().max(200).nullable().optional(),
 });
 export type BlockedCreate = z.input<typeof BlockedCreateSchema>;
 
 export type BlockedDto = { id: string; number: string; reason: string | null; createdAt: string };
+
+/**
+ * A user's "Report spam" on a call that rang them (05 §4). The reason is the spam check's line
+ * when it flagged the call, else what the user typed. An admin blocks or dismisses it.
+ */
+export const SpamReportCreateSchema = z.object({
+  callId: z.uuid(),
+  reason: z.string().trim().min(1, 'Say why').max(200),
+});
+export type SpamReportCreate = z.input<typeof SpamReportCreateSchema>;
+
+export type SpamReportDto = {
+  id: string;
+  number: string;
+  reason: string;
+  /** The reporter's display name; null once their account is gone. */
+  reportedBy: string | null;
+  createdAt: string;
+};

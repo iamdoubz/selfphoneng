@@ -670,6 +670,19 @@ export const ftcComplaints = pgTable(
   (t) => [index().on(t.number), index().on(t.reportedAt)],
 );
 
+/** "Report spam" from a user's call history, waiting for an admin (05 §2 Blocked numbers). */
+export const spamReports = pgTable(
+  'spam_reports',
+  {
+    id: id(),
+    number: text().notNull(),
+    reason: text().notNull(),
+    reportedBy: uuid().references(() => users.id, { onDelete: 'set null' }),
+    ...timestamps,
+  },
+  (t) => [unique().on(t.number, t.reportedBy)],
+);
+
 export const callExtensions = pgTable(
   'call_extensions',
   {

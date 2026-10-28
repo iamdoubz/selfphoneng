@@ -26,6 +26,8 @@ import type {
   AnnouncementUpdate,
   BlockedCreate,
   BlockedDto,
+  SpamReportCreate,
+  SpamReportDto,
   CallDetailDto,
   CallDto,
   CallFilter,
@@ -306,6 +308,7 @@ export const systemApi = {
 export const meApi = {
   calls: (cursor?: string) =>
     api<ListResponse<MyCallDto>>('GET', `/api/me/calls${cursor ? `?cursor=${cursor}` : ''}`),
+  reportSpam: (r: SpamReportCreate) => api<{ ok: true }>('POST', '/api/me/spam-reports', r),
   /** The summary of the calls made to me. */
   report: (r: ReportRange) => api<ReportSummary>('GET', `/api/me/reports/summary?${callQuery(r)}`),
   get: () => api<MeDto>('GET', '/api/me'),
@@ -507,6 +510,8 @@ export const blockedApi = {
   list: () => api<ListResponse<BlockedDto>>('GET', '/api/blocked-numbers').then((r) => r.items),
   create: (b: BlockedCreate) => api<BlockedDto>('POST', '/api/blocked-numbers', b),
   remove: (id: string) => api<{ ok: true }>('DELETE', `/api/blocked-numbers/${id}`),
+  reports: () => api<ListResponse<SpamReportDto>>('GET', '/api/spam-reports').then((r) => r.items),
+  dismiss: (id: string) => api<{ ok: true }>('DELETE', `/api/spam-reports/${id}`),
 };
 
 /** Filters as a query string (empty values left out). */

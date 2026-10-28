@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // /api/blocked-numbers (04 §7.3): PostgreSQL, then AstDB SP/BLOCK/<number>, which every trunk
-// entry checks (03 §6.4). Admin only.
+// entry checks (03 §6.4). /api/spam-reports: users' Report spam, to block or dismiss. Admin only.
 import { desc, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -9,9 +9,10 @@ import {
   formatNumber,
   type BlockedDto,
   type ListResponse,
+  type SpamReportDto,
 } from '@selfphoneng/shared';
 import { requireAdmin } from '../auth/guards.ts';
-import { blockedNumbers } from '../db/schema.ts';
+import { blockedNumbers, spamReports, users } from '../db/schema.ts';
 import { conflict, notFound } from '../errors.ts';
 import { setBlock } from '../services/astdb.ts';
 import { audit } from '../services/audit.ts';
@@ -52,6 +53,7 @@ export async function blockedRoutes(app: FastifyInstance) {
       throw e;
     }
     await mirror(b.number, true);
+    await db.delete(spamReports).where(eq(spamReports.number, b.number));
     await audit(db, {
       actorUserId: req.user!.id,
       actorIp: req.ip,
@@ -76,6 +78,30 @@ export async function blockedRoutes(app: FastifyInstance) {
       entityId: id,
       summary: `Unblocked ${formatNumber(b.number)}`,
     });
+    return { ok: true };
+  });
+
+  app.get('/api/spam-reports', async (): Promise<ListResponse<SpamReportDto>> => ({
+    items: (
+      await db
+        .select({ r: spamReports, name: users.displayName })
+        .from(spamReports)
+        .leftJoin(users, eq(users.id, spamReports.reportedBy))
+        .orderBy(desc(spamReports.createdAt))
+    ).map(({ r, name }) => ({
+      id: r.id,
+      number: r.number,
+      reason: r.reason,
+      reportedBy: name,
+      createdAt: r.createdAt.toISOString(),
+    })),
+    nextCursor: null,
+  }));
+
+  app.delete('/api/spam-reports/:id', async (req) => {
+    const { id } = IdParams.parse(req.params);
+    const [r] = await db.delete(spamReports).where(eq(spamReports.id, id)).returning();
+    if (!r) throw notFound('Already handled');
     return { ok: true };
   });
 }

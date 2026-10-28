@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Dashboard (05 §2). Warnings, telephony link, trunks, calls in progress (hang up / transfer)
-// queue tiles, parked calls and extensions online.
+// queue tiles, parked calls and extensions online, spam reports waiting.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { ActiveCall, QueueLive, Warning } from '@selfphoneng/shared';
 import { Link } from 'react-router';
-import { liveApi, settingsApi, type SpyMode } from '../../api/client.ts';
+import { blockedApi, liveApi, settingsApi, type SpyMode } from '../../api/client.ts';
 import { ConfirmDialog } from '../../components/Dialog.tsx';
 import { Alert, Button, inputClass } from '../../components/ui.tsx';
 import { fmtNumber } from './CallsPage.tsx';
@@ -31,6 +31,11 @@ export function DashboardPage() {
   const onCall = list.filter((e) =>
     ['inuse', 'busy', 'onhold', 'ringinuse'].includes(e.state),
   ).length;
+  const reports = useQuery({
+    queryKey: ['blocked', 'reports'],
+    queryFn: blockedApi.reports,
+    refetchInterval: 30_000,
+  });
 
   return (
     <section className="flex flex-col gap-6">
@@ -40,7 +45,7 @@ export function DashboardPage() {
           (t) => t.registration === 'rejected' || (!t.reachable && t.registration !== 'registered'),
         )}
       />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card title="Extensions online">
           {status === 'connecting' ? '…' : `${online} / ${list.length}`}
         </Card>
@@ -60,6 +65,12 @@ export function DashboardPage() {
           >
             {status === 'connecting' ? '…' : amiConnected ? 'Connected' : 'Not connected'}
           </span>
+        </Card>
+        <Card title="Spam reports">
+          <Link to="/admin/blocked" className="hover:underline">
+            {reports.data?.length ?? '…'}
+            <span className="sr-only"> waiting on Blocked numbers</span>
+          </Link>
         </Card>
       </div>
 

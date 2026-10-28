@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // /api/calls (admin) and /api/me/calls (04 §7.3): call history, newest first, keyset paging.
-import { and, asc, desc, eq, ilike, inArray, or, sql, type SQL } from 'drizzle-orm';
+// /api/me/spam-reports: Report spam on a call that rang me (05 §4).
+import { and, asc, desc, eq, ilike, inArray, ne, or, sql, type SQL } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { alias } from 'drizzle-orm/pg-core';
 import { z } from 'zod';
 import {
   CallFilterSchema,
+  SpamReportCreateSchema,
+  formatNumber,
+  normalizeNumber,
   type CallDetailDto,
   type CallDto,
   type ListResponse,
@@ -14,9 +18,17 @@ import {
 } from '@selfphoneng/shared';
 import { requireAdmin, requireAuth } from '../auth/guards.ts';
 import type { Db } from '../db/client.ts';
-import { callExtensions, calls, cdr, dids, extensions } from '../db/schema.ts';
+import {
+  blockedNumbers,
+  callExtensions,
+  calls,
+  cdr,
+  dids,
+  extensions,
+  spamReports,
+} from '../db/schema.ts';
 import { contactNames } from '../contacts/book.ts';
-import { badRequest, notFound } from '../errors.ts';
+import { badRequest, conflict, notFound } from '../errors.ts';
 import { getSetting } from '../services/settings.ts';
 
 const answerer = alias(extensions, 'answerer');
@@ -224,4 +236,42 @@ export async function callRoutes(app: FastifyInstance) {
       };
     },
   );
+
+  /** The admins see it on Blocked numbers and block or dismiss it. */
+  app.post('/api/me/spam-reports', { preHandler: requireAuth }, async (req, reply) => {
+    const body = SpamReportCreateSchema.parse(req.body);
+    const [c] = await db
+      .select({ number: calls.fromNumber })
+      .from(calls)
+      .innerJoin(callExtensions, eq(callExtensions.callId, calls.id))
+      .innerJoin(extensions, eq(extensions.id, callExtensions.extensionId))
+      .where(
+        and(
+          eq(calls.id, body.callId),
+          eq(calls.direction, 'inbound'),
+          eq(extensions.userId, req.user!.id),
+          ne(callExtensions.role, 'caller'),
+        ),
+      )
+      .limit(1);
+    if (!c) throw notFound('Not a call from outside that rang you');
+    let number: string;
+    try {
+      number = normalizeNumber(c.number ?? '');
+    } catch {
+      throw badRequest("This caller's number was hidden, so it can't be blocked");
+    }
+    const [blocked] = await db
+      .select({ id: blockedNumbers.id })
+      .from(blockedNumbers)
+      .where(eq(blockedNumbers.number, number));
+    if (blocked) throw conflict(`${formatNumber(number)} is already blocked`);
+    const [r] = await db
+      .insert(spamReports)
+      .values({ number, reason: body.reason, reportedBy: req.user!.id })
+      .onConflictDoNothing()
+      .returning();
+    if (!r) throw conflict(`You already reported ${formatNumber(number)}`);
+    return reply.code(201).send({ ok: true });
+  });
 }
