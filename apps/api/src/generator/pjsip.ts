@@ -232,11 +232,9 @@ function trunkSections(t: SnapTrunk, snap: Snapshot): string {
     section(`trunk-${id}`, [
       'type = aor',
       `contact = sip:${target}`,
-      // ponytail: Asterisk 24 checks a qualify's TLS certificate against the IP, not the name, so
-      // OPTIONS to voip.ms fail verify_server and the contact goes Unavailable (calls and
-      // REGISTER verify fine). No qualify over TLS: registration shows the trunk's health.
-      // Turn it back on when a qualify to chicago1.voip.ms:5061 passes.
-      `qualify_frequency = ${t.transport === 'tls' ? 0 : 60}`,
+      // Over TLS too since 24.0.0-rc3, which checks a qualify's certificate against the host name
+      // (rc2 used the IP and failed verify_server; upgrade-test.ts tlsQualifyByHostname).
+      'qualify_frequency = 60',
     ]),
     section(`trunk-${id}`, [
       'type = endpoint',

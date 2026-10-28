@@ -105,7 +105,7 @@ describe.skipIf(!hasTestDb || !hasOpenssl)('SIP TLS setting', () => {
     expect(await warningCodes()).not.toContain('tls_cert');
   });
 
-  it('a TLS trunk: no qualify, Test does not send OPTIONS, TLS stays on while it exists', async () => {
+  it('a TLS trunk: qualified like the others (24.0.0-rc3), TLS stays on while it exists', async () => {
     const trunk = await req('POST', '/api/trunks', {
       name: 'voip.ms TLS',
       serverHost: '127.0.0.1',
@@ -119,13 +119,15 @@ describe.skipIf(!hasTestDb || !hasOpenssl)('SIP TLS setting', () => {
     await t.app.generator.apply({ trigger: 'test' });
     const { readFile } = await import('node:fs/promises');
     const conf = await readFile(join(t.app.generator.dir, 'pjsip_selfphoneng.conf'), 'utf8');
-    expect(conf).toMatch(/contact = sip:127\.0\.0\.1:5061;transport=tls\nqualify_frequency = 0\n/);
+    expect(conf).toMatch(/contact = sip:127\.0\.0\.1:5061;transport=tls\nqualify_frequency = 60\n/);
     expect(conf).toMatch(/media_encryption = sdes/);
     expect(conf).toMatch(/verify_server = yes/);
     t.live.amiConnected = true;
     const test = await req('POST', `/api/trunks/${trunk.json().id}/test`);
     expect(test.statusCode).toBe(200);
-    expect(t.ami.actions.filter((a) => a.Action === 'PJSIPQualify')).toEqual([]);
+    expect(t.ami.actions.filter((a) => a.Action === 'PJSIPQualify')).toEqual([
+      expect.objectContaining({ Endpoint: `trunk-${trunk.json().id}` }),
+    ]);
     const off = await req('PATCH', '/api/settings', { 'sip.tlsEnabled': false });
     expect(off.statusCode).toBe(400);
     expect(off.json().error.message).toMatch(/uses TLS/);

@@ -34,10 +34,12 @@
     cert is missing or expires within 14 days.
   - `transport-tls` has `verify_server = yes` + `ca_list_file = /etc/ssl/certs/ca-certificates.crt`:
     the provider's certificate is checked (voip.ms: Let's Encrypt, every POP in its SAN list,
-    checked 2026-10-19). Asterisk 24.0.0-rc2 checks a **qualify** OPTIONS against the IP instead of
-    the host name, which fails on voip.ms ("server identity does not match") and marks the contact
-    Unavailable, so TLS trunks get `qualify_frequency = 0` and Test skips the qualify; REGISTER and
-    INVITE verify the name correctly. Re-check on Asterisk upgrades.
+    checked 2026-10-19). Asterisk 24.0.0-rc2 checked a **qualify** OPTIONS against the IP instead
+    of the host name, which failed on voip.ms ("server identity does not match") and marked the
+    contact Unavailable, so TLS trunks had `qualify_frequency = 0` and Test skipped the qualify.
+    24.0.0-rc3 fixed it ("Preserve target hostname for qualified OPTIONS destination"): TLS trunks
+    are qualified again, and the upgrade check (`tlsQualifyByHostname`, 01 §2) catches it if it
+    comes back.
   - Phones over TLS are not provisioned (templates stay UDP); that's for remote phones later.
 
 ### 2.2 Phone ACL (setting `sip.restrictPhonesToLocalNets`)

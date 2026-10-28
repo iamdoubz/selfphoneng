@@ -213,12 +213,10 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
   /** POST /api/trunks/:id/test: qualify now, then read registration and reachability. */
   async testTrunk(
     id: string,
-    { waitMs = 1500, qualify = true } = {},
+    { waitMs = 1500 } = {},
   ): Promise<{ live: TrunkLive; rttMs: number | null }> {
-    if (qualify) {
-      await this.ami.action({ Action: 'PJSIPQualify', Endpoint: `trunk-${id}` }).catch(() => {});
-      await new Promise((r) => setTimeout(r, waitMs)); // the OPTIONS answer arrives asynchronously
-    }
+    await this.ami.action({ Action: 'PJSIPQualify', Endpoint: `trunk-${id}` }).catch(() => {});
+    await new Promise((r) => setTimeout(r, waitMs)); // the OPTIONS answer arrives asynchronously
     await this.refreshRegistrations();
     const rttMs = await this.refreshReachable(id);
     const live = this.trunks.get(id);
