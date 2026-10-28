@@ -1,36 +1,97 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Admin shell (05 §2): sidebar in spec order; unbuilt pages say which milestone brings them.
+// Admin shell (05 §2): sidebar grouped by section; unbuilt pages say which milestone brings them.
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Activity,
+  AudioLines,
+  Ban,
+  BellRing,
+  BookUser,
+  Cable,
+  ChartColumn,
+  Clock,
+  Hash,
+  Headset,
+  HistoryIcon,
+  LayoutDashboard,
+  Menu,
+  ListOrdered,
+  Megaphone,
+  MessageSquare,
+  MonitorSmartphone,
+  Music,
+  PhoneOutgoing,
+  Settings,
+  Split,
+  Users,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Navigate, NavLink, Outlet, useNavigate } from 'react-router';
 import type { AuthUser } from '@selfphoneng/shared';
 import { signOut, systemApi } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
-import { Brand, Button, MenuIcon } from '../../components/ui.tsx';
+import { Brand, Button } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
 
+// Grouped by job rather than spec order, so the 21 pages scan as six short lists.
 export const ADMIN_PAGES = [
-  { path: '', label: 'Dashboard', milestone: null },
-  { path: 'users', label: 'Users & Extensions', milestone: null },
-  { path: 'trunks', label: 'Trunks', milestone: null },
-  { path: 'numbers', label: 'Phone numbers', milestone: null },
-  { path: 'outbound', label: 'Outbound rules', milestone: null },
-  { path: 'ring-groups', label: 'Ring groups', milestone: null },
-  { path: 'queues', label: 'Queues', milestone: null },
-  { path: 'ivrs', label: 'Digital receptionist', milestone: null },
-  { path: 'hours', label: 'Office hours', milestone: null },
-  { path: 'conferences', label: 'Conferences', milestone: null },
-  { path: 'paging', label: 'Paging', milestone: null },
-  { path: 'sounds', label: 'Sounds & music', milestone: null },
-  { path: 'devices', label: 'Phones', milestone: null },
-  { path: 'contacts', label: 'Contacts', milestone: null },
-  { path: 'calls', label: 'Call history', milestone: null },
-  { path: 'recordings', label: 'Recordings', milestone: null },
-  { path: 'reports', label: 'Reports', milestone: null },
-  { path: 'sms', label: 'SMS', milestone: 'M9' },
-  { path: 'blocked', label: 'Blocked numbers', milestone: null },
-  { path: 'settings', label: 'Settings', milestone: null },
-  { path: 'system', label: 'System', milestone: null },
+  { path: '', label: 'Dashboard', milestone: null, section: '', icon: LayoutDashboard },
+  { path: 'trunks', label: 'Trunks', milestone: null, section: 'Call routing', icon: Cable },
+  { path: 'numbers', label: 'Phone numbers', milestone: null, section: 'Call routing', icon: Hash },
+  {
+    path: 'outbound',
+    label: 'Outbound rules',
+    milestone: null,
+    section: 'Call routing',
+    icon: PhoneOutgoing,
+  },
+  {
+    path: 'ring-groups',
+    label: 'Ring groups',
+    milestone: null,
+    section: 'Call routing',
+    icon: BellRing,
+  },
+  { path: 'queues', label: 'Queues', milestone: null, section: 'Call routing', icon: ListOrdered },
+  {
+    path: 'ivrs',
+    label: 'Digital receptionist',
+    milestone: null,
+    section: 'Call routing',
+    icon: Split,
+  },
+  { path: 'hours', label: 'Office hours', milestone: null, section: 'Call routing', icon: Clock },
+  {
+    path: 'blocked',
+    label: 'Blocked numbers',
+    milestone: null,
+    section: 'Call routing',
+    icon: Ban,
+  },
+  { path: 'users', label: 'Users & Extensions', milestone: null, section: 'People', icon: Users },
+  { path: 'devices', label: 'Phones', milestone: null, section: 'People', icon: MonitorSmartphone },
+  { path: 'contacts', label: 'Contacts', milestone: null, section: 'People', icon: BookUser },
+  {
+    path: 'conferences',
+    label: 'Conferences',
+    milestone: null,
+    section: 'Features',
+    icon: Headset,
+  },
+  { path: 'paging', label: 'Paging', milestone: null, section: 'Features', icon: Megaphone },
+  { path: 'sounds', label: 'Sounds & music', milestone: null, section: 'Features', icon: Music },
+  { path: 'sms', label: 'SMS', milestone: 'M9', section: 'Features', icon: MessageSquare },
+  { path: 'calls', label: 'Call history', milestone: null, section: 'History', icon: HistoryIcon },
+  {
+    path: 'recordings',
+    label: 'Recordings',
+    milestone: null,
+    section: 'History',
+    icon: AudioLines,
+  },
+  { path: 'reports', label: 'Reports', milestone: null, section: 'History', icon: ChartColumn },
+  { path: 'settings', label: 'Settings', milestone: null, section: 'System', icon: Settings },
+  { path: 'system', label: 'System', milestone: null, section: 'System', icon: Activity },
 ] as const;
 
 export function AdminLayout({ user }: { user: AuthUser }) {
@@ -52,23 +113,33 @@ export function AdminLayout({ user }: { user: AuthUser }) {
 
   const links = (
     <nav aria-label="Admin" className="flex-1 overflow-y-auto px-2 pb-4">
-      <ul className="flex flex-col gap-0.5">
-        {ADMIN_PAGES.map((p) => (
-          <li key={p.path}>
-            <NavLink
-              to={`/admin${p.path ? `/${p.path}` : ''}`}
-              end={p.path === ''}
-              onClick={() => setNavOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center justify-between rounded-md px-3 py-1.5 text-sm ${isActive ? 'bg-primary-soft font-medium text-primary-ink' : 'hover:bg-subtle'} ${p.milestone ? 'text-muted' : ''}`
-              }
-            >
-              {p.label}
-              {p.milestone && <span className="text-[10px] text-muted">{p.milestone}</span>}
-            </NavLink>
-          </li>
-        ))}
-      </ul>
+      {[...new Set(ADMIN_PAGES.map((p) => p.section))].map((section) => (
+        <div key={section} className="mt-3 first:mt-0">
+          {section && (
+            <h2 className="px-3 pb-1 text-xs font-semibold tracking-wide text-muted uppercase">
+              {section}
+            </h2>
+          )}
+          <ul className="flex flex-col gap-0.5">
+            {ADMIN_PAGES.filter((p) => p.section === section).map((p) => (
+              <li key={p.path}>
+                <NavLink
+                  to={`/admin${p.path ? `/${p.path}` : ''}`}
+                  end={p.path === ''}
+                  onClick={() => setNavOpen(false)}
+                  className={({ isActive }) =>
+                    `relative flex items-center gap-2.5 rounded-md px-3 py-1.5 text-sm pointer-coarse:py-2.5 ${isActive ? 'bg-primary-soft font-medium text-primary-ink before:absolute before:inset-y-1.5 before:left-0 before:w-1 before:rounded-full before:bg-primary' : 'hover:bg-subtle'} ${p.milestone ? 'text-muted' : ''}`
+                  }
+                >
+                  <p.icon className="size-4 shrink-0" />
+                  <span className="flex-1">{p.label}</span>
+                  {p.milestone && <span className="text-xs text-muted">{p.milestone}</span>}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </nav>
   );
 
@@ -91,7 +162,7 @@ export function AdminLayout({ user }: { user: AuthUser }) {
             aria-label="Menu"
             onClick={() => setNavOpen((o) => !o)}
           >
-            <MenuIcon />
+            <Menu className="size-5" />
           </Button>
           <Brand className="md:hidden" />
           <div className="ml-auto flex items-center gap-1 whitespace-nowrap sm:gap-2">

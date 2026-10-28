@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Queues (05 §2, 03 §6.8): callers wait with music until an agent is free. The list shows live
 // counts; a queue's page shows who is waiting, the agents (pause/unpause) and today's numbers.
+import { ArrowLeft, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -152,8 +153,9 @@ function QueueDetail({ id }: { id: string }) {
   return (
     <section className="flex flex-col gap-6">
       <div>
-        <Link className="text-sm text-muted hover:underline" to="..">
-          ← Queues
+        <Link className="inline-flex items-center gap-1 text-sm text-muted hover:underline" to="..">
+          <ArrowLeft className="size-4" />
+          Queues
         </Link>
         <h1 className="text-xl font-semibold">
           <span className="font-mono">{q.number}</span> {q.name}
@@ -449,7 +451,7 @@ function QueueForm({
                     setMembers((ms) => ms.filter((x) => x.extensionId !== m.extensionId))
                   }
                 >
-                  ✕
+                  <X className="size-4" />
                 </Button>
               </li>
             ))}

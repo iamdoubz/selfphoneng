@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Ring groups (05 §2, 03 §6.7): one number that rings several people, everyone at once or one at
 // a time, then goes somewhere else when nobody answers.
+import { ArrowDown, ArrowUp, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -246,7 +247,7 @@ function RingGroupForm({
                   disabled={i === 0}
                   onClick={() => move(i, -1)}
                 >
-                  ↑
+                  <ArrowUp className="size-4" />
                 </Button>
                 <Button
                   className="px-2 py-1"
@@ -254,7 +255,7 @@ function RingGroupForm({
                   disabled={i === members.length - 1}
                   onClick={() => move(i, 1)}
                 >
-                  ↓
+                  <ArrowDown className="size-4" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -262,7 +263,7 @@ function RingGroupForm({
                   aria-label={`Remove ${label(m)}`}
                   onClick={() => setMembers((ms) => ms.filter((x) => x !== m))}
                 >
-                  ✕
+                  <X className="size-4" />
                 </Button>
               </li>
             ))}

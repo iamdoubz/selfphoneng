@@ -2,6 +2,7 @@
 // Sounds & music (05 §2): recorded prompts for digital receptionists and announcements.
 // Upload by picking or dropping a file; play, rename, delete. Music-on-hold classes and their
 // files (03 §8) and announcements live here too.
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -337,7 +338,7 @@ function MohClassCard({
                   disabled={i === 0 || update.isPending}
                   onClick={() => move(i, -1)}
                 >
-                  ↑
+                  <ArrowUp className="size-4" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -346,7 +347,7 @@ function MohClassCard({
                   disabled={i === cls.files.length - 1 || update.isPending}
                   onClick={() => move(i, 1)}
                 >
-                  ↓
+                  <ArrowDown className="size-4" />
                 </Button>
               </span>
             )}

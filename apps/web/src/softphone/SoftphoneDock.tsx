@@ -3,11 +3,22 @@
 // dialpad and audio devices; call cards with mute/hold/keypad/transfer; the incoming call dialog.
 // Not yet: DND toggle (M6), Record via *1 and recent calls (M7).
 import { useQuery } from '@tanstack/react-query';
+import {
+  ArrowRightLeft,
+  Grid3x3,
+  Mic,
+  MicOff,
+  Pause,
+  Phone,
+  PhoneOff,
+  Power,
+  type LucideIcon,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatNumber } from '@selfphoneng/shared';
 import { meApi } from '../api/client.ts';
 import { SpamNote } from '../components/SpamNote.tsx';
-import { Button, inputClass } from '../components/ui.tsx';
+import { Button, focusRing, inputClass } from '../components/ui.tsx';
 import { useLive } from '../live/store.ts';
 import { onTakeOver, stepDown, takeOver, tryLead } from './leader.ts';
 import { CALL_DRAG, softphone, type CallInfo } from './SoftphoneEngine.ts';
@@ -63,6 +74,24 @@ const STATUS = {
   registered: 'Ready',
   error: 'Error',
   elsewhere: 'Active in another tab',
+};
+const DOT = {
+  off: 'bg-line-strong',
+  connecting: 'bg-amber-500 animate-pulse motion-reduce:animate-none',
+  registered: 'bg-green-500',
+  error: 'bg-red-500',
+  elsewhere: 'bg-line-strong',
+};
+// The letters on a phone's keys, as a hint only (screen readers get the digit).
+const LETTERS: Record<string, string> = {
+  '2': 'ABC',
+  '3': 'DEF',
+  '4': 'GHI',
+  '5': 'JKL',
+  '6': 'MNO',
+  '7': 'PQRS',
+  '8': 'TUV',
+  '9': 'WXYZ',
 };
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
 const clean = (s: string) => s.replace(/[^0-9*#+]/g, '');
@@ -195,8 +224,12 @@ export function SoftphoneDock() {
       className="sticky bottom-0 mt-auto flex flex-col gap-2 border-t border-line bg-page py-3"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium">
-          Softphone: <span role="status">{STATUS[reg]}</span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1 text-sm font-medium">
+          <span aria-hidden className={`size-2 rounded-full ${DOT[reg]}`} />
+          Softphone<span className="sr-only">:</span>
+          <span role="status" className="text-muted">
+            {STATUS[reg]}
+          </span>
         </span>
         <span className="flex-1" />
         {reg === 'off' && (
@@ -216,6 +249,7 @@ export function SoftphoneDock() {
               aria-controls="sp-panel"
               onClick={() => setOpen((o) => !o)}
             >
+              <Grid3x3 className="size-4" />
               {open ? 'Hide keypad' : 'Keypad'}
             </Button>
             <Button
@@ -225,6 +259,7 @@ export function SoftphoneDock() {
                 run(softphone.stop().then(stepDown));
               }}
             >
+              <Power className="size-4" />
               Turn off
             </Button>
           </>
@@ -258,19 +293,15 @@ export function SoftphoneDock() {
   );
 }
 
-// Feather's phone; turned 135° it's the hang-up handset.
-const PHONE =
-  'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z';
-
 function RoundButton({
   label,
   color,
-  hangUp = false,
+  icon: Icon,
   onClick,
 }: {
   label: string;
   color: string;
-  hangUp?: boolean;
+  icon: LucideIcon;
   onClick: () => void;
 }) {
   return (
@@ -282,18 +313,7 @@ function RoundButton({
       <span
         className={`grid size-16 place-items-center rounded-full text-white transition-transform group-active:scale-95 motion-reduce:transition-none ${color}`}
       >
-        <svg
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          className={`size-7 ${hangUp ? 'rotate-[135deg]' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d={PHONE} />
-        </svg>
+        <Icon className="size-7" />
       </span>
       {label}
     </button>
@@ -341,21 +361,64 @@ function IncomingCall({
           <CallerCheck call={call} />
         </div>
         <div className="flex gap-16">
-          <RoundButton label="Decline" color="bg-red-600" hangUp onClick={onDecline} />
-          <RoundButton label="Answer" color="bg-emerald-600" onClick={onAnswer} />
+          <RoundButton label="Decline" color="bg-red-600" icon={PhoneOff} onClick={onDecline} />
+          <RoundButton label="Answer" color="bg-emerald-600" icon={Phone} onClick={onAnswer} />
         </div>
       </div>
     </dialog>
   );
 }
 
+const TONE = {
+  normal: 'border border-line bg-surface hover:bg-subtle',
+  pressed: 'bg-primary text-white hover:bg-primary-hover',
+  answer: 'bg-emerald-700 text-white hover:bg-emerald-800',
+  danger: 'bg-red-600 text-white hover:bg-red-700',
+};
+
+/** A call control: icon over a short label, phone style. `pressed` makes it a toggle. */
+function Control({
+  icon: Icon,
+  label,
+  pressed,
+  tone = 'normal',
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  pressed?: boolean;
+  tone?: 'normal' | 'answer' | 'danger';
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={`flex min-h-14 min-w-16 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors motion-reduce:transition-none ${focusRing} ${TONE[pressed ? 'pressed' : tone]}`}
+    >
+      <Icon className="size-5" />
+      {label}
+    </button>
+  );
+}
+
 function Keypad({ onKey, label }: { onKey: (k: string) => void; label: string }) {
   return (
-    <div role="group" aria-label={label} className="grid w-56 grid-cols-3 gap-1">
+    <div role="group" aria-label={label} className="grid w-fit grid-cols-3 gap-3">
       {KEYS.map((k) => (
-        <Button key={k} onClick={() => onKey(k)} className="text-lg">
-          {k}
-        </Button>
+        <button
+          key={k}
+          type="button"
+          aria-label={k}
+          onClick={() => onKey(k)}
+          className={`flex size-14 flex-col items-center justify-center rounded-full border border-line bg-surface transition-colors hover:bg-subtle active:bg-line ${focusRing}`}
+        >
+          <span className="text-xl leading-none font-medium">{k}</span>
+          <span aria-hidden className="h-3 text-[0.625rem] leading-3 tracking-widest text-muted">
+            {LETTERS[k]}
+          </span>
+        </button>
       ))}
     </div>
   );
@@ -436,67 +499,90 @@ function CallCard({
     <div
       role="group"
       aria-label={`${label}: ${name}`}
-      className="flex flex-col gap-2 rounded-md bg-subtle p-2"
+      className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-3 shadow-sm"
       // Drop it on a person in People to transfer it there.
       draggable={call.state === 'active'}
       onDragStart={(e) => e.dataTransfer.setData(CALL_DRAG, call.id)}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="flex-1 text-sm">
-          <span className="font-medium">{name}</span> · {label}
-          {call.answeredAt && <> · {elapsed(call.answeredAt, now)}</>}
+      <div className="flex flex-col gap-1">
+        <p className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-semibold">{name}</span>
+          <span className="text-sm text-muted">
+            {label}
+            {call.answeredAt && (
+              <span className="tabular-nums"> · {elapsed(call.answeredAt, now)}</span>
+            )}
+          </span>
           {call.poorQuality && (
-            <span className="ml-2 text-amber-700 dark:text-amber-400">Poor connection</span>
+            <span className="text-sm text-amber-700 dark:text-amber-400">Poor connection</span>
           )}
-          <CallerCheck call={call} />
-        </span>
+        </p>
+        <CallerCheck call={call} />
+      </div>
+      <div className="flex flex-wrap gap-2">
         {call.state === 'incoming' ? (
           <>
-            <Button variant="primary" onClick={() => run(softphone.answer(call.id))}>
-              Answer
-            </Button>
-            <Button variant="ghost" onClick={() => run(softphone.decline(call.id))}>
-              Decline
-            </Button>
+            <Control
+              icon={Phone}
+              label="Answer"
+              tone="answer"
+              onClick={() => run(softphone.answer(call.id))}
+            />
+            <Control
+              icon={PhoneOff}
+              label="Decline"
+              tone="danger"
+              onClick={() => run(softphone.decline(call.id))}
+            />
           </>
         ) : (
           <>
-            {call.held && other && !consultId && (
-              <Button
-                variant="primary"
-                onClick={() => run(softphone.attendedTransfer(call.id, other.id))}
-              >
-                Complete transfer
-              </Button>
-            )}
             {call.state === 'active' && (
               <>
-                <Button
-                  aria-pressed={call.muted}
+                <Control
+                  icon={call.muted ? MicOff : Mic}
+                  label="Mute"
+                  pressed={call.muted}
                   onClick={() => softphone.mute(call.id, !call.muted)}
-                >
-                  {call.muted ? 'Unmute' : 'Mute'}
-                </Button>
-                <Button
-                  aria-pressed={call.held}
+                />
+                <Control
+                  icon={Pause}
+                  label="Hold"
+                  pressed={call.held}
                   onClick={() => run(softphone.hold(call.id, !call.held))}
-                >
-                  {call.held ? 'Resume' : 'Hold'}
-                </Button>
-                <Button aria-pressed={keypad} onClick={() => setKeypad((k) => !k)}>
-                  Keypad
-                </Button>
-                <Button aria-pressed={transfer} onClick={() => setTransfer((t) => !t)}>
-                  Transfer
-                </Button>
+                />
+                <Control
+                  icon={Grid3x3}
+                  label="Keypad"
+                  pressed={keypad}
+                  onClick={() => setKeypad((k) => !k)}
+                />
+                <Control
+                  icon={ArrowRightLeft}
+                  label="Transfer"
+                  pressed={transfer}
+                  onClick={() => setTransfer((t) => !t)}
+                />
               </>
             )}
-            <Button variant="danger" onClick={() => run(softphone.hangup(call.id))}>
-              Hang up
-            </Button>
+            <Control
+              icon={PhoneOff}
+              label="Hang up"
+              tone="danger"
+              onClick={() => run(softphone.hangup(call.id))}
+            />
           </>
         )}
       </div>
+      {call.held && other && !consultId && (
+        <Button
+          variant="primary"
+          className="self-start"
+          onClick={() => run(softphone.attendedTransfer(call.id, other.id))}
+        >
+          Complete transfer
+        </Button>
+      )}
       {keypad && call.state === 'active' && (
         <Keypad label="Send tones" onKey={(k) => softphone.dtmf(call.id, k)} />
       )}

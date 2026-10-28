@@ -2,6 +2,7 @@
 // Contacts (spec 11): my book with the company's (read-only) at /me/contacts, the company's at
 // /admin/contacts. Add, edit, import (.vcf, .csv), share (an offer the colleague accepts or
 // denies), click to call. useContactName() gives every page names for numbers.
+import { X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import {
@@ -378,7 +379,7 @@ function ContactDrawer(props: {
                   setForm({ ...form, numbers: form.numbers.filter((_, j) => j !== i) })
                 }
               >
-                ✕
+                <X className="size-4" />
               </Button>
             </div>
           ))}

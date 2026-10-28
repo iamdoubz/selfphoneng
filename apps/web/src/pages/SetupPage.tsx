@@ -2,6 +2,7 @@
 // First-run setup wizard (05 §2.1). Every step saves before moving on; some can be skipped.
 // M3 also brings steps 7 (users) and 8 (main number routing) because "calls work using only the
 // wizard" needs them; M6 adds "Ring everyone" to step 8 (an IVR needs a recorded greeting first).
+import { Check } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -127,7 +128,10 @@ function PasswordStep({ next }: { next: () => void }) {
   // Signing in with the initial password already forced a change (RequireAuth).
   return (
     <>
-      <p className="text-sm">✓ The initial admin password has been changed.</p>
+      <p className="text-sm">
+        <Check className="mr-1 inline size-4 align-[-3px] text-green-700 dark:text-green-400" />
+        The initial admin password has been changed.
+      </p>
       <Nav next={next} />
     </>
   );
@@ -465,7 +469,8 @@ function NumbersStep({ next }: { next: () => void }) {
         <ul className="text-sm">
           {dids.data.map((d) => (
             <li key={d.id}>
-              ✓ {formatNumber(d.number)} {d.label && <span className="text-muted">{d.label}</span>}
+              <Check className="mr-1 inline size-4 align-[-3px] text-green-700 dark:text-green-400" />
+              {formatNumber(d.number)} {d.label && <span className="text-muted">{d.label}</span>}
             </li>
           ))}
         </ul>
@@ -562,7 +567,8 @@ function UsersStep({ next }: { next: () => void }) {
         <ul className="text-sm">
           {withExt.map((u) => (
             <li key={u.id}>
-              ✓ {u.extension!.number} {u.displayName}
+              <Check className="mr-1 inline size-4 align-[-3px] text-green-700 dark:text-green-400" />
+              {u.extension!.number} {u.displayName}
             </li>
           ))}
         </ul>

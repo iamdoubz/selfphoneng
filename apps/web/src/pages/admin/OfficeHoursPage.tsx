@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Office hours (05 §2, 03 §6.10): when calls go one way or another. A weekly grid (click and drag
 // half hours), the exact ranges as a list, holidays, and force open / closed / automatic.
+import { X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -254,7 +255,7 @@ function RangeList({
               aria-label={`Remove ${rangeText(r)}`}
               onClick={() => onChange(ranges.filter((_, j) => j !== i))}
             >
-              ✕
+              <X className="size-4" />
             </Button>
           </li>
         ))}

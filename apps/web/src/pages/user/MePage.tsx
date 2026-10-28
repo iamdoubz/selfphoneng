@@ -1,12 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // My Phone (05 §4): Home, Calls, Voicemail, Contacts (11), Settings, People, and the softphone.
+import {
+  BookUser,
+  House,
+  Info,
+  LogOut,
+  Menu,
+  Phone,
+  PhoneMissed,
+  Settings,
+  Shield,
+  Users,
+  Voicemail,
+  X,
+} from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Route, Routes, useNavigate } from 'react-router';
 import type { AuthUser } from '@selfphoneng/shared';
 import { meApi, signOut } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
-import { Alert, Brand, Button, MenuIcon } from '../../components/ui.tsx';
+import { Alert, Brand, Button, Panel } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
 import { SoftphoneDock } from '../../softphone/SoftphoneDock.tsx';
 import { PresencePanel } from '../../softphone/PresencePanel.tsx';
@@ -45,7 +59,8 @@ export function MePage({ user }: { user: AuthUser }) {
   }
 
   const tab = ({ isActive }: { isActive: boolean }) =>
-    `rounded-md px-3 py-2 text-sm font-medium pointer-coarse:py-3 ${isActive ? 'bg-subtle' : 'hover:bg-subtle'}`;
+    `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium pointer-coarse:py-3 ${isActive ? 'bg-primary-soft text-primary-ink' : 'hover:bg-subtle'}`;
+  const icon = 'size-4 shrink-0';
   const row = tab({ isActive: false });
   return (
     <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-6 p-4 sm:p-8">
@@ -75,7 +90,7 @@ export function MePage({ user }: { user: AuthUser }) {
           aria-label={offers > 0 ? `Menu, ${offers} shared with you` : 'Menu'}
           onClick={() => setMenu((o) => !o)}
         >
-          <MenuIcon />
+          <Menu className="size-5" />
           {offers > 0 && (
             <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary" />
           )}
@@ -88,37 +103,45 @@ export function MePage({ user }: { user: AuthUser }) {
         className={`${menu ? 'flex' : 'hidden'} flex-col gap-1 border-b border-line pb-2 md:flex md:flex-row`}
       >
         <NavLink to="/me" end className={tab} onClick={close}>
+          <House className={icon} />
           Home
         </NavLink>
         <NavLink to="/me/calls" className={tab} onClick={close}>
+          <Phone className={icon} />
           Calls
         </NavLink>
         <NavLink to="/me/voicemail" className={tab} onClick={close}>
+          <Voicemail className={icon} />
           Voicemail
         </NavLink>
         <NavLink to="/me/contacts" className={tab} onClick={close}>
+          <BookUser className={icon} />
           Contacts
           {offers > 0 && (
-            <span className="ml-1 rounded-full bg-primary px-1.5 text-xs text-white">
+            <span className="rounded-full bg-primary px-1.5 text-xs text-white">
               <span className="sr-only">, shared with you: </span>
               {offers}
             </span>
           )}
         </NavLink>
         <NavLink to="/me/settings" className={tab} onClick={close}>
+          <Settings className={icon} />
           Settings
         </NavLink>
         {/* People is a right-hand column on wide screens, a tab on small ones (05 §4.1). */}
         <NavLink to="/me/people" className={(s) => `${tab(s)} lg:hidden`} onClick={close}>
+          <Users className={icon} />
           People
         </NavLink>
         <div className="mt-1 flex flex-col gap-1 border-t border-line pt-2 md:hidden">
           {user.role === 'admin' && (
             <Link className={row} to="/admin">
+              <Shield className={icon} />
               Admin
             </Link>
           )}
           <Link className={row} to="/about">
+            <Info className={icon} />
             About
           </Link>
           <div className="flex items-center justify-between pl-3 text-sm font-medium">
@@ -126,6 +149,7 @@ export function MePage({ user }: { user: AuthUser }) {
             <ThemeToggle />
           </div>
           <button type="button" className={`${row} text-left`} onClick={logout}>
+            <LogOut className={icon} />
             Sign out
           </button>
         </div>
@@ -145,7 +169,7 @@ export function MePage({ user }: { user: AuthUser }) {
               useLive.setState((s) => ({ toasts: s.toasts.filter((x) => x.id !== t.id) }))
             }
           >
-            ✕
+            <X className="size-4" />
           </Button>
         </div>
       ))}
@@ -169,45 +193,92 @@ export function MePage({ user }: { user: AuthUser }) {
   );
 }
 
+const seeAll = 'text-sm font-medium text-link hover:underline';
+const when = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+/** One line in a Home card: a round icon, two lines of text, and an optional button. */
+function Row({
+  icon,
+  title,
+  detail,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  detail: string;
+  children?: ReactNode;
+}) {
+  return (
+    <li className="flex items-center gap-3 py-2">
+      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-subtle">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{title}</span>
+        <span className="block text-xs text-muted">{detail}</span>
+      </span>
+      {children}
+    </li>
+  );
+}
+
 function Home({ user }: { user: AuthUser }) {
-  const list = useQuery({ queryKey: ['me', 'voicemail'], queryFn: meApi.voicemail });
-  const fresh = list.data?.filter(isNew) ?? [];
-  const nameOf = useContactName();
   return (
     <div className="flex flex-col gap-6">
-      <p>Hi {user.displayName}.</p>
+      <p className="text-2xl font-semibold">Hi {user.displayName}</p>
       <SharedNotice />
       {user.extension && <StatusCard ext={user.extension.number} />}
-      {user.extension && <MissedCalls />}
+      <div className="grid gap-4 md:grid-cols-2">
+        {user.extension && <MissedCalls />}
+        <NewVoicemails />
+      </div>
       {user.extension && <ParkedOnHome />}
-      <section aria-labelledby="new-vm" className="flex flex-col gap-2">
-        <h2 id="new-vm" className="text-lg font-semibold">
-          New voicemails
-        </h2>
-        {list.error && <Alert>{list.error.message}</Alert>}
-        {list.data && fresh.length === 0 && <p className="text-sm text-muted">None.</p>}
-        <ul className="flex flex-col gap-1">
-          {fresh.slice(0, 5).map((m) => (
-            <li key={m.id} className="text-sm">
-              <span className="font-semibold">{nameOf(m.callerNumber) ?? callerOf(m)}</span>{' '}
-              <span className="text-muted">
-                {new Date(m.receivedAt).toLocaleString()} · {mmss(m.durationS)}
-              </span>
-            </li>
-          ))}
-        </ul>
-        {list.data && list.data.length > 0 && (
-          <Link className={`${link} text-sm`} to="/me/voicemail">
-            Open voicemail
-          </Link>
-        )}
-      </section>
       <p className="text-sm">
         <Link className={link} to="/change-password">
           Change password
         </Link>
       </p>
     </div>
+  );
+}
+
+function NewVoicemails() {
+  const list = useQuery({ queryKey: ['me', 'voicemail'], queryFn: meApi.voicemail });
+  const fresh = list.data?.filter(isNew) ?? [];
+  const nameOf = useContactName();
+  return (
+    <Panel
+      title="New voicemails"
+      action={
+        list.data &&
+        list.data.length > 0 && (
+          <Link className={seeAll} to="/me/voicemail">
+            Open voicemail
+          </Link>
+        )
+      }
+    >
+      {list.error && <Alert>{list.error.message}</Alert>}
+      {list.data && fresh.length === 0 && (
+        <p className="text-sm text-muted">You're all caught up.</p>
+      )}
+      {fresh.length > 0 && (
+        <ul className="-my-2 divide-y divide-line">
+          {fresh.slice(0, 5).map((m) => (
+            <Row
+              key={m.id}
+              icon={<Voicemail className="size-4 text-link" />}
+              title={nameOf(m.callerNumber) ?? callerOf(m)}
+              detail={`${when(m.receivedAt)} · ${mmss(m.durationS)}`}
+            />
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
 
@@ -236,19 +307,20 @@ function StatusCard({ ext }: { ext: string }) {
     me.data.cfna && `no answer → ${showTarget(me.data.cfna)}`,
   ].filter(Boolean);
   return (
-    <section
-      aria-label="My status"
-      className="flex flex-col gap-2 rounded-xl border border-line bg-surface shadow-sm p-4"
+    <Panel
+      title="My status"
+      action={
+        <Link className={seeAll} to="/me/settings">
+          Change
+        </Link>
+      }
     >
       <DndSwitch me={me.data} />
       <QueueLogins ext={ext} />
       <p className="text-sm text-muted">
-        {fwd.length ? `Forwarding: ${fwd.join(', ')}.` : 'Not forwarding.'}{' '}
-        <Link className={link} to="/me/settings">
-          Change
-        </Link>
+        {fwd.length ? `Forwarding: ${fwd.join(', ')}.` : 'Not forwarding.'}
       </p>
-    </section>
+    </Panel>
   );
 }
 
@@ -307,44 +379,49 @@ function MissedCalls() {
   const missed = calls.data?.items.filter((c) => c.missedByMe).slice(0, 5) ?? [];
   const nameOf = useContactName();
   return (
-    <section aria-labelledby="missed-h" className="flex flex-col gap-2">
-      <h2 id="missed-h" className="text-lg font-semibold">
-        Missed calls
-      </h2>
-      {calls.data && missed.length === 0 && <p className="text-sm text-muted">None.</p>}
+    <Panel
+      title="Missed calls"
+      action={
+        calls.data &&
+        calls.data.items.length > 0 && (
+          <Link className={seeAll} to="/me/calls">
+            All my calls
+          </Link>
+        )
+      }
+    >
+      {calls.data && missed.length === 0 && <p className="text-sm text-muted">No missed calls.</p>}
       {note && (
         <p role="status" className="text-sm text-muted">
           {note}
         </p>
       )}
-      <ul className="flex flex-col gap-1 text-sm">
-        {missed.map((c) => {
-          const o = otherParty(c);
-          return (
-            <li key={c.id}>
-              <span className="font-semibold">
-                {nameOf(o.number) ?? o.name ?? fmtNumber(o.number)}
-              </span>{' '}
-              <span className="text-muted">{new Date(c.startedAt).toLocaleString()}</span>{' '}
-              {o.number && (
-                <button
-                  type="button"
-                  className={link}
-                  onClick={() => call(o.number!)}
-                  aria-label={`Call back ${fmtNumber(o.number)}`}
-                >
-                  Call back
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      {calls.data && calls.data.items.length > 0 && (
-        <Link className={`${link} text-sm`} to="/me/calls">
-          All my calls
-        </Link>
+      {missed.length > 0 && (
+        <ul className="-my-2 divide-y divide-line">
+          {missed.map((c) => {
+            const o = otherParty(c);
+            return (
+              <Row
+                key={c.id}
+                icon={<PhoneMissed className="size-4 text-red-600 dark:text-red-400" />}
+                title={nameOf(o.number) ?? o.name ?? fmtNumber(o.number)}
+                detail={when(c.startedAt)}
+              >
+                {o.number && (
+                  <Button
+                    variant="ghost"
+                    className="text-link"
+                    onClick={() => call(o.number!)}
+                    aria-label={`Call back ${fmtNumber(o.number)}`}
+                  >
+                    <Phone className="size-4" />
+                  </Button>
+                )}
+              </Row>
+            );
+          })}
+        </ul>
       )}
-    </section>
+    </Panel>
   );
 }

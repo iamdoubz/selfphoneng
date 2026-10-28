@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Outbound rules (05 §2, 03 §6.12): ordered list (first match wins), form, and a test box.
 // ponytail: ↑/↓ buttons instead of drag-to-reorder; keyboard-friendly, no drag library.
+import { ArrowDown, ArrowUp, X } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -80,7 +81,7 @@ export function OutboundPage() {
                   disabled={i === 0 || move.isPending}
                   onClick={() => move.mutate({ from: i, to: i - 1 })}
                 >
-                  ↑
+                  <ArrowUp className="size-4" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -89,7 +90,7 @@ export function OutboundPage() {
                   disabled={i === routes.data.length - 1 || move.isPending}
                   onClick={() => move.mutate({ from: i, to: i + 1 })}
                 >
-                  ↓
+                  <ArrowDown className="size-4" />
                 </Button>
               </span>
               <span className="w-5 text-muted">{i + 1}.</span>
@@ -340,7 +341,7 @@ function RouteDrawer({
                 onClick={() => patterns.remove(i)}
                 disabled={patterns.fields.length === 1}
               >
-                ✕
+                <X className="size-4" />
               </Button>
             </div>
           ))}
@@ -385,14 +386,14 @@ function RouteDrawer({
                     setTrunks(ids);
                   }}
                 >
-                  ↑
+                  <ArrowUp className="size-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   aria-label="Remove trunk"
                   onClick={() => setTrunks(chosen.filter((x) => x !== id))}
                 >
-                  ✕
+                  <X className="size-4" />
                 </Button>
               </li>
             ))}

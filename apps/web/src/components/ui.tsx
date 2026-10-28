@@ -3,7 +3,8 @@
 import { useId, type ComponentProps, type ReactNode } from 'react';
 import { APP_NAME } from '@selfphoneng/shared';
 
-const focus = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
+export const focusRing =
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
 
 const variants = {
   primary: 'bg-primary text-white hover:bg-primary-hover disabled:bg-primary/50',
@@ -30,30 +31,40 @@ export function Button({
   return (
     <button
       type="button"
-      className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium disabled:cursor-not-allowed pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${variants[variant]} ${focus} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium disabled:cursor-not-allowed pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${variants[variant]} ${focusRing} ${className}`}
       {...props}
     />
   );
 }
 
-/** Three lines, for the menu buttons on phone-width screens. */
-export function MenuIcon() {
+/** A titled card: heading, an optional link or button on the right, then the body. */
+export function Panel({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  const id = useId();
   return (
-    <svg
-      viewBox="0 0 24 24"
-      aria-hidden="true"
-      className="size-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
+    <section
+      aria-labelledby={id}
+      className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm"
     >
-      <path d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
+      <div className="flex items-center justify-between gap-2">
+        <h2 id={id} className="text-base font-semibold">
+          {title}
+        </h2>
+        {action}
+      </div>
+      {children}
+    </section>
   );
 }
 
-export const inputClass = `w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm ${focus} aria-invalid:border-red-500`;
+export const inputClass = `w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm ${focusRing} aria-invalid:border-red-500`;
 
 /** Label + control + error text. `children` gets the id and aria props to spread on the control. */
 export function Field({
