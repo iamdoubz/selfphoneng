@@ -54,8 +54,9 @@ voip.ms Asterisk PJSIP wiki: registration + auth + aor + endpoint + identify,
   which means the **Request-URI user is the 10-digit DID** (no leading 1).
 - The dialplan (03 §6.4) normalizes it to 11 digits and checks `sp-did-exists`. If that fails,
   it falls back to the user part of the `To:` header. That covers either behavior.
-- **M3 acceptance check (verify):** run `pjsip set logger on`, call the DID from a
-  mobile phone, and confirm which header carries the DID. Record the finding here.
+- **Checked (owner, 2026-10-21):** a mobile → DID call came in with the DID as the Request-URI
+  user, and the dialplan routed it to the digital receptionist. The `To:` fallback stays for
+  other providers.
 - Inbound caller ID arrives as 10 digits for North American callers. The dialplan normalizes it to 11.
 
 ## 4. Outbound calls
