@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // 12 §4.3: who a directory entry may connect to by email, who may disconnect it (§4.5), and a
-// directory that's down counting as a failed sign-in (§4.2).
+// directory that's down counting as a failed sign-in (§4.2). 08 §7: no OpenID user by email, no
+// swapping the connected account.
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { resetLoginLimiter } from '../src/auth/login-limiter.ts';
 import { userIdentities, users } from '../src/db/schema.ts';
 import { setSetting } from '../src/services/settings.ts';
-import { directorySignIn } from '../src/sso/directory.ts';
+import { connectDirectory, directorySignIn } from '../src/sso/directory.ts';
 import type { DirectoryEntry } from '../src/sso/ldap.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
@@ -50,6 +51,38 @@ describe.skipIf(!hasTestDb)('directory accounts by email (12 §4.3)', () => {
       expect((await directorySignIn(t.db, log, entry(u.email), '127.0.0.1'))?.id).toBe(u.id);
       expect(await connected(u.id)).toBe(1);
     }
+  });
+
+  it('never connects by email someone who signs in with OpenID (08 §7 #1)', async () => {
+    // A directory that lets people edit their own mail: Mallory's entry, the victim's email.
+    const victim = await t.addUser('oidc-only@example.com', 'unused-pw-2');
+    await t.db.update(users).set({ passwordHash: null }).where(eq(users.id, victim.id));
+    await t.db
+      .insert(userIdentities)
+      .values({ userId: victim.id, kind: 'oidc', subject: 'https://idp victim-sub' });
+    expect(await directorySignIn(t.db, log, entry(victim.email), '127.0.0.1')).toBeNull();
+    expect(await connected(victim.id)).toBe(1); // the OpenID account only
+  });
+
+  it('a connected directory account is only swapped by an admin (08 §7 #5)', async () => {
+    const u = await t.addUser('swapper@example.com', 'swapper-password-1');
+    expect(await connectDirectory(t.db, log, u.id, entry(u.email), '127.0.0.1')).toBe('connected');
+    const [first] = await t.db.select().from(userIdentities).where(eq(userIdentities.userId, u.id));
+    // The same account again is fine; another one (a shared mailbox) is not.
+    expect(
+      await connectDirectory(
+        t.db,
+        log,
+        u.id,
+        { ...entry(u.email), id: first!.subject },
+        '127.0.0.1',
+      ),
+    ).toBe('connected');
+    expect(await connectDirectory(t.db, log, u.id, entry('shared@example.com'), '127.0.0.1')).toBe(
+      'connected_other',
+    );
+    const now = await t.db.select().from(userIdentities).where(eq(userIdentities.userId, u.id));
+    expect(now.map((i) => i.subject)).toEqual([first!.subject]);
   });
 
   it('only an admin can disconnect a directory account (a leaver must stay checked)', async () => {
