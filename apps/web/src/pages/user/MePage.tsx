@@ -1,12 +1,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // My Phone (05 §4): Home, Calls, Voicemail, Contacts (11), Settings, People, and the softphone.
+import {
+  BookUser,
+  House,
+  Info,
+  LogOut,
+  Menu,
+  Phone,
+  PhoneMissed,
+  Settings,
+  Shield,
+  Users,
+  Voicemail,
+  X,
+} from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Route, Routes, useNavigate } from 'react-router';
 import type { AuthUser } from '@selfphoneng/shared';
 import { meApi, signOut } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
-import { Alert, Brand, Button } from '../../components/ui.tsx';
+import { Alert, Brand, Button, Panel } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
 import { SoftphoneDock } from '../../softphone/SoftphoneDock.tsx';
 import { PresencePanel } from '../../softphone/PresencePanel.tsx';
@@ -17,7 +31,7 @@ import { ParkedCalls } from '../../components/ParkedCalls.tsx';
 import { DndSwitch, MeSettingsPage, showTarget, useMe } from './MeSettingsPage.tsx';
 import { ContactsPage, useContactName, useContactShares } from './ContactsPage.tsx';
 
-const link = 'text-sky-700 underline dark:text-sky-400';
+const link = 'text-link underline';
 
 export function MePage({ user }: { user: AuthUser }) {
   const qc = useQueryClient();
@@ -36,15 +50,25 @@ export function MePage({ user }: { user: AuthUser }) {
   const toasts = useLive((s) => s.toasts);
   const offers = useContactShares().data?.length ?? 0;
 
+  const [menu, setMenu] = useState(false);
+  const close = () => setMenu(false);
+  async function logout() {
+    await signOut(); // may leave for the OpenID provider's sign-out page (12 §3.5)
+    qc.clear();
+    nav('/login', { replace: true });
+  }
+
   const tab = ({ isActive }: { isActive: boolean }) =>
-    `rounded-md px-3 py-2 text-sm font-medium ${isActive ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'}`;
+    `inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium pointer-coarse:py-3 ${isActive ? 'bg-primary-soft text-primary-ink' : 'hover:bg-subtle'}`;
+  const icon = 'size-4 shrink-0';
+  const row = tab({ isActive: false });
   return (
     <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-6 p-4 sm:p-8">
-      <header className="flex flex-wrap items-center justify-between gap-2">
+      <header className="flex items-center justify-between gap-2">
         <h1 className="text-xl">
           <Brand />
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-2 md:flex">
           {user.role === 'admin' && (
             <Link className={`${link} text-sm`} to="/admin">
               Admin
@@ -54,47 +78,81 @@ export function MePage({ user }: { user: AuthUser }) {
             About
           </Link>
           <ThemeToggle />
-          <Button
-            variant="ghost"
-            onClick={async () => {
-              await signOut(); // may leave for the OpenID provider's sign-out page (12 §3.5)
-              qc.clear();
-              nav('/login', { replace: true });
-            }}
-          >
+          <Button variant="ghost" onClick={logout}>
             Sign out
           </Button>
         </div>
+        <Button
+          variant="ghost"
+          className="relative md:hidden"
+          aria-expanded={menu}
+          aria-controls="me-nav"
+          aria-label={offers > 0 ? `Menu, ${offers} shared with you` : 'Menu'}
+          onClick={() => setMenu((o) => !o)}
+        >
+          <Menu className="size-5" />
+          {offers > 0 && (
+            <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary" />
+          )}
+        </Button>
       </header>
+      {/* On phones the tabs and the header links fold into the menu button. */}
       <nav
+        id="me-nav"
         aria-label="My phone"
-        className="flex gap-1 border-b border-zinc-200 pb-2 dark:border-zinc-800"
+        className={`${menu ? 'flex' : 'hidden'} flex-col gap-1 border-b border-line pb-2 md:flex md:flex-row`}
       >
-        <NavLink to="/me" end className={tab}>
+        <NavLink to="/me" end className={tab} onClick={close}>
+          <House className={icon} />
           Home
         </NavLink>
-        <NavLink to="/me/calls" className={tab}>
+        <NavLink to="/me/calls" className={tab} onClick={close}>
+          <Phone className={icon} />
           Calls
         </NavLink>
-        <NavLink to="/me/voicemail" className={tab}>
+        <NavLink to="/me/voicemail" className={tab} onClick={close}>
+          <Voicemail className={icon} />
           Voicemail
         </NavLink>
-        <NavLink to="/me/contacts" className={tab}>
+        <NavLink to="/me/contacts" className={tab} onClick={close}>
+          <BookUser className={icon} />
           Contacts
           {offers > 0 && (
-            <span className="ml-1 rounded-full bg-sky-600 px-1.5 text-xs text-white">
+            <span className="rounded-full bg-primary px-1.5 text-xs text-white">
               <span className="sr-only">, shared with you: </span>
               {offers}
             </span>
           )}
         </NavLink>
-        <NavLink to="/me/settings" className={tab}>
+        <NavLink to="/me/settings" className={tab} onClick={close}>
+          <Settings className={icon} />
           Settings
         </NavLink>
         {/* People is a right-hand column on wide screens, a tab on small ones (05 §4.1). */}
-        <NavLink to="/me/people" className={(s) => `${tab(s)} lg:hidden`}>
+        <NavLink to="/me/people" className={(s) => `${tab(s)} lg:hidden`} onClick={close}>
+          <Users className={icon} />
           People
         </NavLink>
+        <div className="mt-1 flex flex-col gap-1 border-t border-line pt-2 md:hidden">
+          {user.role === 'admin' && (
+            <Link className={row} to="/admin">
+              <Shield className={icon} />
+              Admin
+            </Link>
+          )}
+          <Link className={row} to="/about">
+            <Info className={icon} />
+            About
+          </Link>
+          <div className="flex items-center justify-between pl-3 text-sm font-medium">
+            Theme
+            <ThemeToggle />
+          </div>
+          <button type="button" className={`${row} text-left`} onClick={logout}>
+            <LogOut className={icon} />
+            Sign out
+          </button>
+        </div>
       </nav>
       {toasts.map((t) => (
         <div
@@ -111,7 +169,7 @@ export function MePage({ user }: { user: AuthUser }) {
               useLive.setState((s) => ({ toasts: s.toasts.filter((x) => x.id !== t.id) }))
             }
           >
-            ✕
+            <X className="size-4" />
           </Button>
         </div>
       ))}
@@ -135,39 +193,50 @@ export function MePage({ user }: { user: AuthUser }) {
   );
 }
 
+const seeAll = 'text-sm font-medium text-link hover:underline';
+const when = (iso: string) =>
+  new Date(iso).toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+
+/** One line in a Home card: a round icon, two lines of text, and an optional button. */
+function Row({
+  icon,
+  title,
+  detail,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  detail: string;
+  children?: ReactNode;
+}) {
+  return (
+    <li className="flex items-center gap-3 py-2">
+      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-subtle">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{title}</span>
+        <span className="block text-xs text-muted">{detail}</span>
+      </span>
+      {children}
+    </li>
+  );
+}
+
 function Home({ user }: { user: AuthUser }) {
-  const list = useQuery({ queryKey: ['me', 'voicemail'], queryFn: meApi.voicemail });
-  const fresh = list.data?.filter(isNew) ?? [];
-  const nameOf = useContactName();
   return (
     <div className="flex flex-col gap-6">
-      <p>Hi {user.displayName}.</p>
+      <p className="text-2xl font-semibold">Hi {user.displayName}</p>
       <SharedNotice />
       {user.extension && <StatusCard ext={user.extension.number} />}
-      {user.extension && <MissedCalls />}
+      <div className="grid gap-4 md:grid-cols-2">
+        {user.extension && <MissedCalls />}
+        <NewVoicemails />
+      </div>
       {user.extension && <ParkedOnHome />}
-      <section aria-labelledby="new-vm" className="flex flex-col gap-2">
-        <h2 id="new-vm" className="text-lg font-semibold">
-          New voicemails
-        </h2>
-        {list.error && <Alert>{list.error.message}</Alert>}
-        {list.data && fresh.length === 0 && <p className="text-sm text-zinc-500">None.</p>}
-        <ul className="flex flex-col gap-1">
-          {fresh.slice(0, 5).map((m) => (
-            <li key={m.id} className="text-sm">
-              <span className="font-semibold">{nameOf(m.callerNumber) ?? callerOf(m)}</span>{' '}
-              <span className="text-zinc-500">
-                {new Date(m.receivedAt).toLocaleString()} · {mmss(m.durationS)}
-              </span>
-            </li>
-          ))}
-        </ul>
-        {list.data && list.data.length > 0 && (
-          <Link className={`${link} text-sm`} to="/me/voicemail">
-            Open voicemail
-          </Link>
-        )}
-      </section>
       <p className="text-sm">
         <Link className={link} to="/change-password">
           Change password
@@ -177,13 +246,49 @@ function Home({ user }: { user: AuthUser }) {
   );
 }
 
+function NewVoicemails() {
+  const list = useQuery({ queryKey: ['me', 'voicemail'], queryFn: meApi.voicemail });
+  const fresh = list.data?.filter(isNew) ?? [];
+  const nameOf = useContactName();
+  return (
+    <Panel
+      title="New voicemails"
+      action={
+        list.data &&
+        list.data.length > 0 && (
+          <Link className={seeAll} to="/me/voicemail">
+            Open voicemail
+          </Link>
+        )
+      }
+    >
+      {list.error && <Alert>{list.error.message}</Alert>}
+      {list.data && fresh.length === 0 && (
+        <p className="text-sm text-muted">You're all caught up.</p>
+      )}
+      {fresh.length > 0 && (
+        <ul className="-my-2 divide-y divide-line">
+          {fresh.slice(0, 5).map((m) => (
+            <Row
+              key={m.id}
+              icon={<Voicemail className="size-4 text-link" />}
+              title={nameOf(m.callerNumber) ?? callerOf(m)}
+              detail={`${when(m.receivedAt)} · ${mmss(m.durationS)}`}
+            />
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
 /** "Dan shared 2 contacts with you": they wait in Contacts for Accept or Deny (11 §2.1). */
 function SharedNotice() {
   const offers = useContactShares().data ?? [];
   if (!offers.length) return null;
   const from = [...new Set(offers.map((o) => o.from?.name ?? 'Someone'))].join(', ');
   return (
-    <p role="status" className="rounded-md bg-sky-50 p-3 text-sm dark:bg-sky-950">
+    <p role="status" className="rounded-md bg-primary-soft p-3 text-sm">
       {from} shared {offers.length} contact{offers.length === 1 ? '' : 's'} with you.{' '}
       <Link className={link} to="/me/contacts">
         Accept or deny
@@ -202,19 +307,20 @@ function StatusCard({ ext }: { ext: string }) {
     me.data.cfna && `no answer → ${showTarget(me.data.cfna)}`,
   ].filter(Boolean);
   return (
-    <section
-      aria-label="My status"
-      className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+    <Panel
+      title="My status"
+      action={
+        <Link className={seeAll} to="/me/settings">
+          Change
+        </Link>
+      }
     >
       <DndSwitch me={me.data} />
       <QueueLogins ext={ext} />
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
-        {fwd.length ? `Forwarding: ${fwd.join(', ')}.` : 'Not forwarding.'}{' '}
-        <Link className={link} to="/me/settings">
-          Change
-        </Link>
+      <p className="text-sm text-muted">
+        {fwd.length ? `Forwarding: ${fwd.join(', ')}.` : 'Not forwarding.'}
       </p>
-    </section>
+    </Panel>
   );
 }
 
@@ -242,7 +348,7 @@ function QueueLogins({ ext }: { ext: string }) {
               onChange={(e) => toggle.mutate({ id: q.id, paused: !e.target.checked })}
             />
             Taking calls from queue {q.name} ({q.number})
-            <span className="text-xs text-zinc-500">(also *45{q.number} from your phone)</span>
+            <span className="text-xs text-muted">(also *45{q.number} from your phone)</span>
           </label>
         );
       })}
@@ -258,7 +364,7 @@ function ParkedOnHome() {
     <div className="flex flex-col gap-1">
       <ParkedCalls onPickUp={call} />
       {note && (
-        <p role="status" className="text-sm text-zinc-500">
+        <p role="status" className="text-sm text-muted">
           {note}
         </p>
       )}
@@ -273,44 +379,49 @@ function MissedCalls() {
   const missed = calls.data?.items.filter((c) => c.missedByMe).slice(0, 5) ?? [];
   const nameOf = useContactName();
   return (
-    <section aria-labelledby="missed-h" className="flex flex-col gap-2">
-      <h2 id="missed-h" className="text-lg font-semibold">
-        Missed calls
-      </h2>
-      {calls.data && missed.length === 0 && <p className="text-sm text-zinc-500">None.</p>}
+    <Panel
+      title="Missed calls"
+      action={
+        calls.data &&
+        calls.data.items.length > 0 && (
+          <Link className={seeAll} to="/me/calls">
+            All my calls
+          </Link>
+        )
+      }
+    >
+      {calls.data && missed.length === 0 && <p className="text-sm text-muted">No missed calls.</p>}
       {note && (
-        <p role="status" className="text-sm text-zinc-500">
+        <p role="status" className="text-sm text-muted">
           {note}
         </p>
       )}
-      <ul className="flex flex-col gap-1 text-sm">
-        {missed.map((c) => {
-          const o = otherParty(c);
-          return (
-            <li key={c.id}>
-              <span className="font-semibold">
-                {nameOf(o.number) ?? o.name ?? fmtNumber(o.number)}
-              </span>{' '}
-              <span className="text-zinc-500">{new Date(c.startedAt).toLocaleString()}</span>{' '}
-              {o.number && (
-                <button
-                  type="button"
-                  className={link}
-                  onClick={() => call(o.number!)}
-                  aria-label={`Call back ${fmtNumber(o.number)}`}
-                >
-                  Call back
-                </button>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-      {calls.data && calls.data.items.length > 0 && (
-        <Link className={`${link} text-sm`} to="/me/calls">
-          All my calls
-        </Link>
+      {missed.length > 0 && (
+        <ul className="-my-2 divide-y divide-line">
+          {missed.map((c) => {
+            const o = otherParty(c);
+            return (
+              <Row
+                key={c.id}
+                icon={<PhoneMissed className="size-4 text-red-600 dark:text-red-400" />}
+                title={nameOf(o.number) ?? o.name ?? fmtNumber(o.number)}
+                detail={when(c.startedAt)}
+              >
+                {o.number && (
+                  <Button
+                    variant="ghost"
+                    className="text-link"
+                    onClick={() => call(o.number!)}
+                    aria-label={`Call back ${fmtNumber(o.number)}`}
+                  >
+                    <Phone className="size-4" />
+                  </Button>
+                )}
+              </Row>
+            );
+          })}
+        </ul>
       )}
-    </section>
+    </Panel>
   );
 }

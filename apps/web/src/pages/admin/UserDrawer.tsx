@@ -82,7 +82,7 @@ export function UserDrawer({
       <div
         role="tablist"
         aria-label="User settings"
-        className="mb-4 flex gap-1 border-b border-zinc-200 dark:border-zinc-800"
+        className="mb-4 flex gap-1 border-b border-line"
       >
         {tabs.map((t) => (
           <button
@@ -93,7 +93,7 @@ export function UserDrawer({
             disabled={!t.enabled}
             title={t.enabled ? undefined : 'Give the user an extension number first'}
             onClick={() => setTab(t.id)}
-            className={`-mb-px border-b-2 px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:text-zinc-400 ${tab === t.id ? 'border-sky-600' : 'border-transparent hover:border-zinc-300'}`}
+            className={`-mb-px border-b-2 px-3 py-1.5 text-sm font-medium disabled:cursor-not-allowed disabled:text-muted ${tab === t.id ? 'border-primary' : 'border-transparent hover:border-line-strong'}`}
           >
             {t.label}
           </button>
@@ -243,9 +243,9 @@ function GeneralTab({
         </label>
       )}
       {user && (
-        <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+        <div className="border-t border-line pt-4">
           <Button onClick={() => onResetPassword(user)}>Reset password</Button>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-muted">
             Creates a new temporary password and signs them out everywhere.
           </p>
           {user.twoStep && <ResetTwoStep user={user} />}
@@ -413,7 +413,7 @@ function CredentialsTab({ ext }: { ext: ExtensionDto }) {
   };
   const row = (label: string, value: ReactNode) => (
     <div className="flex flex-col gap-0.5 sm:flex-row sm:gap-3">
-      <dt className="w-28 shrink-0 text-zinc-500">{label}</dt>
+      <dt className="w-28 shrink-0 text-muted">{label}</dt>
       <dd className="font-mono break-all">{value}</dd>
     </div>
   );
@@ -421,7 +421,7 @@ function CredentialsTab({ ext }: { ext: ExtensionDto }) {
   return (
     <div className="flex flex-col gap-4 text-sm">
       {error && <Alert>{error}</Alert>}
-      <p className="text-zinc-600 dark:text-zinc-400">
+      <p className="text-muted">
         Use these to set up a desk phone or softphone by hand. Viewing the password is recorded in
         the audit log.
       </p>
@@ -436,7 +436,7 @@ function CredentialsTab({ ext }: { ext: ExtensionDto }) {
         {creds && row('Dial plan', creds.dialPlan)}
       </dl>
       {creds && (
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-muted">
           The dial plan is for analog phone adapters (Grandstream HT80x and HT81x): numbers that
           match go out at once, the rest after a pause or #.
         </p>
@@ -446,7 +446,7 @@ function CredentialsTab({ ext }: { ext: ExtensionDto }) {
           Reveal password
         </Button>
       )}
-      <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+      <div className="border-t border-line pt-4">
         {!confirming ? (
           <Button onClick={() => setConfirming(true)}>New SIP password</Button>
         ) : (
@@ -462,7 +462,7 @@ function CredentialsTab({ ext }: { ext: ExtensionDto }) {
         )}
         {done && <p className="mt-2 text-green-700 dark:text-green-400">New password saved.</p>}
       </div>
-      <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+      <div className="border-t border-line pt-4">
         <h3 className="mb-2 font-medium">Phone app</h3>
         <PhoneAppSetup load={() => extensionsApi.softphoneQr(ext.id)} />
       </div>
@@ -614,7 +614,7 @@ function ConnectedAccount({ user, kind }: { user: UserDto; kind: 'oidc' | 'ldap'
           <p>
             <span className="font-medium">{label}</span>: {oidc.email ?? 'connected'}
           </p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Groups at the last sign-in: {oidc.groups.length ? oidc.groups.join(', ') : 'none'}
           </p>
         </>
@@ -650,7 +650,7 @@ function ResetTwoStep({ user }: { user: UserDto }) {
           Turn off two-step sign-in
         </Button>
       )}
-      <p className="mt-1 text-xs text-zinc-500">
+      <p className="mt-1 text-xs text-muted">
         For a lost phone: they sign in with their password alone and can turn it on again.
       </p>
       {reset.error && <Alert>{reset.error.message}</Alert>}

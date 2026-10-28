@@ -45,7 +45,7 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
       </div>
 
       {users.isError && <Alert>{users.error.message}</Alert>}
-      {users.isPending && <p className="text-sm text-zinc-500">Loading…</p>}
+      {users.isPending && <p className="text-sm text-muted">Loading…</p>}
       {users.data && (
         <UsersTable
           users={users.data}
@@ -105,7 +105,7 @@ export function UsersPage({ currentUserId }: { currentUserId: string }) {
             they must change it when they first sign in.
           </p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 rounded-md bg-zinc-100 px-3 py-2 font-mono text-base dark:bg-zinc-800">
+            <code className="flex-1 rounded-md bg-subtle px-3 py-2 font-mono text-base">
               {tempPassword?.password}
             </code>
             <Button
@@ -131,7 +131,7 @@ function UsersTable({
 }) {
   const live = useLive((s) => s.extensions);
   const oidcLabel = useAuthMethods().data?.oidc?.label ?? 'OpenID';
-  if (users.length === 0) return <p className="text-sm text-zinc-500">No users yet.</p>;
+  if (users.length === 0) return <p className="text-sm text-muted">No users yet.</p>;
   const ext = (u: UserDto) =>
     u.extension ? (
       <span className="inline-flex items-center gap-1.5 font-mono">
@@ -144,13 +144,11 @@ function UsersTable({
   const badge = (u: UserDto) => (
     <span className="flex flex-wrap gap-1">
       {u.role === 'admin' && (
-        <span className="rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800 dark:bg-sky-950 dark:text-sky-200">
+        <span className="rounded bg-primary-soft px-1.5 py-0.5 text-xs text-primary-ink">
           admin
         </span>
       )}
-      {!u.isActive && (
-        <span className="rounded bg-zinc-200 px-1.5 py-0.5 text-xs dark:bg-zinc-700">inactive</span>
-      )}
+      {!u.isActive && <span className="rounded bg-line px-1.5 py-0.5 text-xs">inactive</span>}
     </span>
   );
   // 12 §5: every way this user can sign in.
@@ -173,18 +171,18 @@ function UsersTable({
       {/* Stacked cards on small screens (05 §1). */}
       <ul className="flex flex-col gap-2 md:hidden">
         {users.map((u) => (
-          <li key={u.id} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+          <li key={u.id} className="rounded-xl border border-line bg-surface shadow-sm p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="font-medium">
                   {u.displayName}
-                  {u.extension && <span className="ml-2 text-sm text-zinc-500">{ext(u)}</span>}
+                  {u.extension && <span className="ml-2 text-sm text-muted">{ext(u)}</span>}
                 </p>
-                <p className="truncate text-sm text-zinc-500">{u.email}</p>
+                <p className="truncate text-sm text-muted">{u.email}</p>
               </div>
               {badge(u)}
             </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-zinc-500">
+            <div className="mt-2 flex items-center justify-between text-xs text-muted">
               <span>
                 Last login: {fmtDate(u.lastLoginAt)} · {ways(u)}
               </span>
@@ -194,7 +192,7 @@ function UsersTable({
         ))}
       </ul>
       <table className="hidden w-full text-left text-sm md:table">
-        <thead className="border-b border-zinc-200 text-zinc-500 dark:border-zinc-800">
+        <thead className="border-b border-line text-muted">
           <tr>
             <th className="py-2 font-medium">Ext.</th>
             <th className="py-2 font-medium">Name</th>
@@ -209,13 +207,13 @@ function UsersTable({
         </thead>
         <tbody>
           {users.map((u) => (
-            <tr key={u.id} className="border-b border-zinc-100 dark:border-zinc-800/60">
+            <tr key={u.id} className="border-b border-line">
               <td className="py-2">{ext(u)}</td>
               <td className="py-2 font-medium">{u.displayName}</td>
               <td className="py-2">{u.email}</td>
               <td className="py-2">{badge(u)}</td>
               <td className="py-2">{ways(u)}</td>
-              <td className="py-2 text-zinc-500">{fmtDate(u.lastLoginAt)}</td>
+              <td className="py-2 text-muted">{fmtDate(u.lastLoginAt)}</td>
               <td className="py-2 text-right">{actions(u)}</td>
             </tr>
           ))}

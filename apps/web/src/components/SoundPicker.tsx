@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // SoundPicker (05 §3): pick a recorded prompt, play it, or upload a new one right here.
+import { Play } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useId, useRef } from 'react';
 import { soundsApi } from '../api/client.ts';
@@ -63,7 +64,7 @@ export function SoundPicker({
             void a.play().catch(() => undefined);
           }}
         >
-          ▶
+          <Play className="size-4" />
         </Button>
         <Button onClick={() => file.current?.click()} disabled={upload.isPending}>
           {upload.isPending ? 'Uploading…' : 'Upload new'}

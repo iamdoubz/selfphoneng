@@ -5,6 +5,25 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
+## v0.0.11 — 2026-10-28
+
+**Updating:** no database changes. Portainer: change both tags to `0.0.11` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.11`.
+
+- **Phones:** on an iPhone a ringing call dimmed the screen but showed no Answer button (iOS
+  zoomed into the small sign-in fields and stayed zoomed, so the call dialog was off screen).
+  Fields are now 16px on touch screens and buttons at least 44px. A ringing call gets its own
+  screen: full screen on a phone, with big round Decline and Answer buttons. My Phone's tabs fold
+  into a menu button on narrow screens.
+- **New look:** colors from the logo (blue, and its navy for dark mode), cards on an off-white
+  page, and text that is easy to read in both themes (all text at least WCAG AA). Icons
+  throughout.
+- **Admin sidebar** grouped into Call routing, People, Features, History and System.
+- **My Phone Home** is a set of cards: My status, Missed calls (with call back) and New
+  voicemails.
+- **Browser phone:** a status pill (Ready, Connecting…), phone-style call buttons with icons
+  (Mute, Hold, Keypad, Transfer, Hang up) and a round keypad with the letters under the digits.
+
 ## v0.0.10 — 2026-10-27
 
 **Before you update:** this version changes the database (spam check); the api backs up first,

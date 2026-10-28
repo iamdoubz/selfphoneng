@@ -47,12 +47,12 @@ export function MyCallsPage() {
       </h2>
       {list.isError && <Alert>{list.error.message}</Alert>}
       {note && (
-        <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p role="status" className="text-sm text-muted">
           {note}
         </p>
       )}
-      {list.data && calls.length === 0 && <p className="text-sm text-zinc-500">No calls yet.</p>}
-      <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+      {list.data && calls.length === 0 && <p className="text-sm text-muted">No calls yet.</p>}
+      <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
         {calls.map((c) => {
           const other = otherParty(c);
           const known = nameOf(other.number);
@@ -61,7 +61,7 @@ export function MyCallsPage() {
               key={c.id}
               className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm"
             >
-              <span className="w-36 text-zinc-500">{new Date(c.startedAt).toLocaleString()}</span>
+              <span className="w-36 text-muted">{new Date(c.startedAt).toLocaleString()}</span>
               <span className="w-10">{c.myRole === 'out' ? 'Out' : 'In'}</span>
               <span
                 className={`min-w-0 flex-1 ${c.missedByMe ? 'font-semibold text-red-700 dark:text-red-400' : ''}`}
@@ -70,7 +70,7 @@ export function MyCallsPage() {
                 {other.number ? (
                   <button
                     type="button"
-                    className="text-sky-700 underline dark:text-sky-400"
+                    className="text-link underline"
                     aria-label={`Call back ${fmtNumber(other.number)}`}
                     onClick={() => call(other.number!)}
                   >
@@ -80,7 +80,7 @@ export function MyCallsPage() {
                   'Unknown'
                 )}
                 {c.direction !== 'internal' && (
-                  <span className="text-zinc-500"> · {DIRECTION_TEXT[c.direction]}</span>
+                  <span className="text-muted"> · {DIRECTION_TEXT[c.direction]}</span>
                 )}
                 {!known && other.number && c.direction !== 'internal' && (
                   <AddToContacts number={other.number} name={other.name} />

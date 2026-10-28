@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Ring groups (05 §2, 03 §6.7): one number that rings several people, everyone at once or one at
 // a time, then goes somewhere else when nobody answers.
+import { ArrowDown, ArrowUp, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -40,13 +41,13 @@ export function RingGroupsPage() {
       </div>
       {groups.isError && <Alert>{groups.error.message}</Alert>}
       {groups.data?.length === 0 && (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           No ring groups yet. A ring group is one number (like 500 for Sales) that rings several
           people.
         </p>
       )}
       {groups.data && groups.data.length > 0 && (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
           {groups.data.map((g) => (
             <li
               key={g.id}
@@ -54,7 +55,7 @@ export function RingGroupsPage() {
             >
               <span className="font-mono">{g.number}</span>
               <span className="font-medium">{g.name}</span>
-              <span className="min-w-0 flex-1 truncate text-zinc-500">
+              <span className="min-w-0 flex-1 truncate text-muted">
                 {g.strategy === 'ringall' ? 'Everyone at once' : 'One at a time'}:{' '}
                 {g.memberIds.map(nameOf).join(', ') || 'nobody yet'} · then {g.noAnswerSummary}
               </span>
@@ -238,7 +239,7 @@ function RingGroupForm({
           <ol className="flex flex-col gap-1">
             {members.map((m, i) => (
               <li key={m} className="flex items-center gap-2 text-sm">
-                <span className="w-5 text-zinc-500">{i + 1}.</span>
+                <span className="w-5 text-muted">{i + 1}.</span>
                 <span className="flex-1">{label(m)}</span>
                 <Button
                   className="px-2 py-1"
@@ -246,7 +247,7 @@ function RingGroupForm({
                   disabled={i === 0}
                   onClick={() => move(i, -1)}
                 >
-                  ↑
+                  <ArrowUp className="size-4" />
                 </Button>
                 <Button
                   className="px-2 py-1"
@@ -254,7 +255,7 @@ function RingGroupForm({
                   disabled={i === members.length - 1}
                   onClick={() => move(i, 1)}
                 >
-                  ↓
+                  <ArrowDown className="size-4" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -262,7 +263,7 @@ function RingGroupForm({
                   aria-label={`Remove ${label(m)}`}
                   onClick={() => setMembers((ms) => ms.filter((x) => x !== m))}
                 >
-                  ✕
+                  <X className="size-4" />
                 </Button>
               </li>
             ))}
@@ -282,7 +283,7 @@ function RingGroupForm({
               ))}
             </select>
           )}
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Members' call forwarding and voicemail don't apply here; Do not disturb does.
           </p>
         </fieldset>

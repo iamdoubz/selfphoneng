@@ -15,19 +15,19 @@ const mmss = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).
 function Transcript({ id }: { id: string }) {
   const t = useQuery({ queryKey: ['transcript', id], queryFn: () => recordingsApi.transcript(id) });
   if (t.error) return <Alert>{t.error.message}</Alert>;
-  if (!t.data) return <p className="text-zinc-500">Loading…</p>;
+  if (!t.data) return <p className="text-muted">Loading…</p>;
   return (
     <ol aria-label="Transcript" className="mt-1 flex flex-col gap-1">
       {t.data.lines.map((l, i) => (
         <li key={i} className="flex gap-2">
-          <span className="w-10 shrink-0 text-zinc-500 tabular-nums">{mmss(l.at)}</span>
+          <span className="w-10 shrink-0 text-muted tabular-nums">{mmss(l.at)}</span>
           <span className="w-20 shrink-0 font-medium">
             {l.side === 'caller' ? 'Caller' : 'Other side'}
           </span>
           <span>{l.text}</span>
         </li>
       ))}
-      {!t.data.lines.length && <li className="text-zinc-500">No words.</li>}
+      {!t.data.lines.length && <li className="text-muted">No words.</li>}
     </ol>
   );
 }
@@ -55,7 +55,7 @@ export function RecordingsPage() {
   return (
     <section className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Recordings</h1>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted">
         Calls are recorded when a user's record mode or a phone number says so. How long they're
         kept is under Settings → Recording. With call transcripts on (Settings → AI), each call is
         written out a minute or two after it ends.
@@ -90,21 +90,21 @@ export function RecordingsPage() {
       </form>
       {list.isError && <Alert>{list.error.message}</Alert>}
       {list.data && items.length === 0 && (
-        <p className="text-sm text-zinc-500">{q ? 'No call mentions that.' : 'No recordings.'}</p>
+        <p className="text-sm text-muted">{q ? 'No call mentions that.' : 'No recordings.'}</p>
       )}
       <ul
         aria-label="Recordings"
-        className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800"
+        className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm"
       >
         {items.map((r) => (
           <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2 text-sm">
-            <span className="w-36 text-zinc-500">{new Date(r.startedAt).toLocaleString()}</span>
+            <span className="w-36 text-muted">{new Date(r.startedAt).toLocaleString()}</span>
             <span className="min-w-0 flex-1">
               {r.call
                 ? `${r.call.fromName ?? fmtNumber(r.call.fromNumber)} → ${fmtNumber(r.call.toNumber)}`
                 : 'Call not found'}
               {r.durationMs !== null && (
-                <span className="text-zinc-500">
+                <span className="text-muted">
                   {' '}
                   · {fmtDuration(Math.round(r.durationMs / 1000))}
                 </span>
@@ -119,7 +119,7 @@ export function RecordingsPage() {
             />
             <a
               href={recordingsApi.audioUrl(r.id, true)}
-              className="rounded-md px-3 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800"
+              className="rounded-md px-3 py-2 text-sm font-medium hover:bg-subtle"
             >
               Download
             </a>
@@ -127,15 +127,12 @@ export function RecordingsPage() {
               Delete
             </Button>
             {r.summary && (
-              <p
-                aria-label="Summary"
-                className="w-full whitespace-pre-line text-zinc-700 dark:text-zinc-300"
-              >
+              <p aria-label="Summary" className="w-full whitespace-pre-line text-fg">
                 {r.summary}
               </p>
             )}
             {r.aiError && (
-              <p className="w-full text-xs text-zinc-500">
+              <p className="w-full text-xs text-muted">
                 {r.hasTranscript ? '' : 'No transcript: '}
                 {r.aiError}
               </p>

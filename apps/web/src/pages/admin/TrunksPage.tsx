@@ -20,8 +20,7 @@ import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 import { useLive } from '../../live/store.ts';
 
 export function trunkStatus(t: Pick<TrunkDto, 'enabled' | 'authMode'>, live?: TrunkLive) {
-  if (!t.enabled)
-    return { label: 'Off', color: 'bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300' };
+  if (!t.enabled) return { label: 'Off', color: 'bg-line text-fg' };
   const ok = 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200';
   const bad = 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-200';
   const wait = 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200';
@@ -65,22 +64,22 @@ export function TrunksPage() {
           New trunk
         </Button>
       </div>
-      <p className="max-w-prose text-sm text-zinc-500">
+      <p className="max-w-prose text-sm text-muted">
         A trunk connects the phone system to your phone company (voip.ms or any SIP provider), so
         calls can go to and come from the outside world.
       </p>
       {trunks.isError && <Alert>{trunks.error.message}</Alert>}
-      {trunks.isPending && <p className="text-sm text-zinc-500">Loading…</p>}
+      {trunks.isPending && <p className="text-sm text-muted">Loading…</p>}
       {trunks.data?.length === 0 && (
-        <p className="text-sm text-zinc-500">No trunks yet. Add your voip.ms sub-account.</p>
+        <p className="text-sm text-muted">No trunks yet. Add your voip.ms sub-account.</p>
       )}
       {trunks.data && trunks.data.length > 0 && (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
           {trunks.data.map((t) => (
             <li key={t.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
               <StatusPill t={t} />
               <span className="font-medium">{t.name}</span>
-              <span className="flex-1 truncate text-zinc-500">
+              <span className="flex-1 truncate text-muted">
                 {t.username ? `${t.username}@` : ''}
                 {t.serverHost}
               </span>
@@ -404,7 +403,7 @@ export function TrunkForm({
         Enabled
       </label>
 
-      <details className="rounded-md border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+      <details className="rounded-md border border-line p-3 text-sm">
         <summary className="cursor-pointer font-medium">Advanced</summary>
         <div className="mt-3 flex flex-col gap-4">
           <label className="flex items-center gap-2 text-sm">
@@ -434,10 +433,10 @@ export function TrunkForm({
       </details>
 
       {voipms && (
-        <details className="rounded-md border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+        <details className="rounded-md border border-line p-3 text-sm">
           <summary className="cursor-pointer font-medium">voip.ms API (optional)</summary>
           <div className="mt-3 flex flex-col gap-4">
-            <p className="text-zinc-500">
+            <p className="text-muted">
               Needed for SMS and importing your numbers. In the voip.ms portal: Main Menu → SOAP and
               REST/JSON API. Enable it, set an API password, and allow this server's public IP
               address.
@@ -506,9 +505,9 @@ export function ImportNumbers({ trunk }: { trunk: TrunkDto }) {
   return (
     <fieldset className="flex flex-col gap-2">
       <legend className="mb-1 font-medium">Your voip.ms numbers</legend>
-      {list.isPending && <p className="text-zinc-500">Asking voip.ms…</p>}
+      {list.isPending && <p className="text-muted">Asking voip.ms…</p>}
       {list.isError && <Alert>{list.error.message}</Alert>}
-      {list.data?.length === 0 && <p className="text-zinc-500">voip.ms lists no numbers.</p>}
+      {list.data?.length === 0 && <p className="text-muted">voip.ms lists no numbers.</p>}
       {list.data?.map((d) => (
         <label key={d.number} className="flex items-center gap-2">
           <input
@@ -522,8 +521,8 @@ export function ImportNumbers({ trunk }: { trunk: TrunkDto }) {
             }
           />
           {formatNumber(d.number)}
-          {d.description && <span className="text-zinc-500">{d.description}</span>}
-          {d.added && <span className="text-zinc-500">(added)</span>}
+          {d.description && <span className="text-muted">{d.description}</span>}
+          {d.added && <span className="text-muted">(added)</span>}
         </label>
       ))}
       {fresh.length > 0 && (
@@ -558,7 +557,7 @@ function TestPanel({ trunk }: { trunk: TrunkDto }) {
   const live = useLive((s) => s.trunks[trunk.id]);
   const status = trunkStatus(trunk, live);
   return (
-    <div className="flex flex-col gap-2 rounded-md bg-zinc-50 p-3 text-sm dark:bg-zinc-900">
+    <div className="flex flex-col gap-2 rounded-md bg-subtle p-3 text-sm">
       <div className="flex items-center gap-2">
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${status.color}`}>
           {status.label}
@@ -582,7 +581,7 @@ function TestPanel({ trunk }: { trunk: TrunkDto }) {
 /** What the customer sets in the voip.ms portal (06 §1). */
 function VoipmsChecklist() {
   return (
-    <details className="rounded-md border border-sky-200 bg-sky-50 p-3 text-sm dark:border-sky-900 dark:bg-sky-950/40">
+    <details className="rounded-md border border-primary-line bg-primary-soft p-3 text-sm">
       <summary className="cursor-pointer font-medium">Set up voip.ms first (checklist)</summary>
       <ol className="mt-2 flex list-decimal flex-col gap-1.5 pl-5">
         <li>

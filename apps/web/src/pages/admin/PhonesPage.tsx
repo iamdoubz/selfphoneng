@@ -47,7 +47,7 @@ export function PhonesPage() {
           Add phone
         </Button>
       </div>
-      <p className="max-w-prose text-sm text-zinc-500">
+      <p className="max-w-prose text-sm text-muted">
         Add a desk phone by its MAC address (on a sticker under the phone) and it sets itself up:
         account, voicemail and pickup keys.
       </p>
@@ -58,11 +58,11 @@ export function PhonesPage() {
         </Alert>
       )}
       {phones.isError && <Alert>{phones.error.message}</Alert>}
-      {phones.data?.length === 0 && <p className="text-sm text-zinc-500">No phones yet.</p>}
+      {phones.data?.length === 0 && <p className="text-sm text-muted">No phones yet.</p>}
       {phones.data && phones.data.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="overflow-x-auto rounded-xl border border-line bg-surface shadow-sm">
           <table className="w-full text-left text-sm">
-            <thead className="text-zinc-500">
+            <thead className="text-muted">
               <tr>
                 <th className="px-3 py-2 font-medium">MAC</th>
                 <th className="px-3 py-2 font-medium">Phone</th>
@@ -71,18 +71,18 @@ export function PhonesPage() {
                 <th className="px-3 py-2" />
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <tbody className="divide-y divide-line">
               {phones.data.map((d) => (
                 <tr key={d.id}>
                   <td className="px-3 py-2 font-mono">{fmtMac(d.mac)}</td>
                   <td className="px-3 py-2">
                     {VENDOR[d.vendor].replace(' (set up by hand)', '')} {d.model}
-                    {d.label && <span className="text-zinc-500"> · {d.label}</span>}
+                    {d.label && <span className="text-muted"> · {d.label}</span>}
                   </td>
                   <td className="px-3 py-2">
                     {d.extensionNumber} {d.extensionName}
                   </td>
-                  <td className="px-3 py-2 text-zinc-500">
+                  <td className="px-3 py-2 text-muted">
                     {d.lastProvisionedAt
                       ? `${new Date(d.lastProvisionedAt).toLocaleString()} from ${d.lastProvisionedIp}`
                       : 'Never'}
@@ -248,7 +248,7 @@ function PhoneDrawer({
           )}
         </Field>
         {form.vendor === 'grandstream' && (
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted">
             Grandstream line keys differ by model, so busy-lamp keys aren't set: add them on the
             phone.
           </p>
@@ -273,16 +273,13 @@ function SetupInfo({ phone }: { phone: DeviceDto }) {
   });
   const row = (k: string, v: string) => (
     <div className="contents">
-      <dt className="text-zinc-500">{k}</dt>
+      <dt className="text-muted">{k}</dt>
       <dd className="font-mono break-all">{v}</dd>
     </div>
   );
   if (phone.vendor === 'generic')
     return (
-      <section
-        aria-label="Manual settings"
-        className="rounded-md bg-zinc-50 p-3 text-sm dark:bg-zinc-900"
-      >
+      <section aria-label="Manual settings" className="rounded-md bg-subtle p-3 text-sm">
         <p className="mb-2">Enter these on the phone:</p>
         {creds.data && (
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
@@ -298,10 +295,7 @@ function SetupInfo({ phone }: { phone: DeviceDto }) {
       </section>
     );
   return (
-    <section
-      aria-label="Set up the phone"
-      className="rounded-md bg-zinc-50 p-3 text-sm dark:bg-zinc-900"
-    >
+    <section aria-label="Set up the phone" className="rounded-md bg-subtle p-3 text-sm">
       <p className="mb-2">
         In the phone's web page (Settings → Auto Provision), or with DHCP option 66, set:
       </p>
@@ -310,7 +304,7 @@ function SetupInfo({ phone }: { phone: DeviceDto }) {
         {row('Username', phone.mac)}
         {row('Password', phone.provisioningPassword)}
       </dl>
-      <p className="mt-2 text-zinc-500">
+      <p className="mt-2 text-muted">
         Then reboot the phone.{' '}
         {phone.lastProvisionedAt
           ? 'It last fetched its settings ' +
@@ -327,7 +321,7 @@ function SetupInfo({ phone }: { phone: DeviceDto }) {
       {preview && (
         <pre
           aria-label="Config preview"
-          className="mt-2 max-h-80 overflow-auto rounded bg-white p-2 text-xs dark:bg-zinc-950"
+          className="mt-2 max-h-80 overflow-auto rounded bg-surface p-2 text-xs"
         >
           {preview}
         </pre>

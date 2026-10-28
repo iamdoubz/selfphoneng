@@ -3,12 +3,22 @@
 // dialpad and audio devices; call cards with mute/hold/keypad/transfer; the incoming call dialog.
 // Not yet: DND toggle (M6), Record via *1 and recent calls (M7).
 import { useQuery } from '@tanstack/react-query';
+import {
+  ArrowRightLeft,
+  Grid3x3,
+  Mic,
+  MicOff,
+  Pause,
+  Phone,
+  PhoneOff,
+  Power,
+  type LucideIcon,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatNumber } from '@selfphoneng/shared';
 import { meApi } from '../api/client.ts';
-import { Dialog } from '../components/Dialog.tsx';
 import { SpamNote } from '../components/SpamNote.tsx';
-import { Button, inputClass } from '../components/ui.tsx';
+import { Button, focusRing, inputClass } from '../components/ui.tsx';
 import { useLive } from '../live/store.ts';
 import { onTakeOver, stepDown, takeOver, tryLead } from './leader.ts';
 import { CALL_DRAG, softphone, type CallInfo } from './SoftphoneEngine.ts';
@@ -64,6 +74,24 @@ const STATUS = {
   registered: 'Ready',
   error: 'Error',
   elsewhere: 'Active in another tab',
+};
+const DOT = {
+  off: 'bg-line-strong',
+  connecting: 'bg-amber-500 animate-pulse motion-reduce:animate-none',
+  registered: 'bg-green-500',
+  error: 'bg-red-500',
+  elsewhere: 'bg-line-strong',
+};
+// The letters on a phone's keys, as a hint only (screen readers get the digit).
+const LETTERS: Record<string, string> = {
+  '2': 'ABC',
+  '3': 'DEF',
+  '4': 'GHI',
+  '5': 'JKL',
+  '6': 'MNO',
+  '7': 'PQRS',
+  '8': 'TUV',
+  '9': 'WXYZ',
 };
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
 const clean = (s: string) => s.replace(/[^0-9*#+]/g, '');
@@ -193,11 +221,15 @@ export function SoftphoneDock() {
   return (
     <section
       aria-label="Softphone"
-      className="sticky bottom-0 mt-auto flex flex-col gap-2 border-t border-zinc-200 bg-white py-3 dark:border-zinc-800 dark:bg-zinc-950"
+      className="sticky bottom-0 mt-auto flex flex-col gap-2 border-t border-line bg-page py-3"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium">
-          Softphone: <span role="status">{STATUS[reg]}</span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1 text-sm font-medium">
+          <span aria-hidden className={`size-2 rounded-full ${DOT[reg]}`} />
+          Softphone<span className="sr-only">:</span>
+          <span role="status" className="text-muted">
+            {STATUS[reg]}
+          </span>
         </span>
         <span className="flex-1" />
         {reg === 'off' && (
@@ -217,6 +249,7 @@ export function SoftphoneDock() {
               aria-controls="sp-panel"
               onClick={() => setOpen((o) => !o)}
             >
+              <Grid3x3 className="size-4" />
               {open ? 'Hide keypad' : 'Keypad'}
             </Button>
             <Button
@@ -226,6 +259,7 @@ export function SoftphoneDock() {
                 run(softphone.stop().then(stepDown));
               }}
             >
+              <Power className="size-4" />
               Turn off
             </Button>
           </>
@@ -247,44 +281,144 @@ export function SoftphoneDock() {
           <Devices />
         </div>
       )}
-      <Dialog
-        open={dialogCall !== undefined}
-        onClose={() => dialogCall && run(softphone.decline(dialogCall.id))}
-        title="Incoming call"
-        footer={
-          dialogCall && (
-            <>
-              <Button onClick={() => run(softphone.decline(dialogCall.id))}>Decline</Button>
-              <Button variant="primary" onClick={() => run(softphone.answer(dialogCall.id))}>
-                Answer
-              </Button>
-            </>
-          )
-        }
-      >
-        {dialogCall && (
-          <p className="text-lg">
-            <span className="font-semibold">{nameOf(dialogCall)}</span>
-            {nameOf(dialogCall) !== dialogCall.remote && (
-              <span className="block text-sm text-zinc-500">
-                {dialogCall.remote.length > 6 ? formatNumber(dialogCall.remote) : dialogCall.remote}
-              </span>
-            )}
-          </p>
-        )}
-        {dialogCall && <CallerCheck call={dialogCall} />}
-      </Dialog>
+      {dialogCall && (
+        <IncomingCall
+          call={dialogCall}
+          name={nameOf(dialogCall)}
+          onAnswer={() => run(softphone.answer(dialogCall.id))}
+          onDecline={() => run(softphone.decline(dialogCall.id))}
+        />
+      )}
     </section>
+  );
+}
+
+function RoundButton({
+  label,
+  color,
+  icon: Icon,
+  onClick,
+}: {
+  label: string;
+  color: string;
+  icon: LucideIcon;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex flex-col items-center gap-2 rounded-lg text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
+    >
+      <span
+        className={`grid size-16 place-items-center rounded-full text-white transition-transform group-active:scale-95 motion-reduce:transition-none ${color}`}
+      >
+        <Icon className="size-7" />
+      </span>
+      {label}
+    </button>
+  );
+}
+
+/** The ringing screen: full screen on a phone, a card on wider screens. Esc declines. */
+function IncomingCall({
+  call,
+  name,
+  onAnswer,
+  onDecline,
+}: {
+  call: CallInfo;
+  name: string;
+  onAnswer: () => void;
+  onDecline: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = ref.current;
+    if (d && !d.open) d.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby="ring-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        onDecline();
+      }}
+      className="m-0 h-dvh max-h-none w-full max-w-none bg-surface p-0 text-fg backdrop:bg-black/60 sm:m-auto sm:h-auto sm:max-w-sm sm:rounded-2xl sm:shadow-xl"
+    >
+      <div className="flex h-full flex-col items-center justify-between gap-10 px-6 py-16 text-center sm:py-8">
+        <div className="flex flex-col items-center gap-2">
+          <h2 id="ring-title" className="text-sm font-medium text-muted">
+            Incoming call
+          </h2>
+          <p className="text-3xl font-semibold break-words">{name}</p>
+          {name !== call.remote && (
+            <p className="text-muted tabular-nums">
+              {call.remote.length > 6 ? formatNumber(call.remote) : call.remote}
+            </p>
+          )}
+          <CallerCheck call={call} />
+        </div>
+        <div className="flex gap-16">
+          <RoundButton label="Decline" color="bg-red-600" icon={PhoneOff} onClick={onDecline} />
+          <RoundButton label="Answer" color="bg-emerald-600" icon={Phone} onClick={onAnswer} />
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+const TONE = {
+  normal: 'border border-line bg-surface hover:bg-subtle',
+  pressed: 'bg-primary text-white hover:bg-primary-hover',
+  answer: 'bg-emerald-700 text-white hover:bg-emerald-800',
+  danger: 'bg-red-600 text-white hover:bg-red-700',
+};
+
+/** A call control: icon over a short label, phone style. `pressed` makes it a toggle. */
+function Control({
+  icon: Icon,
+  label,
+  pressed,
+  tone = 'normal',
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  pressed?: boolean;
+  tone?: 'normal' | 'answer' | 'danger';
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={pressed}
+      onClick={onClick}
+      className={`flex min-h-14 min-w-16 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors motion-reduce:transition-none ${focusRing} ${TONE[pressed ? 'pressed' : tone]}`}
+    >
+      <Icon className="size-5" />
+      {label}
+    </button>
   );
 }
 
 function Keypad({ onKey, label }: { onKey: (k: string) => void; label: string }) {
   return (
-    <div role="group" aria-label={label} className="grid w-56 grid-cols-3 gap-1">
+    <div role="group" aria-label={label} className="grid w-fit grid-cols-3 gap-3">
       {KEYS.map((k) => (
-        <Button key={k} onClick={() => onKey(k)} className="text-lg">
-          {k}
-        </Button>
+        <button
+          key={k}
+          type="button"
+          aria-label={k}
+          onClick={() => onKey(k)}
+          className={`flex size-14 flex-col items-center justify-center rounded-full border border-line bg-surface transition-colors hover:bg-subtle active:bg-line ${focusRing}`}
+        >
+          <span className="text-xl leading-none font-medium">{k}</span>
+          <span aria-hidden className="h-3 text-[0.625rem] leading-3 tracking-widest text-muted">
+            {LETTERS[k]}
+          </span>
+        </button>
       ))}
     </div>
   );
@@ -365,67 +499,90 @@ function CallCard({
     <div
       role="group"
       aria-label={`${label}: ${name}`}
-      className="flex flex-col gap-2 rounded-md bg-zinc-100 p-2 dark:bg-zinc-900"
+      className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-3 shadow-sm"
       // Drop it on a person in People to transfer it there.
       draggable={call.state === 'active'}
       onDragStart={(e) => e.dataTransfer.setData(CALL_DRAG, call.id)}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="flex-1 text-sm">
-          <span className="font-medium">{name}</span> · {label}
-          {call.answeredAt && <> · {elapsed(call.answeredAt, now)}</>}
+      <div className="flex flex-col gap-1">
+        <p className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-semibold">{name}</span>
+          <span className="text-sm text-muted">
+            {label}
+            {call.answeredAt && (
+              <span className="tabular-nums"> · {elapsed(call.answeredAt, now)}</span>
+            )}
+          </span>
           {call.poorQuality && (
-            <span className="ml-2 text-amber-700 dark:text-amber-400">Poor connection</span>
+            <span className="text-sm text-amber-700 dark:text-amber-400">Poor connection</span>
           )}
-          <CallerCheck call={call} />
-        </span>
+        </p>
+        <CallerCheck call={call} />
+      </div>
+      <div className="flex flex-wrap gap-2">
         {call.state === 'incoming' ? (
           <>
-            <Button variant="primary" onClick={() => run(softphone.answer(call.id))}>
-              Answer
-            </Button>
-            <Button variant="ghost" onClick={() => run(softphone.decline(call.id))}>
-              Decline
-            </Button>
+            <Control
+              icon={Phone}
+              label="Answer"
+              tone="answer"
+              onClick={() => run(softphone.answer(call.id))}
+            />
+            <Control
+              icon={PhoneOff}
+              label="Decline"
+              tone="danger"
+              onClick={() => run(softphone.decline(call.id))}
+            />
           </>
         ) : (
           <>
-            {call.held && other && !consultId && (
-              <Button
-                variant="primary"
-                onClick={() => run(softphone.attendedTransfer(call.id, other.id))}
-              >
-                Complete transfer
-              </Button>
-            )}
             {call.state === 'active' && (
               <>
-                <Button
-                  aria-pressed={call.muted}
+                <Control
+                  icon={call.muted ? MicOff : Mic}
+                  label="Mute"
+                  pressed={call.muted}
                   onClick={() => softphone.mute(call.id, !call.muted)}
-                >
-                  {call.muted ? 'Unmute' : 'Mute'}
-                </Button>
-                <Button
-                  aria-pressed={call.held}
+                />
+                <Control
+                  icon={Pause}
+                  label="Hold"
+                  pressed={call.held}
                   onClick={() => run(softphone.hold(call.id, !call.held))}
-                >
-                  {call.held ? 'Resume' : 'Hold'}
-                </Button>
-                <Button aria-pressed={keypad} onClick={() => setKeypad((k) => !k)}>
-                  Keypad
-                </Button>
-                <Button aria-pressed={transfer} onClick={() => setTransfer((t) => !t)}>
-                  Transfer
-                </Button>
+                />
+                <Control
+                  icon={Grid3x3}
+                  label="Keypad"
+                  pressed={keypad}
+                  onClick={() => setKeypad((k) => !k)}
+                />
+                <Control
+                  icon={ArrowRightLeft}
+                  label="Transfer"
+                  pressed={transfer}
+                  onClick={() => setTransfer((t) => !t)}
+                />
               </>
             )}
-            <Button variant="danger" onClick={() => run(softphone.hangup(call.id))}>
-              Hang up
-            </Button>
+            <Control
+              icon={PhoneOff}
+              label="Hang up"
+              tone="danger"
+              onClick={() => run(softphone.hangup(call.id))}
+            />
           </>
         )}
       </div>
+      {call.held && other && !consultId && (
+        <Button
+          variant="primary"
+          className="self-start"
+          onClick={() => run(softphone.attendedTransfer(call.id, other.id))}
+        >
+          Complete transfer
+        </Button>
+      )}
       {keypad && call.state === 'active' && (
         <Keypad label="Send tones" onKey={(k) => softphone.dtmf(call.id, k)} />
       )}
@@ -551,7 +708,7 @@ function Devices() {
         </Button>
       )}
       {perm === 'denied' && (
-        <p className="text-zinc-600 dark:text-zinc-400">
+        <p className="text-muted">
           Call notifications are blocked. To get them, allow notifications for this site in your
           browser’s site settings (the icon left of the address), then reload the page.
         </p>

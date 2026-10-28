@@ -1,2 +1,66 @@
 @import 'tailwindcss';
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* Theme colors: the logo's blue and navy. Pages use these names (bg-surface, text-muted,
+   border-line...), not palette colors, so light and dark are paired here once. Every text pair
+   is at least 4.5:1 in both themes. */
+:root {
+  color-scheme: light;
+  --sp-page: #f8fafc;
+  --sp-surface: #ffffff;
+  --sp-subtle: #f1f5f9;
+  --sp-line: #e2e8f0;
+  --sp-line-strong: #cbd5e1;
+  --sp-fg: #0f172a;
+  --sp-muted: #475569;
+  --sp-primary: #2563eb;
+  --sp-primary-hover: #1d4ed8;
+  --sp-primary-soft: #eff6ff;
+  --sp-primary-line: #bfdbfe;
+  --sp-primary-ink: #1e3a8a;
+  --sp-link: #1d4ed8;
+  --sp-focus: #2563eb;
+}
+.dark {
+  color-scheme: dark;
+  --sp-page: #0b1120;
+  --sp-surface: #131c2e;
+  --sp-subtle: #1e293b;
+  --sp-line: #253349;
+  --sp-line-strong: #334155;
+  --sp-fg: #f1f5f9;
+  --sp-muted: #94a3b8;
+  --sp-primary: #2563eb;
+  --sp-primary-hover: #1d4ed8;
+  --sp-primary-soft: #172554;
+  --sp-primary-line: #1e3a8a;
+  --sp-primary-ink: #dbeafe;
+  --sp-link: #60a5fa;
+  --sp-focus: #60a5fa;
+}
+@theme inline {
+  --color-page: var(--sp-page);
+  --color-surface: var(--sp-surface);
+  --color-subtle: var(--sp-subtle);
+  --color-line: var(--sp-line);
+  --color-line-strong: var(--sp-line-strong);
+  --color-fg: var(--sp-fg);
+  --color-muted: var(--sp-muted);
+  --color-primary: var(--sp-primary);
+  --color-primary-hover: var(--sp-primary-hover);
+  --color-primary-soft: var(--sp-primary-soft);
+  --color-primary-line: var(--sp-primary-line);
+  --color-primary-ink: var(--sp-primary-ink);
+  --color-link: var(--sp-link);
+  --color-focus: var(--sp-focus);
+}
+
+/* iOS zooms into any field under 16px on focus and stays zoomed, which left the incoming call
+   dialog off screen. Unlayered, so it beats text-sm. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

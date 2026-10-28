@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Native <dialog> (focus trap + Esc for free) as a centered modal or a right-hand drawer.
+import { X } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { Button } from './ui.tsx';
 
@@ -28,27 +29,27 @@ export function Dialog({
 
   const shape = drawer
     ? 'ml-auto mr-0 h-dvh max-h-dvh w-full max-w-md'
-    : 'm-auto w-[calc(100%-2rem)] max-w-md rounded-lg';
+    : 'm-auto w-[calc(100%-2rem)] max-w-md rounded-xl';
   return (
     <dialog
       ref={ref}
       onClose={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
       aria-labelledby="dialog-title"
-      className={`${shape} bg-white p-0 text-zinc-900 shadow-xl backdrop:bg-black/40 dark:bg-zinc-900 dark:text-zinc-100`}
+      className={`${shape} bg-surface p-0 text-fg shadow-xl backdrop:bg-black/40`}
     >
       <div className="flex h-full flex-col">
-        <header className="flex items-center justify-between border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+        <header className="flex items-center justify-between border-b border-line px-4 py-3">
           <h2 id="dialog-title" className="text-base font-semibold">
             {title}
           </h2>
           <Button variant="ghost" onClick={onClose} aria-label="Close" className="px-2 py-1">
-            ✕
+            <X className="size-4" />
           </Button>
         </header>
         <div className="flex-1 overflow-y-auto p-4">{children}</div>
         {footer && (
-          <footer className="flex justify-end gap-2 border-t border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <footer className="flex justify-end gap-2 border-t border-line px-4 py-3">
             {footer}
           </footer>
         )}

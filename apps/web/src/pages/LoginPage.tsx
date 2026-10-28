@@ -13,12 +13,12 @@ import { Alert, Button, Field, inputClass } from '../components/ui.tsx';
 export function AuthCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm rounded-lg border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-6 shadow-sm">
         <img src="/logo-512.png" alt={APP_NAME} className="mx-auto mb-4 size-32 rounded-xl" />
         <h1 className="mb-5 text-xl font-semibold">{title}</h1>
         {children}
       </div>
-      <Link to="/about" className="mt-3 text-xs text-zinc-500 hover:underline">
+      <Link to="/about" className="mt-3 text-xs text-muted hover:underline">
         About SelfPhoneNG · source code
       </Link>
     </main>
@@ -73,12 +73,12 @@ export function LoginPage() {
           {/* A full page load: the browser goes to the provider and comes back signed in. */}
           <a
             href={`/api/auth/oidc/start${next ? `?next=${encodeURIComponent(next)}` : ''}`}
-            className="rounded-md bg-sky-700 px-4 py-2 text-center text-sm font-medium text-white hover:bg-sky-800"
+            className="rounded-md bg-primary px-4 py-2 text-center text-sm font-medium text-white hover:bg-primary-hover"
           >
             Sign in with {oidc.label}
           </a>
           {showForm && (
-            <p className="text-center text-xs text-zinc-500" aria-hidden>
+            <p className="text-center text-xs text-muted" aria-hidden>
               or with your password
             </p>
           )}
@@ -87,7 +87,7 @@ export function LoginPage() {
       {!showForm && (
         <button
           type="button"
-          className="w-full text-center text-xs text-zinc-500 hover:underline"
+          className="w-full text-center text-xs text-muted hover:underline"
           onClick={() => setAdminForm(true)}
         >
           Admin sign-in

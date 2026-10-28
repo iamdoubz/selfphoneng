@@ -44,7 +44,7 @@ export function SpamNote({ check }: { check: SpamCheck | null | undefined }) {
       >
         {high ? 'Likely spam' : 'Possible spam'}
       </span>
-      <span className="text-zinc-600 dark:text-zinc-400">{spamLine(check)}</span>
+      <span className="text-muted">{spamLine(check)}</span>
     </span>
   );
 }

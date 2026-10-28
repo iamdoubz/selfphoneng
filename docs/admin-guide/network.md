@@ -89,7 +89,7 @@ needs inside (`selfphoneng-probe-linux-x64`, or `-arm64` for ARM machines), next
 With Node 22 or newer installed you can take the small `selfphoneng-probe.cjs` instead.
 
 ```sh
-v=v0.0.10  # the release
+v=v0.0.11  # the release
 curl -fLO https://git.dou.bet/spng/selfphoneng/releases/download/$v/selfphoneng-probe-linux-x64
 curl -fLO https://git.dou.bet/spng/selfphoneng/releases/download/$v/SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS

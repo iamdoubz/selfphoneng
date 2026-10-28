@@ -2,6 +2,7 @@
 // Sounds & music (05 §2): recorded prompts for digital receptionists and announcements.
 // Upload by picking or dropping a file; play, rename, delete. Music-on-hold classes and their
 // files (03 §8) and announcements live here too.
+import { ArrowDown, ArrowUp } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
@@ -68,7 +69,7 @@ export function SoundsPage() {
       <h1 className="text-xl font-semibold">Sounds &amp; music</h1>
       <form
         aria-label="Upload a sound"
-        className={`flex flex-col gap-3 rounded-lg border-2 border-dashed p-4 ${dragging ? 'border-sky-500 bg-sky-50 dark:bg-sky-950' : 'border-zinc-300 dark:border-zinc-700'}`}
+        className={`flex flex-col gap-3 rounded-lg border-2 border-dashed p-4 ${dragging ? 'border-primary bg-primary-soft' : 'border-line-strong'}`}
         onDragOver={(e) => {
           e.preventDefault();
           setDragging(true);
@@ -122,19 +123,19 @@ export function SoundsPage() {
             {add.isPending ? 'Converting…' : 'Upload'}
           </Button>
         </div>
-        {file && <p className="text-sm text-zinc-500">Selected: {file.name}</p>}
+        {file && <p className="text-sm text-muted">Selected: {file.name}</p>}
         {tooBig && <Alert>That file is larger than 20 MB.</Alert>}
         {add.error && <Alert>{add.error.message}</Alert>}
       </form>
 
       {sounds.isError && <Alert>{sounds.error.message}</Alert>}
       {sounds.data?.length === 0 && (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           No sounds yet. Upload greetings for your digital receptionist and announcements.
         </p>
       )}
       {sounds.data && sounds.data.length > 0 && (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
           {sounds.data.map((s) => (
             <li
               key={s.id}
@@ -142,7 +143,7 @@ export function SoundsPage() {
             >
               <span className="min-w-0 flex-1">
                 <span className="font-medium">{s.name}</span>{' '}
-                <span className="text-zinc-500">{secs(s.durationMs)}</span>
+                <span className="text-muted">{secs(s.durationMs)}</span>
               </span>
               <audio
                 controls
@@ -210,7 +211,7 @@ function MusicOnHold() {
       <h2 id="moh-h" className="text-lg font-semibold">
         Music on hold
       </h2>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted">
         What callers hear on hold or waiting in a queue. Default music is built in. Make your own
         set here, then choose it for a user (Phone tab) or a queue.
       </p>
@@ -297,7 +298,7 @@ function MohClassCard({
     <div
       aria-label={`Music on hold ${cls.name}`}
       role="group"
-      className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+      className="flex flex-col gap-2 rounded-xl border border-line bg-surface shadow-sm p-3"
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="flex-1 font-medium">{cls.name}</span>
@@ -306,7 +307,7 @@ function MohClassCard({
         </Button>
       </div>
       {cls.files.length === 0 && (
-        <p className="text-sm text-zinc-500">No music yet: callers hear the default music.</p>
+        <p className="text-sm text-muted">No music yet: callers hear the default music.</p>
       )}
       {cls.files.length > 1 && (
         <label className="flex items-center gap-2 text-sm">
@@ -317,7 +318,7 @@ function MohClassCard({
             onChange={(e) => update.mutate({ shuffle: e.target.checked })}
           />
           Shuffle
-          <span className="text-zinc-500">
+          <span className="text-muted">
             {cls.shuffle
               ? '(plays in random order)'
               : '(each caller on hold starts at the top, in this order)'}
@@ -329,7 +330,7 @@ function MohClassCard({
           <li key={f.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
             {cls.files.length > 1 && !cls.shuffle && (
               <span className="flex items-center gap-0.5">
-                <span className="w-5 text-right text-zinc-500 tabular-nums">{i + 1}.</span>
+                <span className="w-5 text-right text-muted tabular-nums">{i + 1}.</span>
                 <Button
                   variant="ghost"
                   aria-label={`Move ${f.name} up`}
@@ -337,7 +338,7 @@ function MohClassCard({
                   disabled={i === 0 || update.isPending}
                   onClick={() => move(i, -1)}
                 >
-                  ↑
+                  <ArrowUp className="size-4" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -346,12 +347,12 @@ function MohClassCard({
                   disabled={i === cls.files.length - 1 || update.isPending}
                   onClick={() => move(i, 1)}
                 >
-                  ↓
+                  <ArrowDown className="size-4" />
                 </Button>
               </span>
             )}
             <span className="min-w-0 flex-1">
-              {f.name} <span className="text-zinc-500">{secs(f.durationMs)}</span>
+              {f.name} <span className="text-muted">{secs(f.durationMs)}</span>
             </span>
             <audio
               controls
@@ -425,19 +426,19 @@ function Announcements() {
         </h2>
         <Button onClick={() => setEditing('new')}>Add announcement</Button>
       </div>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted">
         An announcement plays a sound ("Our hours are…") and then sends the caller on, e.g. back to
         a menu. Use them from phone numbers, menus and office hours.
       </p>
       {list.data && list.data.length > 0 && (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
           {list.data.map((a) => (
             <li
               key={a.id}
               className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm"
             >
               <span className="font-medium">{a.name}</span>
-              <span className="min-w-0 flex-1 truncate text-zinc-500">
+              <span className="min-w-0 flex-1 truncate text-muted">
                 plays "{a.soundName}", then {a.destinationSummary}
               </span>
               <Button onClick={() => setEditing(a)}>Edit</Button>

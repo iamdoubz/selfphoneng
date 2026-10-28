@@ -54,7 +54,7 @@ export function PresencePanel({ me }: { me: string | null }) {
         onChange={(e) => setQ(e.target.value)}
       />
       {note && (
-        <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p role="status" className="text-sm text-muted">
           {note}
         </p>
       )}
@@ -63,7 +63,7 @@ export function PresencePanel({ me }: { me: string | null }) {
           <li
             key={e.number}
             data-number={e.number}
-            className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-subtle"
             onDragOver={(ev) => {
               if (active && ev.dataTransfer.types.includes(CALL_DRAG)) ev.preventDefault();
             }}
@@ -75,7 +75,7 @@ export function PresencePanel({ me }: { me: string | null }) {
             <StatusDot ext={e} />
             <span className="min-w-0 flex-1 truncate text-sm">
               <span className="font-medium">{e.name}</span>{' '}
-              <span className="text-zinc-500">
+              <span className="text-muted">
                 {e.number} · {statusLabel(e)}
               </span>
             </span>

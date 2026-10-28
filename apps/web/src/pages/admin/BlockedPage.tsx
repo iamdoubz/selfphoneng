@@ -28,7 +28,7 @@ export function BlockedPage() {
   return (
     <section className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Blocked numbers</h1>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted">
         Calls from these numbers are rejected before any phone rings. Emergency calls you make are
         never affected.
       </p>
@@ -67,13 +67,13 @@ export function BlockedPage() {
         </Button>
       </form>
       {(add.error ?? remove.error) && <Alert>{(add.error ?? remove.error)!.message}</Alert>}
-      {list.data?.length === 0 && <p className="text-sm text-zinc-500">Nobody is blocked.</p>}
+      {list.data?.length === 0 && <p className="text-sm text-muted">Nobody is blocked.</p>}
       {list.data && list.data.length > 0 && (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
           {list.data.map((b) => (
             <li key={b.id} className="flex flex-wrap items-center gap-x-3 px-3 py-2 text-sm">
               <span className="font-mono">{formatNumber(b.number)}</span>
-              <span className="flex-1 text-zinc-500">{b.reason}</span>
+              <span className="flex-1 text-muted">{b.reason}</span>
               <Button
                 variant="ghost"
                 aria-label={`Unblock ${formatNumber(b.number)}`}

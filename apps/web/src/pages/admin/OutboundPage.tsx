@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Outbound rules (05 §2, 03 §6.12): ordered list (first match wins), form, and a test box.
 // ponytail: ↑/↓ buttons instead of drag-to-reorder; keyboard-friendly, no drag library.
+import { ArrowDown, ArrowUp, X } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -56,19 +57,17 @@ export function OutboundPage() {
           New rule
         </Button>
       </div>
-      <p className="max-w-prose text-sm text-zinc-500">
+      <p className="max-w-prose text-sm text-muted">
         When someone dials an outside number, the first rule whose pattern matches decides how the
         call goes out. Put more specific rules (like toll-free) above general ones.
       </p>
       {routes.isError && <Alert>{routes.error.message}</Alert>}
       {move.isError && <Alert>{move.error.message}</Alert>}
       {routes.data?.length === 0 && (
-        <p className="text-sm text-zinc-500">
-          No rules yet. They are created with your first trunk.
-        </p>
+        <p className="text-sm text-muted">No rules yet. They are created with your first trunk.</p>
       )}
       {routes.data && routes.data.length > 0 && (
-        <ol className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ol className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
           {routes.data.map((r, i) => (
             <li
               key={r.id}
@@ -82,7 +81,7 @@ export function OutboundPage() {
                   disabled={i === 0 || move.isPending}
                   onClick={() => move.mutate({ from: i, to: i - 1 })}
                 >
-                  ↑
+                  <ArrowUp className="size-4" />
                 </Button>
                 <Button
                   variant="ghost"
@@ -91,18 +90,18 @@ export function OutboundPage() {
                   disabled={i === routes.data.length - 1 || move.isPending}
                   onClick={() => move.mutate({ from: i, to: i + 1 })}
                 >
-                  ↓
+                  <ArrowDown className="size-4" />
                 </Button>
               </span>
-              <span className="w-5 text-zinc-500">{i + 1}.</span>
-              <span className={`font-medium ${r.enabled ? '' : 'text-zinc-400 line-through'}`}>
+              <span className="w-5 text-muted">{i + 1}.</span>
+              <span className={`font-medium ${r.enabled ? '' : 'text-muted line-through'}`}>
                 {r.name}
               </span>
-              {!r.enabled && <span className="text-xs text-zinc-500">off</span>}
-              <span className="flex-1 truncate font-mono text-xs text-zinc-500">
+              {!r.enabled && <span className="text-xs text-muted">off</span>}
+              <span className="flex-1 truncate font-mono text-xs text-muted">
                 {r.patterns.map((p) => p.match).join(' ')}
               </span>
-              <span className="hidden text-zinc-500 sm:inline">
+              <span className="hidden text-muted sm:inline">
                 {CLASS_LABEL[r.requiredClass]} · {r.trunkIds.map(trunkName).join(' → ')}
               </span>
               <Button onClick={() => setEditing(r)}>Edit</Button>
@@ -162,7 +161,7 @@ function TestBox() {
   if (!exts.data?.length) return null;
   return (
     <form
-      className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+      className="flex flex-col gap-3 rounded-xl border border-line bg-surface shadow-sm p-4"
       onSubmit={(e) => {
         e.preventDefault();
         if (number.trim()) test.mutate();
@@ -303,7 +302,7 @@ function RouteDrawer({
 
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-1 text-sm font-medium">Patterns</legend>
-          <details className="text-xs text-zinc-500">
+          <details className="text-xs text-muted">
             <summary className="cursor-pointer">Pattern help</summary>
             <p className="mt-1">
               <code>X</code> any digit, <code>Z</code> 1–9, <code>N</code> 2–9, <code>[1-5]</code>{' '}
@@ -342,7 +341,7 @@ function RouteDrawer({
                 onClick={() => patterns.remove(i)}
                 disabled={patterns.fields.length === 1}
               >
-                ✕
+                <X className="size-4" />
               </Button>
             </div>
           ))}
@@ -375,7 +374,7 @@ function RouteDrawer({
           <ol className="flex flex-col gap-1">
             {chosen.map((id, i) => (
               <li key={id} className="flex items-center gap-2 text-sm">
-                <span className="w-5 text-zinc-500">{i + 1}.</span>
+                <span className="w-5 text-muted">{i + 1}.</span>
                 <span className="flex-1">{trunks.find((t) => t.id === id)?.name ?? id}</span>
                 <Button
                   variant="ghost"
@@ -387,14 +386,14 @@ function RouteDrawer({
                     setTrunks(ids);
                   }}
                 >
-                  ↑
+                  <ArrowUp className="size-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   aria-label="Remove trunk"
                   onClick={() => setTrunks(chosen.filter((x) => x !== id))}
                 >
-                  ✕
+                  <X className="size-4" />
                 </Button>
               </li>
             ))}

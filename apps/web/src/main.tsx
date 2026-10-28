@@ -104,7 +104,7 @@ const router = createBrowserRouter([
 
 const queryClient = new QueryClient();
 
-document.body.className = 'bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100';
+document.body.className = 'bg-page text-fg';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

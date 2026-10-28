@@ -3,15 +3,14 @@
 import { useId, type ComponentProps, type ReactNode } from 'react';
 import { APP_NAME } from '@selfphoneng/shared';
 
-const focus =
-  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500';
+export const focusRing =
+  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
 
 const variants = {
-  primary: 'bg-sky-600 text-white hover:bg-sky-700 disabled:bg-sky-600/50',
-  secondary:
-    'border border-zinc-300 bg-white hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800',
+  primary: 'bg-primary text-white hover:bg-primary-hover disabled:bg-primary/50',
+  secondary: 'border border-line-strong bg-surface hover:bg-subtle',
   danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/50',
-  ghost: 'hover:bg-zinc-100 dark:hover:bg-zinc-800',
+  ghost: 'hover:bg-subtle',
 };
 
 /** The icon (public/icon-192.png, cut from public/logo.png) and the product name. */
@@ -32,13 +31,40 @@ export function Button({
   return (
     <button
       type="button"
-      className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium disabled:cursor-not-allowed ${variants[variant]} ${focus} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium disabled:cursor-not-allowed pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${variants[variant]} ${focusRing} ${className}`}
       {...props}
     />
   );
 }
 
-export const inputClass = `w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 ${focus} aria-invalid:border-red-500`;
+/** A titled card: heading, an optional link or button on the right, then the body. */
+export function Panel({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  const id = useId();
+  return (
+    <section
+      aria-labelledby={id}
+      className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm"
+    >
+      <div className="flex items-center justify-between gap-2">
+        <h2 id={id} className="text-base font-semibold">
+          {title}
+        </h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export const inputClass = `w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm ${focusRing} aria-invalid:border-red-500`;
 
 /** Label + control + error text. `children` gets the id and aria props to spread on the control. */
 export function Field({
@@ -67,7 +93,7 @@ export function Field({
       {(error || hint) && (
         <p
           id={msgId}
-          className={`text-xs ${error ? 'text-red-600 dark:text-red-400' : 'text-zinc-500'}`}
+          className={`text-xs ${error ? 'text-red-600 dark:text-red-400' : 'text-muted'}`}
         >
           {error ?? hint}
         </p>

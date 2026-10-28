@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Queues (05 §2, 03 §6.8): callers wait with music until an agent is free. The list shows live
 // counts; a queue's page shows who is waiting, the agents (pause/unpause) and today's numbers.
+import { ArrowLeft, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router';
@@ -59,13 +60,13 @@ function QueueList() {
       </div>
       {queues.isError && <Alert>{queues.error.message}</Alert>}
       {queues.data?.length === 0 && (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           No queues yet. In a queue (like 550 for Support) callers wait with music until one of the
           agents is free.
         </p>
       )}
       {queues.data && queues.data.length > 0 && (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
           {queues.data.map((q) => {
             const l = live[q.number];
             return (
@@ -77,7 +78,7 @@ function QueueList() {
                 <Link className="font-medium underline-offset-2 hover:underline" to={q.id}>
                   {q.name}
                 </Link>
-                <span className="min-w-0 flex-1 truncate text-zinc-500">
+                <span className="min-w-0 flex-1 truncate text-muted">
                   {q.members.length} agent{q.members.length === 1 ? '' : 's'}
                   {l ? ` · ${available(l)} available · ${l.waiting.length} waiting` : ''}
                 </span>
@@ -152,13 +153,14 @@ function QueueDetail({ id }: { id: string }) {
   return (
     <section className="flex flex-col gap-6">
       <div>
-        <Link className="text-sm text-zinc-500 hover:underline" to="..">
-          ← Queues
+        <Link className="inline-flex items-center gap-1 text-sm text-muted hover:underline" to="..">
+          <ArrowLeft className="size-4" />
+          Queues
         </Link>
         <h1 className="text-xl font-semibold">
           <span className="font-mono">{q.number}</span> {q.name}
         </h1>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           {STRATEGY_LABEL[q.strategy]} · waits up to {q.maxWaitSeconds} s, then {q.timeoutSummary}
         </p>
       </div>
@@ -166,18 +168,18 @@ function QueueDetail({ id }: { id: string }) {
       <div>
         <h2 className="mb-2 font-medium">Waiting</h2>
         {!live?.waiting.length ? (
-          <p className="text-sm text-zinc-500">Nobody is waiting.</p>
+          <p className="text-sm text-muted">Nobody is waiting.</p>
         ) : (
           <ol
             aria-label="Waiting callers"
-            className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800"
+            className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm"
           >
             {live.waiting.map((w, i) => (
               <li key={w.linkedid} className="flex items-center gap-3 px-3 py-2 text-sm">
-                <span className="w-5 text-zinc-500">{i + 1}.</span>
+                <span className="w-5 text-muted">{i + 1}.</span>
                 <span className="flex-1">
                   {w.callerName ? `${w.callerName} ` : ''}
-                  <span className="text-zinc-500">{fmtNumber(w.callerNumber)}</span>
+                  <span className="text-muted">{fmtNumber(w.callerNumber)}</span>
                 </span>
                 <span className="font-mono tabular-nums">{since(w.since, now)}</span>
               </li>
@@ -190,11 +192,11 @@ function QueueDetail({ id }: { id: string }) {
         <h2 className="mb-2 font-medium">Agents</h2>
         {toggle.error && <Alert>{toggle.error.message}</Alert>}
         {q.members.length === 0 ? (
-          <p className="text-sm text-zinc-500">No agents yet. Add some with Edit.</p>
+          <p className="text-sm text-muted">No agents yet. Add some with Edit.</p>
         ) : (
           <ul
             aria-label="Agents"
-            className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800"
+            className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm"
           >
             {q.members.map((m) => {
               const e = exts.data?.find((x) => x.id === m.extensionId);
@@ -207,7 +209,7 @@ function QueueDetail({ id }: { id: string }) {
                 >
                   <span className="w-12 font-mono">{e?.number}</span>
                   <span className="min-w-0 flex-1 truncate">{e?.name}</span>
-                  <span className="text-zinc-500">
+                  <span className="text-muted">
                     {paused ? 'Paused' : STATE_LABEL[l?.state ?? 'unavailable']}
                     {l ? ` · ${l.callsTaken} call${l.callsTaken === 1 ? '' : 's'}` : ''}
                   </span>
@@ -222,7 +224,7 @@ function QueueDetail({ id }: { id: string }) {
             })}
           </ul>
         )}
-        <p className="mt-1 text-xs text-zinc-500">
+        <p className="mt-1 text-xs text-muted">
           Agents can also log in and out from a phone with *45{q.number}.
         </p>
       </div>
@@ -246,8 +248,8 @@ function QueueDetail({ id }: { id: string }) {
               ],
             ] as const
           ).map(([k, v]) => (
-            <div key={k} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-              <dt className="text-zinc-500">{k}</dt>
+            <div key={k} className="rounded-xl border border-line bg-surface shadow-sm p-3">
+              <dt className="text-muted">{k}</dt>
               <dd className="text-lg font-semibold">{v ?? '…'}</dd>
             </div>
           ))}
@@ -418,7 +420,7 @@ function QueueForm({
             {members.map((m) => (
               <li key={m.extensionId} className="flex items-center gap-2 text-sm">
                 <span className="flex-1">{label(m.extensionId)}</span>
-                <label className="flex items-center gap-1 text-zinc-500">
+                <label className="flex items-center gap-1 text-muted">
                   Priority
                   <select
                     aria-label={`Priority of ${label(m.extensionId)}`}
@@ -449,7 +451,7 @@ function QueueForm({
                     setMembers((ms) => ms.filter((x) => x.extensionId !== m.extensionId))
                   }
                 >
-                  ✕
+                  <X className="size-4" />
                 </Button>
               </li>
             ))}
@@ -472,7 +474,7 @@ function QueueForm({
               ))}
             </select>
           )}
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Priority 0 gets calls first; higher numbers only when the lower ones are all busy.
           </p>
         </fieldset>

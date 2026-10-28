@@ -42,14 +42,14 @@ export function IvrsPage() {
       </div>
       {list.isError && <Alert>{list.error.message}</Alert>}
       {list.data?.length === 0 && (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           No menus yet. A menu greets callers ("Thanks for calling. For sales press 1…") and sends
           them where they choose. Upload the greeting under Sounds &amp; music, or right in the
           form.
         </p>
       )}
       {list.data && list.data.length > 0 && (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
           {list.data.map((r) => (
             <li
               key={r.id}
@@ -57,7 +57,7 @@ export function IvrsPage() {
             >
               <span className="font-mono">{r.number}</span>
               <span className="font-medium">{r.name}</span>
-              <span className="min-w-0 flex-1 truncate text-zinc-500">
+              <span className="min-w-0 flex-1 truncate text-muted">
                 {r.options.map((o) => `${o.digit}: ${o.summary}`).join(' · ') || 'No keys yet'}
               </span>
               <Button onClick={() => setEditing(r)}>Edit</Button>
@@ -230,10 +230,10 @@ function IvrForm({
                   aria-label={`Key ${d}`}
                   aria-pressed={selected === d}
                   onClick={() => setSelected(d)}
-                  className={`flex min-h-16 flex-col items-start rounded-md border p-2 text-left text-xs ${selected === d ? 'border-sky-500 ring-2 ring-sky-500' : 'border-zinc-300 dark:border-zinc-700'} ${dest ? 'bg-sky-50 dark:bg-sky-950' : ''}`}
+                  className={`flex min-h-16 flex-col items-start rounded-md border p-2 text-left text-xs ${selected === d ? 'border-primary ring-2 ring-primary' : 'border-line-strong'} ${dest ? 'bg-primary-soft' : ''}`}
                 >
                   <span className="text-lg font-semibold">{d}</span>
-                  <span className="line-clamp-2 text-zinc-600 dark:text-zinc-400">
+                  <span className="line-clamp-2 text-muted">
                     {dest ? describe(dest) : dest === null ? 'Not finished' : 'Unused'}
                   </span>
                 </button>
@@ -242,7 +242,7 @@ function IvrForm({
           </div>
           {errors.options && <Alert>{errors.options}</Alert>}
           {selected && (
-            <div className="flex flex-col gap-2 rounded-md border border-zinc-200 p-3 dark:border-zinc-800">
+            <div className="flex flex-col gap-2 rounded-md border border-line p-3">
               {keys[selected] === undefined ? (
                 <Button onClick={() => setKeys((k) => ({ ...k, [selected]: { type: 'hangup' } }))}>
                   Use key {selected}
@@ -281,7 +281,7 @@ function IvrForm({
           />
           <span>
             Callers may dial an extension directly (e.g. 101)
-            <span className="block text-xs text-zinc-500">
+            <span className="block text-xs text-muted">
               A key that is also the first digit of an extension waits 3 seconds for more digits.
             </span>
           </span>

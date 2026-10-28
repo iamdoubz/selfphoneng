@@ -2,6 +2,7 @@
 // First-run setup wizard (05 §2.1). Every step saves before moving on; some can be skipped.
 // M3 also brings steps 7 (users) and 8 (main number routing) because "calls work using only the
 // wizard" needs them; M6 adds "Ring everyone" to step 8 (an IVR needs a recorded greeting first).
+import { Check } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
@@ -70,7 +71,7 @@ export function SetupPage() {
               type="button"
               onClick={() => go(i + 1)}
               aria-current={step === i + 1 ? 'step' : undefined}
-              className={`rounded-full px-2 py-1 ${step === i + 1 ? 'bg-sky-600 text-white' : 'bg-zinc-100 dark:bg-zinc-800'}`}
+              className={`rounded-full px-2 py-1 ${step === i + 1 ? 'bg-primary text-white' : 'bg-subtle'}`}
             >
               {i + 1}. {s}
             </button>
@@ -109,7 +110,7 @@ function Nav({
   hint?: string;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+    <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
       <Button variant="primary" onClick={next} disabled={!canNext}>
         Next
       </Button>
@@ -118,7 +119,7 @@ function Nav({
           {skip}
         </Button>
       )}
-      {hint && <span className="text-sm text-zinc-500">{hint}</span>}
+      {hint && <span className="text-sm text-muted">{hint}</span>}
     </div>
   );
 }
@@ -127,7 +128,10 @@ function PasswordStep({ next }: { next: () => void }) {
   // Signing in with the initial password already forced a change (RequireAuth).
   return (
     <>
-      <p className="text-sm">✓ The initial admin password has been changed.</p>
+      <p className="text-sm">
+        <Check className="mr-1 inline size-4 align-[-3px] text-green-700 dark:text-green-400" />
+        The initial admin password has been changed.
+      </p>
       <Nav next={next} />
     </>
   );
@@ -196,7 +200,7 @@ function CompanyForm({
           </select>
         )}
       </Field>
-      <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+      <div className="border-t border-line pt-4">
         <Button variant="primary" type="submit" disabled={save.isPending || !name.trim()}>
           Save and continue
         </Button>
@@ -343,7 +347,7 @@ function NetworkForm(p: {
           I&apos;ve done this
         </label>
       </div>
-      <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+      <div className="border-t border-line pt-4">
         <Button variant="primary" type="submit" disabled={save.isPending || !done}>
           {save.isPending ? 'Saving…' : 'Save and continue'}
         </Button>
@@ -399,7 +403,7 @@ function TrunkStep({ next }: { next: () => void }) {
   const ok = status?.label === 'Registered' || status?.label === 'Reachable';
   return (
     <>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted">
         Connect your voip.ms sub-account. Follow the checklist, save, and wait for{' '}
         <strong>Registered</strong>.
       </p>
@@ -457,7 +461,7 @@ function NumbersStep({ next }: { next: () => void }) {
     );
   return (
     <>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted">
         Add the phone numbers (DIDs) you have at voip.ms. You choose where their calls go in step 9.
       </p>
       {trunks.data[0]!.hasApiPassword && <ImportNumbers trunk={trunks.data[0]!} />}
@@ -465,8 +469,8 @@ function NumbersStep({ next }: { next: () => void }) {
         <ul className="text-sm">
           {dids.data.map((d) => (
             <li key={d.id}>
-              ✓ {formatNumber(d.number)}{' '}
-              {d.label && <span className="text-zinc-500">{d.label}</span>}
+              <Check className="mr-1 inline size-4 align-[-3px] text-green-700 dark:text-green-400" />
+              {formatNumber(d.number)} {d.label && <span className="text-muted">{d.label}</span>}
             </li>
           ))}
         </ul>
@@ -554,7 +558,7 @@ function UsersStep({ next }: { next: () => void }) {
 
   return (
     <>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted">
         Add the people who get a phone (up to 10 here; more later under Users &amp; Extensions).
         Each gets the extension you type (any free number, like 1), or the next free one, and a
         temporary password, shown once.
@@ -563,7 +567,8 @@ function UsersStep({ next }: { next: () => void }) {
         <ul className="text-sm">
           {withExt.map((u) => (
             <li key={u.id}>
-              ✓ {u.extension!.number} {u.displayName}
+              <Check className="mr-1 inline size-4 align-[-3px] text-green-700 dark:text-green-400" />
+              {u.extension!.number} {u.displayName}
             </li>
           ))}
         </ul>
@@ -614,7 +619,7 @@ function UsersStep({ next }: { next: () => void }) {
       </form>
       {save.isError && <Alert>{save.error.message}</Alert>}
       {created.length > 0 && (
-        <div className="rounded-md border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+        <div className="rounded-md border border-line p-3 text-sm">
           <p className="mb-2 font-medium">
             Give each person their temporary password (shown only now):
           </p>
@@ -624,7 +629,7 @@ function UsersStep({ next }: { next: () => void }) {
                 <tr key={c.email}>
                   <td>{c.number}</td>
                   <td>{c.name}</td>
-                  <td className="text-zinc-500">{c.email}</td>
+                  <td className="text-muted">{c.email}</td>
                   <td className="font-mono">{c.password}</td>
                 </tr>
               ))}
@@ -682,7 +687,7 @@ function RoutingStep({ next }: { next: () => void }) {
   const incomplete = Object.values(dest).some((d) => d === null);
   return (
     <>
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted">
         A digital receptionist ("press 1 for sales…") needs a recorded greeting: build it under
         Digital receptionist later and pick it here or on the Phone numbers page.
       </p>
@@ -715,7 +720,7 @@ function RoutingStep({ next }: { next: () => void }) {
       })}
       {everyone.isError && <Alert>{everyone.error.message}</Alert>}
       {save.isError && <Alert>{save.error.message}</Alert>}
-      <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+      <div className="border-t border-line pt-4">
         <Button
           variant="primary"
           onClick={() => save.mutate()}
@@ -740,7 +745,7 @@ function DoneStep({ onFinish, busy }: { onFinish: () => void; busy: boolean }) {
         <li>From a desk phone, call your mobile: it shows your main number as caller ID.</li>
         <li>Everything here can be changed later in the admin pages.</li>
       </ul>
-      <div className="border-t border-zinc-200 pt-4 dark:border-zinc-800">
+      <div className="border-t border-line pt-4">
         <Button variant="primary" onClick={onFinish} disabled={busy}>
           Finish
         </Button>
@@ -753,6 +758,6 @@ function Loading({ q }: { q: { isError: boolean; error: Error | null } }): React
   return q.isError ? (
     <Alert>{q.error!.message}</Alert>
   ) : (
-    <p className="text-sm text-zinc-500">Loading…</p>
+    <p className="text-sm text-muted">Loading…</p>
   );
 }

@@ -15,8 +15,8 @@ import { ParkedCalls } from '../../components/ParkedCalls.tsx';
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-      <h2 className="text-sm text-zinc-500">{title}</h2>
+    <div className="rounded-xl border border-line bg-surface shadow-sm p-4">
+      <h2 className="text-sm text-muted">{title}</h2>
       <div className="mt-1 text-2xl font-semibold">{children}</div>
     </div>
   );
@@ -55,7 +55,7 @@ export function DashboardPage() {
         <Card title="Telephony engine">
           <span
             className={
-              amiConnected ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+              amiConnected ? 'text-green-700 dark:text-green-400' : 'text-red-600 dark:text-red-400'
             }
           >
             {status === 'connecting' ? '…' : amiConnected ? 'Connected' : 'Not connected'}
@@ -72,19 +72,19 @@ export function DashboardPage() {
       <div>
         <h2 className="mb-2 font-medium">Extensions</h2>
         {list.length === 0 ? (
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted">
             No extensions yet. Give a user a number under Users & Extensions.
           </p>
         ) : (
-          <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+          <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
             {list.map((e) => (
               <li key={e.number} className="flex items-center gap-3 px-3 py-2 text-sm">
                 <StatusDot ext={e} />
                 <span className="w-14 font-mono">{e.number}</span>
                 <span className="flex-1 truncate">{e.name}</span>
-                <span className="text-zinc-500">{statusLabel(e)}</span>
+                <span className="text-muted">{statusLabel(e)}</span>
                 {e.contacts && (
-                  <span className="hidden w-24 text-right text-zinc-500 sm:inline">
+                  <span className="hidden w-24 text-right text-muted sm:inline">
                     {e.contacts.length} device{e.contacts.length === 1 ? '' : 's'}
                   </span>
                 )}
@@ -118,15 +118,12 @@ function QueueTiles() {
             null,
           );
           return (
-            <li
-              key={q.number}
-              className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
-            >
-              <Link className="text-sm text-zinc-500 hover:underline" to={`queues/${q.id}`}>
+            <li key={q.number} className="rounded-xl border border-line bg-surface shadow-sm p-4">
+              <Link className="text-sm text-muted hover:underline" to={`queues/${q.id}`}>
                 {q.number} {q.name}
               </Link>
               <div className="mt-1 text-2xl font-semibold">{q.waiting.length} waiting</div>
-              <div className="text-sm text-zinc-500">
+              <div className="text-sm text-muted">
                 Longest {oldest ? since(oldest, now) : '—'} · {available(q)} of {q.members.length}{' '}
                 agents free
               </div>
@@ -258,11 +255,11 @@ function LiveCalls() {
         </p>
       )}
       {calls.length === 0 ? (
-        <p className="text-sm text-zinc-500">No calls right now.</p>
+        <p className="text-sm text-muted">No calls right now.</p>
       ) : (
         <ul
           aria-label="Calls now"
-          className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800"
+          className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm"
         >
           {calls.map((c) => (
             <li
@@ -272,15 +269,15 @@ function LiveCalls() {
             >
               <span className="min-w-0 flex-1">
                 <span className="font-medium">{c.from.name ?? fmtNumber(c.from.number)}</span>
-                {c.from.name && <span className="text-zinc-500"> {fmtNumber(c.from.number)}</span>}
+                {c.from.name && <span className="text-muted"> {fmtNumber(c.from.number)}</span>}
                 {' → '}
                 {fmtNumber(c.to.number)}
-                <span className="text-zinc-500">
+                <span className="text-muted">
                   {' '}
                   · {STATE_TEXT[c.state]} {since(c.answeredAt ?? c.startedAt, now)}
                   {c.recording && ' · recording'}
                 </span>
-                <span className="block font-mono text-xs text-zinc-500" data-channels>
+                <span className="block font-mono text-xs text-muted" data-channels>
                   {c.channels.join(' ')}
                 </span>
               </span>
