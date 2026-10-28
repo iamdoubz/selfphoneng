@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// M11-T6: /api/reports/summary and /api/reports/queues (04 §7.3), days in the company time zone.
+// M11-T6: /api/reports/summary and /api/reports/queues (04 §7.3), days in the company time zone;
+// /api/me/reports/summary, the calls made to me.
 import type { LightMyRequestResponse } from 'fastify';
+import { inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { calls, queueCalls, queues } from '../src/db/schema.ts';
+import { callExtensions, calls, extensions, queueCalls, queues } from '../src/db/schema.ts';
+import { encrypt } from '../src/crypto/secrets.ts';
 import { setSetting } from '../src/services/settings.ts';
 import { hasTestDb } from './db.ts';
 import { ADMIN, H, createTestApp } from './app.ts';
@@ -125,5 +128,74 @@ describe.skipIf(!hasTestDb)('/api/reports', () => {
     await t.addUser('pat@example.com', 'pat-password-123');
     const pat = await t.login('pat@example.com', 'pat-password-123');
     expect((await get('/api/reports/queues', pat)).statusCode).toBe(403);
+    expect((await get('/api/me/reports/summary', pat)).statusCode).toBe(404); // no extension
+  });
+
+  it('mine: only calls made to me; answered and talk time are the ones I picked up', async () => {
+    const sam = await t.addUser('sam@example.com', 'sam-password-123');
+    const [mine, other] = await t.db
+      .insert(extensions)
+      .values(
+        (['103', '104'] as const).map((number) => ({
+          number,
+          name: number,
+          sipPasswordEnc: encrypt('x'),
+          voicemailPinEnc: encrypt('4826'),
+          userId: number === '103' ? sam.id : null,
+        })),
+      )
+      .returning();
+    await t.db.insert(calls).values({
+      linkedid: 'g',
+      direction: 'internal',
+      status: 'answered',
+      startedAt: new Date('2026-05-05T15:00:00Z'), // Tue 10:00
+      endedAt: new Date('2026-05-05T15:00:45Z'),
+      talkSeconds: 40,
+      answeredByExtensionId: mine!.id,
+    });
+    const ids = Object.fromEntries(
+      (
+        await t.db
+          .select({ id: calls.id, linkedid: calls.linkedid })
+          .from(calls)
+          .where(inArray(calls.linkedid, ['a', 'b', 'c', 'g']))
+      ).map((c) => [c.linkedid, c.id]),
+    );
+    // a: rang me and a coworker, the coworker answered. b: rang me, missed. c: I made it. g: mine.
+    await t.db
+      .update(calls)
+      .set({ answeredByExtensionId: other!.id })
+      .where(inArray(calls.id, [ids.a!]));
+    await t.db.insert(callExtensions).values([
+      { callId: ids.a!, extensionId: mine!.id, role: 'rang' },
+      { callId: ids.a!, extensionId: other!.id, role: 'answered' },
+      { callId: ids.b!, extensionId: mine!.id, role: 'rang' },
+      { callId: ids.c!, extensionId: mine!.id, role: 'caller' },
+      { callId: ids.g!, extensionId: mine!.id, role: 'rang' },
+      { callId: ids.g!, extensionId: mine!.id, role: 'answered' },
+    ]);
+    const cookie = await t.login('sam@example.com', 'sam-password-123');
+    const r = await get('/api/me/reports/summary?from=2026-05-04&to=2026-05-06', cookie);
+    expect(r.statusCode, r.body).toBe(200);
+    const s = r.json();
+    expect(s.days).toEqual([
+      { date: '2026-05-04', inbound: 2, outbound: 0, internal: 0, missed: 1, outsideMinutes: 2 },
+      { date: '2026-05-05', inbound: 0, outbound: 0, internal: 1, missed: 0, outsideMinutes: 0 },
+      { date: '2026-05-06', inbound: 0, outbound: 0, internal: 0, missed: 0, outsideMinutes: 0 },
+    ]);
+    expect(s.totals).toEqual({
+      calls: 3,
+      answered: 1,
+      missed: 1,
+      avgTalkSeconds: 40,
+      talkSeconds: 40,
+      outsideSeconds: { inbound: 95, outbound: 0 },
+    });
+    expect(s.hours.flat().reduce((a: number, b: number) => a + b)).toBe(3);
+    // The company summary is unchanged by who rang.
+    expect(
+      (await get('/api/reports/summary?from=2026-05-04&to=2026-05-04')).json().totals.answered,
+    ).toBe(2);
   });
 });

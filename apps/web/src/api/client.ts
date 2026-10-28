@@ -306,6 +306,8 @@ export const systemApi = {
 export const meApi = {
   calls: (cursor?: string) =>
     api<ListResponse<MyCallDto>>('GET', `/api/me/calls${cursor ? `?cursor=${cursor}` : ''}`),
+  /** The summary of the calls made to me. */
+  report: (r: ReportRange) => api<ReportSummary>('GET', `/api/me/reports/summary?${callQuery(r)}`),
   get: () => api<MeDto>('GET', '/api/me'),
   /** 14 §5.1: only for a caller ringing me now. */
   callerCheck: (number: string) =>

@@ -383,6 +383,7 @@ Auth & self:
 | GET | `/api/me/softphone-qr` | user | `{url, qr, expiresAt}`: Linphone setup link and its QR (PNG data URL), 24 h (07 §5) |
 | GET | `/api/me/webrtc` | user | `{ wsUrl: "wss://<host>/ws", sipUri: "sip:101-web@<host>", authUser: "101-web", password, displayName, iceServers: [...] }` |
 | GET | `/api/me/calls` | user | own call history (via `call_extensions`) |
+| GET | `/api/me/reports/summary?from&to` | user | `/api/reports/summary` of the calls that rang or were answered by me; `answered` and talk time are the ones I picked up |
 | GET | `/api/me/voicemail` | user | list |
 | GET | `/api/me/voicemail/:id/audio` | user | streams the wav (`Content-Type: audio/wav`, supports Range) |
 | PATCH | `/api/me/voicemail/:id` | user | `{folder: 'Old'|'INBOX'}` |

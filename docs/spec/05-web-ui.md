@@ -105,6 +105,7 @@ Implementation notes (M3):
 | Calls | `/me/calls` | Own call history, click a number to call back, add to contacts |
 | Voicemail | `/me/voicemail` | List (new bold), play (marks read), download, delete, search (transcript, caller). Greetings section: record in the browser (MediaRecorder → upload), upload, or delete for unavail/busy/name |
 | Contacts | `/me/contacts` | Personal + company (read-only) with search, click to call |
+| Reports | `/me/reports` | The admin Reports' summary of the calls made to me (rang or answered me, not the ones I made): calls, answered by me, missed, talk time, calls and missed per day, busiest hours. No outside minutes, balance or queues. Shown only with an extension |
 | Messages | `/me/sms` | Threads per DID + remote number, chat bubbles, composer with 160-char segment counter, unread badges (06 §5) |
 | Settings | `/me/settings` | Forwarding rules (always/busy/no answer with number fields), voicemail PIN, email options, call report email (off / hourly / daily at a time / weekly on a day at a time, company time zone; optional summaries of recorded calls, 10 §3; nothing sent for a period without calls), softphone audio devices, notification permission, change password, "Set up a phone app" (QR, 07 §5), "Mobile app" (pair a phone, list and remove paired phones, 13 §2) |
 

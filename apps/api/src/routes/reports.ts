@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// /api/reports (04 §7.3, 05 §2 Reports): calls per day, busiest hours, per-queue stats. Admin only.
-import { and, asc, eq, sql } from 'drizzle-orm';
+// /api/reports (04 §7.3, 05 §2 Reports): calls per day, busiest hours, per-queue stats. Admin only,
+// but /api/me/reports/summary: the same summary of the calls made to me.
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import {
   CALL_DIRECTIONS,
@@ -10,12 +11,12 @@ import {
   type ProviderBalanceDto,
   type ReportSummary,
 } from '@selfphoneng/shared';
-import { requireAdmin } from '../auth/guards.ts';
+import { requireAdmin, requireAuth } from '../auth/guards.ts';
 import type { Db } from '../db/client.ts';
 import { decrypt } from '../crypto/secrets.ts';
-import { calls, queues, trunks } from '../db/schema.ts';
+import { callExtensions, calls, extensions, queues, trunks } from '../db/schema.ts';
 import { getBalance, VoipmsError } from '../integrations/voipms/client.ts';
-import { badRequest } from '../errors.ts';
+import { badRequest, notFound } from '../errors.ts';
 import { todayIn } from '../generator/load.ts';
 import { queueStats } from '../services/queuestats.ts';
 import { getSetting } from '../services/settings.ts';
@@ -35,14 +36,28 @@ async function range(db: Db, query: unknown) {
 
 export async function reportRoutes(app: FastifyInstance) {
   const { db } = app;
-  app.addHook('preHandler', requireAdmin);
+  const admin = { preHandler: requireAdmin };
 
-  app.get('/api/reports/summary', async (req): Promise<ReportSummary> => {
-    const { tz, from, to } = await range(db, req.query);
+  /** `toExt`: only the calls that rang or were answered by that extension, not the ones it made. */
+  async function summary(query: unknown, toExt?: string): Promise<ReportSummary> {
+    const { tz, from, to } = await range(db, query);
     const where = and(
       sql`${calls.startedAt} >= (${from}::date)::timestamp at time zone ${tz}`,
       sql`${calls.startedAt} < ((${to}::date + 1)::timestamp at time zone ${tz})`,
+      toExt
+        ? inArray(
+            calls.id,
+            db
+              .select({ id: callExtensions.callId })
+              .from(callExtensions)
+              .where(and(eq(callExtensions.extensionId, toExt), ne(callExtensions.role, 'caller'))),
+          )
+        : undefined,
     );
+    // Mine: answered and talk time are the calls I picked up, not a coworker in my ring group.
+    const answered = toExt
+      ? sql`${calls.answeredByExtensionId} = ${toExt}`
+      : sql`${calls.status} = 'answered'`;
     const local = sql`(${calls.startedAt} at time zone ${tz})`;
     const missed = sql`${calls.status} in ('missed', 'voicemail', 'abandoned')`;
     // Outside line time: inbound from arrival (a receptionist or voicemail answers too),
@@ -73,14 +88,14 @@ export async function reportRoutes(app: FastifyInstance) {
       db
         .select({
           calls: sql<number>`count(*)::int`,
-          answered: sql<number>`count(*) filter (where ${calls.status} = 'answered')::int`,
+          answered: sql<number>`count(*) filter (where ${answered})::int`,
           missed: sql<number>`count(*) filter (where ${missed})::int`,
-          talk: sql<number>`coalesce(sum(${calls.talkSeconds}), 0)::int`,
+          talk: sql<number>`coalesce(sum(${calls.talkSeconds}) filter (where ${toExt ? answered : sql`true`}), 0)::int`,
           lineIn: sql<number>`round(${lineIn})::int`,
           lineOut: sql<number>`${lineOut}::int`,
           avgTalk: sql<
             number | null
-          >`round(avg(${calls.talkSeconds}) filter (where ${calls.status} = 'answered'))::int`,
+          >`round(avg(${calls.talkSeconds}) filter (where ${answered}))::int`,
         })
         .from(calls)
         .where(where),
@@ -113,10 +128,21 @@ export async function reportRoutes(app: FastifyInstance) {
       },
       hours,
     };
+  }
+
+  app.get('/api/reports/summary', admin, (req) => summary(req.query));
+
+  app.get('/api/me/reports/summary', { preHandler: requireAuth }, async (req) => {
+    const [ext] = await db
+      .select({ id: extensions.id })
+      .from(extensions)
+      .where(eq(extensions.userId, req.user!.id));
+    if (!ext) throw notFound("You don't have an extension yet. Ask your admin.");
+    return summary(req.query, ext.id);
   });
 
   /** Each voip.ms trunk's account balance (owner, 2026-10-21); a trunk without API login says so. */
-  app.get('/api/reports/balance', async (): Promise<ListResponse<ProviderBalanceDto>> => {
+  app.get('/api/reports/balance', admin, async (): Promise<ListResponse<ProviderBalanceDto>> => {
     const rows = await db
       .select()
       .from(trunks)
@@ -150,7 +176,7 @@ export async function reportRoutes(app: FastifyInstance) {
     return { items, nextCursor: null };
   });
 
-  app.get('/api/reports/queues', async (req): Promise<ListResponse<QueueReportRow>> => {
+  app.get('/api/reports/queues', admin, async (req): Promise<ListResponse<QueueReportRow>> => {
     const { from, to } = await range(db, req.query);
     const qs = await db.select().from(queues).orderBy(asc(queues.number));
     return {
