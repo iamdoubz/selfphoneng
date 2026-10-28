@@ -35,13 +35,13 @@ export function ConferencesPage() {
       </div>
       {rooms.isError && <Alert>{rooms.error.message}</Alert>}
       {rooms.data?.length === 0 && (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           No conference rooms yet. A room is a number (like 800) that several people dial to talk
           together, with an optional PIN.
         </p>
       )}
       {rooms.data && rooms.data.length > 0 && (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
           {rooms.data.map((c) => (
             <li
               key={c.id}
@@ -49,7 +49,7 @@ export function ConferencesPage() {
             >
               <span className="font-mono">{c.number}</span>
               <span className="font-medium">{c.name}</span>
-              <span className="min-w-0 flex-1 truncate text-zinc-500">
+              <span className="min-w-0 flex-1 truncate text-muted">
                 {c.pin ? `PIN ${c.pin}` : 'No PIN'}
                 {c.adminPin ? ` · admin PIN ${c.adminPin}` : ''} · up to {c.maxMembers}
                 {c.record ? ' · recorded' : ''}

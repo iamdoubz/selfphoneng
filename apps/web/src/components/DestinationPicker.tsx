@@ -143,7 +143,7 @@ export function DestinationPicker({
         </p>
       )}
       {isIdKind(kind) && all[kind] && targets(kind).length === 0 && (
-        <p className="text-xs text-zinc-500">Nothing to pick yet ({what}).</p>
+        <p className="text-xs text-muted">Nothing to pick yet ({what}).</p>
       )}
     </fieldset>
   );

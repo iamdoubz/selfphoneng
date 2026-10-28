@@ -17,7 +17,7 @@ import { ParkedCalls } from '../../components/ParkedCalls.tsx';
 import { DndSwitch, MeSettingsPage, showTarget, useMe } from './MeSettingsPage.tsx';
 import { ContactsPage, useContactName, useContactShares } from './ContactsPage.tsx';
 
-const link = 'text-sky-700 underline dark:text-sky-400';
+const link = 'text-link underline';
 
 export function MePage({ user }: { user: AuthUser }) {
   const qc = useQueryClient();
@@ -45,7 +45,7 @@ export function MePage({ user }: { user: AuthUser }) {
   }
 
   const tab = ({ isActive }: { isActive: boolean }) =>
-    `rounded-md px-3 py-2 text-sm font-medium pointer-coarse:py-3 ${isActive ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'}`;
+    `rounded-md px-3 py-2 text-sm font-medium pointer-coarse:py-3 ${isActive ? 'bg-subtle' : 'hover:bg-subtle'}`;
   const row = tab({ isActive: false });
   return (
     <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-6 p-4 sm:p-8">
@@ -77,7 +77,7 @@ export function MePage({ user }: { user: AuthUser }) {
         >
           <MenuIcon />
           {offers > 0 && (
-            <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-sky-600" />
+            <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary" />
           )}
         </Button>
       </header>
@@ -85,7 +85,7 @@ export function MePage({ user }: { user: AuthUser }) {
       <nav
         id="me-nav"
         aria-label="My phone"
-        className={`${menu ? 'flex' : 'hidden'} flex-col gap-1 border-b border-zinc-200 pb-2 md:flex md:flex-row dark:border-zinc-800`}
+        className={`${menu ? 'flex' : 'hidden'} flex-col gap-1 border-b border-line pb-2 md:flex md:flex-row`}
       >
         <NavLink to="/me" end className={tab} onClick={close}>
           Home
@@ -99,7 +99,7 @@ export function MePage({ user }: { user: AuthUser }) {
         <NavLink to="/me/contacts" className={tab} onClick={close}>
           Contacts
           {offers > 0 && (
-            <span className="ml-1 rounded-full bg-sky-600 px-1.5 text-xs text-white">
+            <span className="ml-1 rounded-full bg-primary px-1.5 text-xs text-white">
               <span className="sr-only">, shared with you: </span>
               {offers}
             </span>
@@ -112,7 +112,7 @@ export function MePage({ user }: { user: AuthUser }) {
         <NavLink to="/me/people" className={(s) => `${tab(s)} lg:hidden`} onClick={close}>
           People
         </NavLink>
-        <div className="mt-1 flex flex-col gap-1 border-t border-zinc-200 pt-2 md:hidden dark:border-zinc-800">
+        <div className="mt-1 flex flex-col gap-1 border-t border-line pt-2 md:hidden">
           {user.role === 'admin' && (
             <Link className={row} to="/admin">
               Admin
@@ -185,12 +185,12 @@ function Home({ user }: { user: AuthUser }) {
           New voicemails
         </h2>
         {list.error && <Alert>{list.error.message}</Alert>}
-        {list.data && fresh.length === 0 && <p className="text-sm text-zinc-500">None.</p>}
+        {list.data && fresh.length === 0 && <p className="text-sm text-muted">None.</p>}
         <ul className="flex flex-col gap-1">
           {fresh.slice(0, 5).map((m) => (
             <li key={m.id} className="text-sm">
               <span className="font-semibold">{nameOf(m.callerNumber) ?? callerOf(m)}</span>{' '}
-              <span className="text-zinc-500">
+              <span className="text-muted">
                 {new Date(m.receivedAt).toLocaleString()} · {mmss(m.durationS)}
               </span>
             </li>
@@ -217,7 +217,7 @@ function SharedNotice() {
   if (!offers.length) return null;
   const from = [...new Set(offers.map((o) => o.from?.name ?? 'Someone'))].join(', ');
   return (
-    <p role="status" className="rounded-md bg-sky-50 p-3 text-sm dark:bg-sky-950">
+    <p role="status" className="rounded-md bg-primary-soft p-3 text-sm">
       {from} shared {offers.length} contact{offers.length === 1 ? '' : 's'} with you.{' '}
       <Link className={link} to="/me/contacts">
         Accept or deny
@@ -238,11 +238,11 @@ function StatusCard({ ext }: { ext: string }) {
   return (
     <section
       aria-label="My status"
-      className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+      className="flex flex-col gap-2 rounded-xl border border-line bg-surface shadow-sm p-4"
     >
       <DndSwitch me={me.data} />
       <QueueLogins ext={ext} />
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-sm text-muted">
         {fwd.length ? `Forwarding: ${fwd.join(', ')}.` : 'Not forwarding.'}{' '}
         <Link className={link} to="/me/settings">
           Change
@@ -276,7 +276,7 @@ function QueueLogins({ ext }: { ext: string }) {
               onChange={(e) => toggle.mutate({ id: q.id, paused: !e.target.checked })}
             />
             Taking calls from queue {q.name} ({q.number})
-            <span className="text-xs text-zinc-500">(also *45{q.number} from your phone)</span>
+            <span className="text-xs text-muted">(also *45{q.number} from your phone)</span>
           </label>
         );
       })}
@@ -292,7 +292,7 @@ function ParkedOnHome() {
     <div className="flex flex-col gap-1">
       <ParkedCalls onPickUp={call} />
       {note && (
-        <p role="status" className="text-sm text-zinc-500">
+        <p role="status" className="text-sm text-muted">
           {note}
         </p>
       )}
@@ -311,9 +311,9 @@ function MissedCalls() {
       <h2 id="missed-h" className="text-lg font-semibold">
         Missed calls
       </h2>
-      {calls.data && missed.length === 0 && <p className="text-sm text-zinc-500">None.</p>}
+      {calls.data && missed.length === 0 && <p className="text-sm text-muted">None.</p>}
       {note && (
-        <p role="status" className="text-sm text-zinc-500">
+        <p role="status" className="text-sm text-muted">
           {note}
         </p>
       )}
@@ -325,7 +325,7 @@ function MissedCalls() {
               <span className="font-semibold">
                 {nameOf(o.number) ?? o.name ?? fmtNumber(o.number)}
               </span>{' '}
-              <span className="text-zinc-500">{new Date(c.startedAt).toLocaleString()}</span>{' '}
+              <span className="text-muted">{new Date(c.startedAt).toLocaleString()}</span>{' '}
               {o.number && (
                 <button
                   type="button"

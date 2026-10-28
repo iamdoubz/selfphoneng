@@ -192,7 +192,7 @@ export function SoftphoneDock() {
   return (
     <section
       aria-label="Softphone"
-      className="sticky bottom-0 mt-auto flex flex-col gap-2 border-t border-zinc-200 bg-white py-3 dark:border-zinc-800 dark:bg-zinc-950"
+      className="sticky bottom-0 mt-auto flex flex-col gap-2 border-t border-line bg-page py-3"
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-medium">
@@ -277,7 +277,7 @@ function RoundButton({
     <button
       type="button"
       onClick={onClick}
-      className="group flex flex-col items-center gap-2 rounded-lg text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-500"
+      className="group flex flex-col items-center gap-2 rounded-lg text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-focus"
     >
       <span
         className={`grid size-16 place-items-center rounded-full text-white transition-transform group-active:scale-95 motion-reduce:transition-none ${color}`}
@@ -325,16 +325,16 @@ function IncomingCall({
         e.preventDefault();
         onDecline();
       }}
-      className="m-0 h-dvh max-h-none w-full max-w-none bg-white p-0 text-zinc-900 backdrop:bg-black/60 sm:m-auto sm:h-auto sm:max-w-sm sm:rounded-2xl sm:shadow-xl dark:bg-zinc-900 dark:text-zinc-100"
+      className="m-0 h-dvh max-h-none w-full max-w-none bg-surface p-0 text-fg backdrop:bg-black/60 sm:m-auto sm:h-auto sm:max-w-sm sm:rounded-2xl sm:shadow-xl"
     >
       <div className="flex h-full flex-col items-center justify-between gap-10 px-6 py-16 text-center sm:py-8">
         <div className="flex flex-col items-center gap-2">
-          <h2 id="ring-title" className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+          <h2 id="ring-title" className="text-sm font-medium text-muted">
             Incoming call
           </h2>
           <p className="text-3xl font-semibold break-words">{name}</p>
           {name !== call.remote && (
-            <p className="text-zinc-600 tabular-nums dark:text-zinc-400">
+            <p className="text-muted tabular-nums">
               {call.remote.length > 6 ? formatNumber(call.remote) : call.remote}
             </p>
           )}
@@ -436,7 +436,7 @@ function CallCard({
     <div
       role="group"
       aria-label={`${label}: ${name}`}
-      className="flex flex-col gap-2 rounded-md bg-zinc-100 p-2 dark:bg-zinc-900"
+      className="flex flex-col gap-2 rounded-md bg-subtle p-2"
       // Drop it on a person in People to transfer it there.
       draggable={call.state === 'active'}
       onDragStart={(e) => e.dataTransfer.setData(CALL_DRAG, call.id)}
@@ -622,7 +622,7 @@ function Devices() {
         </Button>
       )}
       {perm === 'denied' && (
-        <p className="text-zinc-600 dark:text-zinc-400">
+        <p className="text-muted">
           Call notifications are blocked. To get them, allow notifications for this site in your
           browser’s site settings (the icon left of the address), then reload the page.
         </p>

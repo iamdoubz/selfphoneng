@@ -21,10 +21,10 @@ export const fmtDuration = (s: number) =>
 export const STATUS_LOOK: Record<CallDto['status'], string> = {
   answered: 'bg-green-100 text-green-900 dark:bg-green-900 dark:text-green-100',
   missed: 'bg-red-100 text-red-900 dark:bg-red-900 dark:text-red-100',
-  voicemail: 'bg-sky-100 text-sky-900 dark:bg-sky-900 dark:text-sky-100',
+  voicemail: 'bg-primary-soft text-primary-ink',
   abandoned: 'bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100',
-  busy: 'bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200',
-  failed: 'bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200',
+  busy: 'bg-line text-fg',
+  failed: 'bg-line text-fg',
 };
 export const DIRECTION_TEXT = { inbound: 'In', outbound: 'Out', internal: 'Internal' };
 
@@ -71,7 +71,7 @@ export function CallsPage() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Call history</h1>
         <a
-          className="rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+          className="rounded-md border border-line-strong bg-surface px-3 py-2 text-sm font-medium hover:bg-subtle"
           href={callsApi.csvUrl(filter)}
         >
           Export CSV
@@ -148,10 +148,10 @@ export function CallsPage() {
         </div>
       </form>
       {list.isError && <Alert>{list.error.message}</Alert>}
-      {list.data && calls.length === 0 && <p className="text-sm text-zinc-500">No calls match.</p>}
+      {list.data && calls.length === 0 && <p className="text-sm text-muted">No calls match.</p>}
       <ul
         aria-label="Calls"
-        className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800"
+        className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm"
       >
         {calls.map((c) => (
           <li key={c.id} className="flex flex-col gap-2 px-3 py-2 text-sm">
@@ -161,15 +161,15 @@ export function CallsPage() {
               className="flex flex-wrap items-center gap-x-3 gap-y-1 text-left"
               onClick={() => setOpen(open === c.id ? null : c.id)}
             >
-              <span className="w-36 text-zinc-500">{new Date(c.startedAt).toLocaleString()}</span>
+              <span className="w-36 text-muted">{new Date(c.startedAt).toLocaleString()}</span>
               <span className="w-14">{DIRECTION_TEXT[c.direction]}</span>
               <span className="min-w-0 flex-1">
                 <span className="font-medium">{c.fromName ?? fmtNumber(c.fromNumber)}</span>
                 {c.fromName && (
-                  <span className="text-zinc-500"> {fmtNumber(c.fromNumber)}</span>
+                  <span className="text-muted"> {fmtNumber(c.fromNumber)}</span>
                 )} → {fmtNumber(c.toNumber)}
                 {c.answeredBy && (
-                  <span className="text-zinc-500"> · answered by {c.answeredBy.name}</span>
+                  <span className="text-muted"> · answered by {c.answeredBy.name}</span>
                 )}
                 <SpamNote check={c.spam} />
               </span>
@@ -202,12 +202,12 @@ export function CallsPage() {
 
 function Legs({ id }: { id: string }) {
   const d = useQuery({ queryKey: ['call', id], queryFn: () => callsApi.get(id) });
-  if (!d.data) return <p className="text-xs text-zinc-500">Loading…</p>;
+  if (!d.data) return <p className="text-xs text-muted">Loading…</p>;
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <caption className="sr-only">Call legs</caption>
-        <thead className="text-left text-zinc-500">
+        <thead className="text-left text-muted">
           <tr>
             <th className="pr-3 font-normal">Time</th>
             <th className="pr-3 font-normal">From channel</th>

@@ -6,7 +6,7 @@ import { Link } from 'react-router';
 import { aboutApi } from '../api/client.ts';
 import { Alert, Brand } from '../components/ui.tsx';
 
-const linkClass = 'text-sky-700 underline dark:text-sky-400';
+const linkClass = 'text-link underline';
 
 export function AboutPage() {
   const about = useQuery({ queryKey: ['about'], queryFn: aboutApi.get });
@@ -44,18 +44,18 @@ export function AboutPage() {
             <a
               href="/api/about/source"
               download="selfphone.tar.gz"
-              className="rounded-md bg-sky-600 px-4 py-2 font-medium text-white hover:bg-sky-700"
+              className="rounded-md bg-primary px-4 py-2 font-medium text-white hover:bg-primary-hover"
             >
               Code v{a.version}
             </a>
-            <span className="text-zinc-500">
+            <span className="text-muted">
               selfphone.tar.gz, {Math.max(1, Math.round(a.source.bytes / 1e6))} MB, built{' '}
               {new Date(a.source.builtAt).toLocaleString()}
             </span>
           </div>
         ) : (
           a && (
-            <p className="text-zinc-500">
+            <p className="text-muted">
               This is a development build: the source archive is only in builds made with Docker.
               The project&apos;s repository is below.
             </p>

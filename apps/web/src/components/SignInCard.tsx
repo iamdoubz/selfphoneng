@@ -56,11 +56,11 @@ export function SignInCard() {
       <div className="flex flex-col gap-1 text-sm">
         <h3 className="font-medium">Password</h3>
         {ways.password ? (
-          <Link className="text-sky-700 underline dark:text-sky-400" to="/change-password">
+          <Link className="text-link underline" to="/change-password">
             Change password
           </Link>
         ) : (
-          <p className="text-zinc-500">
+          <p className="text-muted">
             You have no password here. An admin can give you one with Reset password.
           </p>
         )}
@@ -92,7 +92,7 @@ export function SignInCard() {
             </>
           ) : (
             <>
-              <p className="text-zinc-500">
+              <p className="text-muted">
                 Connect your {oidc.label} account to sign in with it as well.
               </p>
               <div>
@@ -133,7 +133,7 @@ function DirectoryConnect() {
       }}
     >
       <h3 className="font-medium">Company directory</h3>
-      <p className="text-zinc-500">
+      <p className="text-muted">
         Connect your directory account to sign in with its password as well.
       </p>
       <Field label="Directory username or email">

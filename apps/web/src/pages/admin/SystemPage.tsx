@@ -33,12 +33,9 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <section
-      aria-label={title}
-      className="rounded-lg border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900/60"
-    >
-      <header className="flex items-center gap-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <span className="text-sky-600 dark:text-sky-400">{icon(path)}</span>
+    <section aria-label={title} className="rounded-xl border border-line bg-surface shadow-sm">
+      <header className="flex items-center gap-2 border-b border-line px-4 py-3">
+        <span className="text-link">{icon(path)}</span>
         <h2 className="flex-1 font-medium">{title}</h2>
         {action}
       </header>
@@ -54,7 +51,7 @@ function Copy({ text, label }: { text: string; label: string }) {
       type="button"
       aria-label={`Copy ${label}`}
       title={done ? 'Copied' : `Copy ${label}`}
-      className="rounded p-0.5 text-sky-600 hover:bg-zinc-100 dark:text-sky-400 dark:hover:bg-zinc-800"
+      className="rounded p-0.5 text-link hover:bg-subtle"
       onClick={() =>
         void navigator.clipboard.writeText(text).then(() => {
           setDone(true);
@@ -70,8 +67,8 @@ function Copy({ text, label }: { text: string; label: string }) {
 /** One "label value" cell of the information grid. */
 function Item({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-zinc-100 py-2 dark:border-zinc-800">
-      <dt className="text-zinc-500">{label}</dt>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 border-b border-line py-2">
+      <dt className="text-muted">{label}</dt>
       <dd className="flex items-center gap-1.5 font-semibold">{children}</dd>
     </div>
   );
@@ -87,7 +84,7 @@ const STATUS: Record<DiagnosticCheck['status'], [string, string]> = {
 
 function Checks({ label, checks }: { label: string; checks: DiagnosticCheck[] }) {
   return (
-    <ul aria-label={label} className="divide-y divide-zinc-100 dark:divide-zinc-800">
+    <ul aria-label={label} className="divide-y divide-line">
       {checks.map((c) => (
         <li key={c.id} className="flex gap-3 px-4 py-2 text-sm">
           <span
@@ -97,9 +94,9 @@ function Checks({ label, checks }: { label: string; checks: DiagnosticCheck[] })
           <div className="min-w-0 flex-1">
             <p>
               <span className="font-medium">{c.label}</span>
-              <span className="text-zinc-500"> · {STATUS[c.status][0]}</span>
+              <span className="text-muted"> · {STATUS[c.status][0]}</span>
             </p>
-            <p className="break-words text-zinc-600 dark:text-zinc-400">{c.detail}</p>
+            <p className="break-words text-muted">{c.detail}</p>
             {c.fix && (
               <p className="mt-1 rounded-md bg-amber-50 px-2 py-1 break-words text-amber-900 dark:bg-amber-950/50 dark:text-amber-100">
                 <strong>How to fix:</strong> {c.fix}
@@ -128,12 +125,12 @@ function Diagnostics() {
       }
     >
       <h3 className="px-4 pt-3 text-sm font-medium">This server</h3>
-      {inside.isPending && <p className="px-4 py-2 text-sm text-zinc-500">Checking…</p>}
+      {inside.isPending && <p className="px-4 py-2 text-sm text-muted">Checking…</p>}
       {inside.error && <Alert>{inside.error.message}</Alert>}
       {inside.data && <Checks label="Server checks" checks={inside.data.checks} />}
-      <div className="flex flex-col gap-2 border-t border-zinc-200 px-4 py-3 text-sm dark:border-zinc-800">
+      <div className="flex flex-col gap-2 border-t border-line px-4 py-3 text-sm">
         <h3 className="font-medium">From the internet</h3>
-        <p className="text-zinc-600 dark:text-zinc-400">
+        <p className="text-muted">
           The network test probe connects back to this server from outside, the way a phone on
           mobile data or your SIP provider does. Quick: ports 80, 443 and SIP. Complete: also SIP
           over TLS, the browser phone and the call audio ports.
@@ -151,16 +148,16 @@ function Diagnostics() {
           </Button>
         </div>
         {inside.data && !hasProbe && (
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Set a probe first:{' '}
-            <Link to="/admin/settings/network" className="text-sky-700 underline dark:text-sky-400">
+            <Link to="/admin/settings/network" className="text-link underline">
               Settings → Network
             </Link>
             .
           </p>
         )}
         {test.isPending && (
-          <p role="status" className="text-zinc-500">
+          <p role="status" className="text-muted">
             Testing… (up to half a minute)
           </p>
         )}
@@ -203,7 +200,7 @@ export function SystemPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">System</h1>
-        <Link to="/about" className="text-sm text-sky-700 hover:underline dark:text-sky-400">
+        <Link to="/about" className="text-sm text-link hover:underline">
           About and source code
         </Link>
       </div>
@@ -222,7 +219,7 @@ export function SystemPage() {
             <Item label="Company">{s.companyName}</Item>
             <Item label="Public IP">
               {s.publicIp ?? 'not set'}
-              <span className="font-normal text-zinc-500">
+              <span className="font-normal text-muted">
                 {s.publicIpDynamic ? 'dynamic, re-checked' : 'static'}
               </span>
               {s.publicIp && <Copy text={s.publicIp} label="public IP" />}
@@ -231,7 +228,7 @@ export function SystemPage() {
             <Item label="Ports">
               <span>
                 SIP {p.sip}
-                <span className="font-normal text-zinc-500">{p.sipTcp ? ' UDP+TCP' : ' UDP'}</span>
+                <span className="font-normal text-muted">{p.sipTcp ? ' UDP+TCP' : ' UDP'}</span>
                 {p.sips && ` · SIPS ${p.sips}`} · Media {p.rtp} · HTTPS {p.https}
               </span>
             </Item>
@@ -266,13 +263,13 @@ export function SystemPage() {
           <div className="flex items-center gap-2">
             <pre
               aria-label="Restart command"
-              className="flex-1 overflow-x-auto rounded-md bg-zinc-100 px-3 py-2 font-mono dark:bg-zinc-950"
+              className="flex-1 overflow-x-auto rounded-md bg-subtle px-3 py-2 font-mono"
             >
               {RESTART}
             </pre>
             <Copy text={RESTART} label="restart command" />
           </div>
-          <p className="text-zinc-500">
+          <p className="text-muted">
             Calls in progress drop, so do it when nobody is on the phone. Phones and trunks sign in
             again by themselves within a minute; the web app, voicemail and history aren&apos;t
             affected.
@@ -288,7 +285,7 @@ export function SystemPage() {
         action={
           <a
             href="/api/system/events.csv"
-            className="flex items-center gap-1.5 rounded-md border border-zinc-300 px-2.5 py-1 text-sm hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+            className="flex items-center gap-1.5 rounded-md border border-line-strong bg-surface px-2.5 py-1 text-sm hover:bg-subtle"
           >
             {icon(DOWNLOAD)} Download
           </a>
@@ -296,12 +293,12 @@ export function SystemPage() {
       >
         {events.error && <Alert>{events.error.message}</Alert>}
         {events.data && !rows.length && (
-          <p className="px-4 py-3 text-sm text-zinc-500">Nothing logged yet.</p>
+          <p className="px-4 py-3 text-sm text-muted">Nothing logged yet.</p>
         )}
         {!!rows.length && (
           <div className="overflow-x-auto">
             <table aria-label="Events" className="w-full text-left text-sm">
-              <thead className="text-zinc-500">
+              <thead className="text-muted">
                 <tr>
                   {['Severity', 'Event', 'Time', 'Source', 'Details'].map((h) => (
                     <th key={h} scope="col" className="px-4 py-2 font-medium whitespace-nowrap">
@@ -310,7 +307,7 @@ export function SystemPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              <tbody className="divide-y divide-line">
                 {rows.map((e) => (
                   <tr key={e.id}>
                     <td className="px-4 py-1.5 whitespace-nowrap">
@@ -332,7 +329,7 @@ export function SystemPage() {
           </div>
         )}
         {events.hasNextPage && (
-          <div className="border-t border-zinc-100 py-2 text-center dark:border-zinc-800">
+          <div className="border-t border-line py-2 text-center">
             <Button
               onClick={() => void events.fetchNextPage()}
               disabled={events.isFetchingNextPage}

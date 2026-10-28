@@ -68,32 +68,32 @@ function Messages() {
           onChange={(e) => setQ(e.target.value)}
         />
       )}
-      {list.data?.length === 0 && <p className="text-sm text-zinc-500">No messages.</p>}
+      {list.data?.length === 0 && <p className="text-sm text-muted">No messages.</p>}
       {!!list.data?.length && shown?.length === 0 && (
-        <p className="text-sm text-zinc-500">No message mentions that.</p>
+        <p className="text-sm text-muted">No message mentions that.</p>
       )}
       <ul className="flex flex-col gap-2">
         {shown?.map((m) => (
           <li
             key={m.id}
-            className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-3 sm:flex-row sm:items-center dark:border-zinc-800"
+            className="flex flex-col gap-2 rounded-xl border border-line bg-surface shadow-sm p-3 sm:flex-row sm:items-center"
           >
             <div className="min-w-0 flex-1">
               <p className={isNew(m) ? 'font-semibold' : ''}>
                 {who(m)}
                 {isNew(m) && (
-                  <span className="ml-2 rounded bg-sky-100 px-1.5 py-0.5 text-xs text-sky-800 dark:bg-sky-900 dark:text-sky-200">
+                  <span className="ml-2 rounded bg-primary-soft px-1.5 py-0.5 text-xs text-primary-ink">
                     New
                   </span>
                 )}
               </p>
-              <p className="text-sm text-zinc-500">
+              <p className="text-sm text-muted">
                 {m.callerName && m.callerNumber ? `${formatNumber(m.callerNumber)} · ` : ''}
                 {new Date(m.receivedAt).toLocaleString()} · {mmss(m.durationS)}
               </p>
               {m.transcript !== null && (
                 <p className="mt-1 text-sm" title="Automatic transcript, may have mistakes">
-                  {m.transcript || <span className="text-zinc-500">(no words)</span>}
+                  {m.transcript || <span className="text-muted">(no words)</span>}
                 </p>
               )}
             </div>
@@ -108,7 +108,7 @@ function Messages() {
             <div className="flex gap-2">
               <a
                 href={meApi.audioUrl(m.id, true)}
-                className="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                className="inline-flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-subtle"
               >
                 Download
               </a>
@@ -217,7 +217,7 @@ function Greeting(props: {
     <div
       role="group"
       aria-labelledby={id}
-      className="flex flex-col gap-2 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800"
+      className="flex flex-col gap-2 rounded-xl border border-line bg-surface shadow-sm p-3"
     >
       <p id={id} className="font-medium">
         {label}
@@ -231,7 +231,7 @@ function Greeting(props: {
           className="w-full sm:w-80"
         />
       ) : (
-        <p className="text-sm text-zinc-500">Not recorded. {props.fallback}</p>
+        <p className="text-sm text-muted">Not recorded. {props.fallback}</p>
       )}
       <div className="flex flex-wrap gap-2">
         {recording ? (
@@ -265,8 +265,8 @@ function Greeting(props: {
         )}
       </div>
       {recording && <p className="text-sm text-red-600 dark:text-red-400">Recording…</p>}
-      {upload.isPending && <p className="text-sm text-zinc-500">Saving…</p>}
-      {upload.isSuccess && !upload.isPending && <p className="text-sm text-zinc-500">Saved.</p>}
+      {upload.isPending && <p className="text-sm text-muted">Saving…</p>}
+      {upload.isSuccess && !upload.isPending && <p className="text-sm text-muted">Saved.</p>}
       {(micError ?? upload.error?.message ?? remove.error?.message) && (
         <Alert>{micError ?? upload.error?.message ?? remove.error?.message}</Alert>
       )}

@@ -37,7 +37,7 @@ export function DndSwitch({ me }: { me: MeDto }) {
         onChange={(e) => save.mutate({ dnd: e.target.checked })}
       />
       Do not disturb
-      <span className="text-xs text-zinc-500">(also *78 on, *79 off from your phone)</span>
+      <span className="text-xs text-muted">(also *78 on, *79 off from your phone)</span>
     </label>
   );
 }
@@ -45,7 +45,7 @@ export function DndSwitch({ me }: { me: MeDto }) {
 export function MeSettingsPage() {
   const me = useMe();
   if (me.error) return <Alert>{me.error.message}</Alert>;
-  if (!me.data) return <p className="text-sm text-zinc-500">Loading…</p>;
+  if (!me.data) return <p className="text-sm text-muted">Loading…</p>;
   // ponytail: the forms start from what was loaded; a *72 from the phone while this page is open
   // shows after a reload (remounting on every change would also wipe "Saved." and errors).
   return <SettingsForms me={me.data} />;
@@ -119,7 +119,7 @@ function Forwarding({ me }: { me: MeDto }) {
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save forwarding
         </Button>
-        {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+        {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
       </div>
       {save.error && <Alert>{save.error.message}</Alert>}
     </form>
@@ -188,7 +188,7 @@ function Voicemail({ me }: { me: MeDto }) {
           <Button type="submit" variant="primary" disabled={save.isPending}>
             Save voicemail settings
           </Button>
-          {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+          {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
         </div>
         {save.error && <Alert>{save.error.message}</Alert>}
       </form>
@@ -218,7 +218,7 @@ function CallReportForm({ me }: { me: MeDto }) {
       <h2 id="report-h" className="text-lg font-semibold">
         Call report
       </h2>
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted">
         An email listing your calls: who, which numbers, how long, and if they were recorded. No
         calls, no email. It goes out a few minutes after each period ends, in the company time zone.
       </p>
@@ -285,14 +285,14 @@ function CallReportForm({ me }: { me: MeDto }) {
               onChange={(e) => setForm({ ...form, callReportSummaries: e.target.checked })}
             />
             Add a summary of each recorded call
-            <span className="text-xs text-zinc-500">(when your admin has call summaries on)</span>
+            <span className="text-xs text-muted">(when your admin has call summaries on)</span>
           </label>
         )}
         <div className="flex items-center gap-3">
           <Button type="submit" variant="primary" disabled={save.isPending}>
             Save call report
           </Button>
-          {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+          {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
         </div>
         {save.error && <Alert>{save.error.message}</Alert>}
       </form>
@@ -313,12 +313,7 @@ function ContrackConnect({ contrack }: { contrack: NonNullable<MeDto['contrack']
   const disconnect = useMutation({ mutationFn: meApi.disconnectContrack, onSuccess: done });
   const options = useMutation({ mutationFn: meApi.contrackOptions, onSuccess: done });
   const where = contrack.publicUrl ? (
-    <a
-      className="text-sky-700 underline dark:text-sky-400"
-      href={contrack.publicUrl}
-      target="_blank"
-      rel="noreferrer"
-    >
+    <a className="text-link underline" href={contrack.publicUrl} target="_blank" rel="noreferrer">
       Contrack
     </a>
   ) : (
@@ -365,9 +360,9 @@ function ContrackConnect({ contrack }: { contrack: NonNullable<MeDto['contrack']
             <span>
               With the summary and action items of each recorded call
               {!contrack.summariesAvailable && (
-                <span className="text-zinc-500"> (when your admin turns on call summaries)</span>
+                <span className="text-muted"> (when your admin turns on call summaries)</span>
               )}
-              <span className="block text-xs text-zinc-500">
+              <span className="block text-xs text-muted">
                 What was said goes into Contrack. If Contrack's own AI uses a cloud provider, it can
                 reach that provider.
               </span>
@@ -376,7 +371,7 @@ function ContrackConnect({ contrack }: { contrack: NonNullable<MeDto['contrack']
         </div>
       )}
       {!contrack.tokenPrefix && (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-muted">
           Your contacts live in your own {where} account. There, open Settings → Account → API
           tokens → Create token, with Read and write (so contacts shared with you can be added) and
           Expires: Never, and paste it here. Only you see your contacts unless you share them.
@@ -448,7 +443,7 @@ function MobileApp() {
             <li key={d.id} className="flex flex-wrap items-center gap-3">
               <span>
                 {d.name}{' '}
-                <span className="text-zinc-500">
+                <span className="text-muted">
                   ({d.platform === 'ios' ? 'iPhone' : 'Android'}, paired{' '}
                   {new Date(d.createdAt).toLocaleDateString()}
                   {d.lastUsedAt && `, last used ${new Date(d.lastUsedAt).toLocaleString()}`})
@@ -485,7 +480,7 @@ function MobileApp() {
             Or type it in the app: server <span className="font-mono">{pair.data.server}</span>,
             code <span className="font-mono">{pair.data.code}</span>
           </p>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Works once, until {new Date(pair.data.expiresAt).toLocaleTimeString()}. Whoever uses it
             gets into your account: don't share it.
           </p>

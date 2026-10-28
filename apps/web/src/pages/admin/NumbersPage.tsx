@@ -37,26 +37,26 @@ export function NumbersPage() {
         </Button>
       </div>
       {noTrunk && (
-        <p className="text-sm text-zinc-500">Add a trunk first: numbers arrive through one.</p>
+        <p className="text-sm text-muted">Add a trunk first: numbers arrive through one.</p>
       )}
       {dids.isError && <Alert>{dids.error.message}</Alert>}
-      {dids.isPending && <p className="text-sm text-zinc-500">Loading…</p>}
+      {dids.isPending && <p className="text-sm text-muted">Loading…</p>}
       {dids.data?.length === 0 && !noTrunk && (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           No numbers yet. Add the numbers (DIDs) you bought at voip.ms.
         </p>
       )}
       {dids.data && dids.data.length > 0 && (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
           {dids.data.map((d) => (
             <li
               key={d.id}
               className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm"
             >
               <span className="font-mono">{formatNumber(d.number)}</span>
-              {d.label && <span className="text-zinc-500">{d.label}</span>}
+              {d.label && <span className="text-muted">{d.label}</span>}
               <span className="flex-1 truncate">→ {d.destinationSummary}</span>
-              <span className="hidden text-zinc-500 sm:inline">{trunkName(d.trunkId)}</span>
+              <span className="hidden text-muted sm:inline">{trunkName(d.trunkId)}</span>
               <Button onClick={() => setEditing(d)}>Edit</Button>
               <Button
                 variant="ghost"
@@ -235,7 +235,7 @@ function DidDrawer({
           <input type="checkbox" className="mt-1" {...form.register('recordInbound')} />
           <span>
             Record every call to this number
-            <span className="block text-xs text-zinc-500">
+            <span className="block text-xs text-muted">
               Callers hear the recording notice from Settings → Recording first, if you set one.
               Check the consent rules where you and your callers are.
             </span>

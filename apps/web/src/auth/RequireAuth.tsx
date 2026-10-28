@@ -26,7 +26,7 @@ export function RequireAuth({
 }) {
   const me = useMe();
   const loc = useLocation();
-  if (me.isPending) return <p className="p-6 text-sm text-zinc-500">Loading…</p>;
+  if (me.isPending) return <p className="p-6 text-sm text-muted">Loading…</p>;
   if (me.isError) {
     if (me.error instanceof ApiError && me.error.status === 401)
       return <Navigate to={`/login?next=${encodeURIComponent(loc.pathname)}`} replace />;

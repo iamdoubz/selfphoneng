@@ -44,7 +44,7 @@ export function ChangePasswordPage() {
   return (
     <AuthCard title="Change your password">
       {forced && (
-        <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="mb-4 text-sm text-muted">
           You signed in with a temporary password. Choose a new one to continue.
         </p>
       )}

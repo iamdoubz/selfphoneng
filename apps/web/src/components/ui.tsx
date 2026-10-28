@@ -3,15 +3,13 @@
 import { useId, type ComponentProps, type ReactNode } from 'react';
 import { APP_NAME } from '@selfphoneng/shared';
 
-const focus =
-  'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500';
+const focus = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
 
 const variants = {
-  primary: 'bg-sky-600 text-white hover:bg-sky-700 disabled:bg-sky-600/50',
-  secondary:
-    'border border-zinc-300 bg-white hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800',
+  primary: 'bg-primary text-white hover:bg-primary-hover disabled:bg-primary/50',
+  secondary: 'border border-line-strong bg-surface hover:bg-subtle',
   danger: 'bg-red-600 text-white hover:bg-red-700 disabled:bg-red-600/50',
-  ghost: 'hover:bg-zinc-100 dark:hover:bg-zinc-800',
+  ghost: 'hover:bg-subtle',
 };
 
 /** The icon (public/icon-192.png, cut from public/logo.png) and the product name. */
@@ -55,7 +53,7 @@ export function MenuIcon() {
   );
 }
 
-export const inputClass = `w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900 ${focus} aria-invalid:border-red-500`;
+export const inputClass = `w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm ${focus} aria-invalid:border-red-500`;
 
 /** Label + control + error text. `children` gets the id and aria props to spread on the control. */
 export function Field({
@@ -84,7 +82,7 @@ export function Field({
       {(error || hint) && (
         <p
           id={msgId}
-          className={`text-xs ${error ? 'text-red-600 dark:text-red-400' : 'text-zinc-500'}`}
+          className={`text-xs ${error ? 'text-red-600 dark:text-red-400' : 'text-muted'}`}
         >
           {error ?? hint}
         </p>

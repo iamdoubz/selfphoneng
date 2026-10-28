@@ -45,14 +45,14 @@ function Bars({
         {label}
         {segments.length > 1 &&
           segments.map(([k, text, color]) => (
-            <span key={k} className="flex items-center gap-1 text-xs font-normal text-zinc-500">
+            <span key={k} className="flex items-center gap-1 text-xs font-normal text-muted">
               <span className={`inline-block size-2.5 rounded-sm ${color}`} />
               {text}
             </span>
           ))}
-        <span className="text-xs font-normal text-zinc-500">most in a day: {max}</span>
+        <span className="text-xs font-normal text-muted">most in a day: {max}</span>
       </figcaption>
-      <div className="flex h-40 items-end gap-px border-b border-zinc-300 dark:border-zinc-700">
+      <div className="flex h-40 items-end gap-px border-b border-line-strong">
         {days.map((d) => (
           <div
             key={d.date}
@@ -67,7 +67,7 @@ function Bars({
           </div>
         ))}
       </div>
-      <div className="flex justify-between text-xs text-zinc-500">
+      <div className="flex justify-between text-xs text-muted">
         <span>{shortDate(days[0]!.date)}</span>
         <span>{shortDate(days.at(-1)!.date)}</span>
       </div>
@@ -84,7 +84,7 @@ function Heatmap({ hours }: { hours: number[][] }) {
           <tr>
             <th />
             {hours[0]!.map((_, h) => (
-              <th key={h} scope="col" className="w-6 font-normal text-zinc-500">
+              <th key={h} scope="col" className="w-6 font-normal text-muted">
                 {h % 3 === 0 ? h : <span className="sr-only">{h}</span>}
               </th>
             ))}
@@ -93,14 +93,14 @@ function Heatmap({ hours }: { hours: number[][] }) {
         <tbody>
           {hours.map((row, d) => (
             <tr key={d}>
-              <th scope="row" className="pr-1 text-left font-normal text-zinc-500">
+              <th scope="row" className="pr-1 text-left font-normal text-muted">
                 {WEEKDAYS[d]}
               </th>
               {row.map((n, h) => (
                 <td
                   key={h}
                   title={`${WEEKDAYS[d]} ${h}:00: ${n} calls`}
-                  className="h-6 w-6 rounded-sm bg-zinc-100 dark:bg-zinc-800"
+                  className="h-6 w-6 rounded-sm bg-subtle"
                   style={
                     n ? { backgroundColor: `rgb(14 165 233 / ${0.15 + (0.85 * n) / max})` } : {}
                   }
@@ -160,7 +160,7 @@ export function ReportsPage() {
           Show
         </Button>
         {s && (
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted">
             {shortDate(s.from)} – {shortDate(s.to)}
             {!range.from && !range.to && ' (last 30 days)'}
           </p>
@@ -197,10 +197,10 @@ export function ReportsPage() {
                 ),
               ] as const
             ).map(([k, v, note]) => (
-              <div key={k} className="rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-                <dt className="text-zinc-500">{k}</dt>
+              <div key={k} className="rounded-xl border border-line bg-surface shadow-sm p-3">
+                <dt className="text-muted">{k}</dt>
                 <dd className="text-lg font-semibold tabular-nums">{v}</dd>
-                {note && <dd className="text-xs text-zinc-500">{note}</dd>}
+                {note && <dd className="text-xs text-muted">{note}</dd>}
               </div>
             ))}
           </dl>
@@ -225,11 +225,11 @@ export function ReportsPage() {
       <div className="flex flex-col gap-2">
         <h2 className="font-medium">Queues</h2>
         {queues.error && <Alert>{queues.error.message}</Alert>}
-        {queues.data && !queues.data.length && <p className="text-sm text-zinc-500">No queues.</p>}
+        {queues.data && !queues.data.length && <p className="text-sm text-muted">No queues.</p>}
         {!!queues.data?.length && (
           <div className="overflow-x-auto">
             <table aria-label="Queue report" className="w-full text-left text-sm">
-              <thead className="text-zinc-500">
+              <thead className="text-muted">
                 <tr>
                   {[
                     'Queue',
@@ -246,7 +246,7 @@ export function ReportsPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+              <tbody className="divide-y divide-line">
                 {queues.data.map((q) => (
                   <tr key={q.id} className="tabular-nums">
                     <td className="px-2 py-1">

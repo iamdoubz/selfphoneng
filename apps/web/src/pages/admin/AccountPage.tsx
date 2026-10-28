@@ -73,7 +73,7 @@ function TwoStep() {
       <h2 id="two-step-h" className="font-medium">
         Two-step sign-in
       </h2>
-      <p className="text-zinc-600 dark:text-zinc-400">
+      <p className="text-muted">
         Besides your password, signing in asks for a code from an authenticator app on your phone
         (any app that does TOTP, such as Aegis, 2FAS, Google or Microsoft Authenticator).
       </p>
@@ -115,7 +115,7 @@ function TwoStep() {
             height={240}
             className="rounded bg-white"
           />
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Or type this key: <span className="font-mono break-all">{setup.data.secret}</span>
           </p>
           <Field label="2. Enter the 6-digit code it shows">

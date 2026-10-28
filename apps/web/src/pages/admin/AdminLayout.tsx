@@ -60,11 +60,11 @@ export function AdminLayout({ user }: { user: AuthUser }) {
               end={p.path === ''}
               onClick={() => setNavOpen(false)}
               className={({ isActive }) =>
-                `flex items-center justify-between rounded-md px-3 py-1.5 text-sm ${isActive ? 'bg-sky-100 font-medium text-sky-900 dark:bg-sky-950 dark:text-sky-100' : 'hover:bg-zinc-200/60 dark:hover:bg-zinc-800'} ${p.milestone ? 'text-zinc-500' : ''}`
+                `flex items-center justify-between rounded-md px-3 py-1.5 text-sm ${isActive ? 'bg-primary-soft font-medium text-primary-ink' : 'hover:bg-subtle'} ${p.milestone ? 'text-muted' : ''}`
               }
             >
               {p.label}
-              {p.milestone && <span className="text-[10px] text-zinc-400">{p.milestone}</span>}
+              {p.milestone && <span className="text-[10px] text-muted">{p.milestone}</span>}
             </NavLink>
           </li>
         ))}
@@ -74,7 +74,7 @@ export function AdminLayout({ user }: { user: AuthUser }) {
 
   return (
     <div className="flex min-h-dvh">
-      <aside className="sticky top-0 hidden h-dvh w-60 flex-col border-r border-zinc-200 bg-zinc-50 md:flex dark:border-zinc-800 dark:bg-zinc-900">
+      <aside className="sticky top-0 hidden h-dvh w-60 flex-col border-r border-line bg-surface md:flex">
         <p className="px-4 py-4 text-lg">
           <Brand />
         </p>
@@ -82,7 +82,7 @@ export function AdminLayout({ user }: { user: AuthUser }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-1 border-b border-zinc-200 px-2 py-2 sm:gap-2 sm:px-4 dark:border-zinc-800">
+        <header className="flex items-center gap-1 border-b border-line px-2 py-2 sm:gap-2 sm:px-4">
           <Button
             variant="ghost"
             className="md:hidden"
@@ -95,9 +95,7 @@ export function AdminLayout({ user }: { user: AuthUser }) {
           </Button>
           <Brand className="md:hidden" />
           <div className="ml-auto flex items-center gap-1 whitespace-nowrap sm:gap-2">
-            <span className="hidden text-sm text-zinc-600 sm:inline dark:text-zinc-400">
-              {user.displayName}
-            </span>
+            <span className="hidden text-sm text-muted sm:inline">{user.displayName}</span>
             <ThemeToggle />
             {/* On phones this lives in the menu instead. */}
             <span className="hidden sm:contents">
@@ -111,12 +109,9 @@ export function AdminLayout({ user }: { user: AuthUser }) {
           </div>
         </header>
         {navOpen && (
-          <div
-            id="mobile-nav"
-            className="border-b border-zinc-200 bg-zinc-50 pt-2 md:hidden dark:border-zinc-800 dark:bg-zinc-900"
-          >
+          <div id="mobile-nav" className="border-b border-line bg-surface pt-2 md:hidden">
             {links}
-            <div className="border-t border-zinc-200 px-2 py-2 dark:border-zinc-800">
+            <div className="border-t border-line px-2 py-2">
               <Button
                 variant="ghost"
                 className="w-full justify-start"
@@ -148,7 +143,7 @@ export function ComingSoon({ label, milestone }: { label: string; milestone: str
   return (
     <section>
       <h1 className="mb-2 text-xl font-semibold">{label}</h1>
-      <p className="text-sm text-zinc-500">Coming in {milestone}.</p>
+      <p className="text-sm text-muted">Coming in {milestone}.</p>
     </section>
   );
 }

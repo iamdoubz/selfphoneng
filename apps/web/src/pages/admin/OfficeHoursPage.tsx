@@ -36,11 +36,11 @@ const rangeText = (r: OpenRange) =>
 export function OfficeHoursPage() {
   const [tab, setTab] = useState<'hours' | 'holidays'>('hours');
   const tabClass = (on: boolean) =>
-    `rounded-md px-3 py-2 text-sm font-medium ${on ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'}`;
+    `rounded-md px-3 py-2 text-sm font-medium ${on ? 'bg-subtle' : 'hover:bg-subtle'}`;
   return (
     <section className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Office hours</h1>
-      <div role="tablist" className="flex gap-1 border-b border-zinc-200 pb-2 dark:border-zinc-800">
+      <div role="tablist" className="flex gap-1 border-b border-line pb-2">
         <button
           role="tab"
           aria-selected={tab === 'hours'}
@@ -108,7 +108,7 @@ function HoursTab() {
       {list.isError && <Alert>{list.error.message}</Alert>}
       {override.error && <Alert>{override.error.message}</Alert>}
       {list.data?.length === 0 && (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           No office hours yet. Set your opening hours, then point your phone number at them: callers
           go one way when you're open and another when you're closed.
         </p>
@@ -117,13 +117,13 @@ function HoursTab() {
         <article
           key={tc.id}
           aria-label={tc.name}
-          className="flex flex-col gap-3 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800"
+          className="flex flex-col gap-3 rounded-xl border border-line bg-surface shadow-sm p-4"
         >
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="flex-1 font-semibold">{tc.name}</h2>
             <StatusChip tc={tc} />
           </div>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="text-sm text-muted">
             {tc.openRanges.map(rangeText).join('; ') || 'Never open'} · {tc.timezone}
             {tc.useHolidays ? ' · closed on holidays' : ''}
             {tc.overrideDigit !== null &&
@@ -199,7 +199,7 @@ function WeekGrid({
       onPointerUp={() => setPaint(null)}
       onPointerLeave={() => setPaint(null)}
     >
-      <div className="grid w-max grid-cols-[2.5rem_repeat(48,0.75rem)] gap-px text-[10px] text-zinc-500">
+      <div className="grid w-max grid-cols-[2.5rem_repeat(48,0.75rem)] gap-px text-[10px] text-muted">
         <span />
         {Array.from({ length: SLOTS }, (_, i) => (
           <span key={i} className="text-center">
@@ -213,7 +213,7 @@ function WeekGrid({
               <span
                 key={i}
                 data-cell={`${d}-${i}`}
-                className={`h-5 cursor-pointer touch-none rounded-sm ${on ? 'bg-green-500' : 'bg-zinc-200 dark:bg-zinc-800'}`}
+                className={`h-5 cursor-pointer touch-none rounded-sm ${on ? 'bg-green-500' : 'bg-line'}`}
                 onPointerDown={(e) => {
                   // Touch captures the pointer to this cell; let go so dragging paints the others.
                   const el = e.target as Element;
@@ -258,10 +258,10 @@ function RangeList({
             </Button>
           </li>
         ))}
-        {ranges.length === 0 && <li className="text-zinc-500">No open hours: always closed.</li>}
+        {ranges.length === 0 && <li className="text-muted">No open hours: always closed.</li>}
       </ul>
-      <fieldset className="flex min-w-0 flex-wrap items-end gap-2 rounded-md border border-zinc-200 p-2 dark:border-zinc-800">
-        <legend className="px-1 text-xs text-zinc-500">Add hours</legend>
+      <fieldset className="flex min-w-0 flex-wrap items-end gap-2 rounded-md border border-line p-2">
+        <legend className="px-1 text-xs text-muted">Add hours</legend>
         {DAYS.map((d) => (
           <label key={d} className="flex items-center gap-1 text-sm">
             <input
@@ -417,7 +417,7 @@ function HoursForm({
         </Field>
         <fieldset className="flex min-w-0 flex-col gap-2">
           <legend className="mb-1 text-sm font-medium">Open hours</legend>
-          <p className="text-xs text-zinc-500">Click or drag across the grid; green is open.</p>
+          <p className="text-xs text-muted">Click or drag across the grid; green is open.</p>
           <WeekGrid ranges={ranges} onChange={setRanges} />
           {errors.openRanges && <Alert>{errors.openRanges}</Alert>}
           <RangeList ranges={ranges} onChange={setRanges} />
@@ -544,18 +544,18 @@ function HolidaysTab() {
           Add US federal holidays for {year}
         </Button>
         {importUs.data && (
-          <span role="status" className="text-sm text-zinc-500">
+          <span role="status" className="text-sm text-muted">
             Added {importUs.data.added}.
           </span>
         )}
       </div>
-      {list.data?.length === 0 && <p className="text-sm text-zinc-500">No holidays yet.</p>}
+      {list.data?.length === 0 && <p className="text-sm text-muted">No holidays yet.</p>}
       {list.data && list.data.length > 0 && (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
           {list.data.map((h) => (
             <li key={h.id} className="flex flex-wrap items-center gap-x-3 px-3 py-2 text-sm">
               <span className="flex-1 font-medium">{h.name}</span>
-              <span className="text-zinc-500">
+              <span className="text-muted">
                 {fmt(h.startDate)}
                 {h.endDate !== h.startDate && ` – ${fmt(h.endDate)}`}
                 {h.recurringYearly && ' · every year'}

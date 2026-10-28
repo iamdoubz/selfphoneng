@@ -52,16 +52,13 @@ export function SettingsPage() {
   return (
     <section className="flex max-w-2xl flex-col gap-4">
       <h1 className="text-xl font-semibold">Settings</h1>
-      <nav
-        aria-label="Settings"
-        className="flex flex-wrap gap-1 border-b border-zinc-200 dark:border-zinc-800"
-      >
+      <nav aria-label="Settings" className="flex flex-wrap gap-1 border-b border-line">
         {TABS.map((t) => (
           <NavLink
             key={t.id}
             to={`/admin/settings/${t.id}`}
             className={({ isActive }) =>
-              `-mb-px border-b-2 px-3 py-1.5 text-sm font-medium ${isActive || (t.id === 'email' && tab === 'email') ? 'border-sky-600' : 'border-transparent hover:border-zinc-300'}`
+              `-mb-px border-b-2 px-3 py-1.5 text-sm font-medium ${isActive || (t.id === 'email' && tab === 'email') ? 'border-primary' : 'border-transparent hover:border-line-strong'}`
             }
           >
             {t.label}
@@ -128,7 +125,7 @@ export function EmailTab({ s }: { s: SettingsDto }) {
         });
       }}
     >
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted">
         The mail server used for emergency alerts and voicemail emails. Leave the server empty to
         turn email off.
       </p>
@@ -209,7 +206,7 @@ export function EmailTab({ s }: { s: SettingsDto }) {
       </div>
 
       {s.smtp && (
-        <div className="flex flex-col gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+        <div className="flex flex-col gap-2 border-t border-line pt-4">
           <div className="flex items-end gap-2">
             <Field label="Send a test email to">
               {(a) => (
@@ -317,7 +314,7 @@ export function EmergencyTab({ s }: { s: SettingsDto }) {
       </Field>
       <fieldset className="flex flex-col gap-1">
         <legend className="mb-1 text-sm font-medium">Ring these phones</legend>
-        {exts.data?.length === 0 && <p className="text-sm text-zinc-500">No extensions yet.</p>}
+        {exts.data?.length === 0 && <p className="text-sm text-muted">No extensions yet.</p>}
         {exts.data?.map((x) => (
           <label key={x.id} className="flex items-center gap-2 text-sm">
             <input
@@ -340,7 +337,7 @@ export function EmergencyTab({ s }: { s: SettingsDto }) {
           {test.isPending ? 'Testing…' : 'Test notifications'}
         </Button>
       </div>
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted">
         The test sends the email and rings the phones above with &quot;TEST&quot; in front. It never
         dials 911. Never test by calling 911.
       </p>
@@ -398,7 +395,7 @@ function RecordingTab({ s }: { s: SettingsDto }) {
         onChange={setNotice}
         noneLabel="No notice"
       />
-      <p className="-mt-2 text-xs text-zinc-500">
+      <p className="-mt-2 text-xs text-muted">
         Played to callers of phone numbers set to record (Phone numbers → Record every call).
       </p>
       <Field label="Keep recordings for (days)" hint="0 keeps them forever">
@@ -427,7 +424,7 @@ function RecordingTab({ s }: { s: SettingsDto }) {
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save
         </Button>
-        {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+        {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
       </div>
       {save.error && <Alert>{save.error.message}</Alert>}
     </form>
@@ -462,7 +459,7 @@ function NumberingTab({ s }: { s: SettingsDto }) {
         save.mutate(Object.fromEntries(RANGES.map(([k]) => [k, v[k].map(Number)])));
       }}
     >
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-sm text-muted">
         Where <strong>Next free</strong> looks when you add a user, ring group, queue, digital
         receptionist, conference room or paging group. You can always type any other free number of
         1 to 6 digits instead, for example <strong>1</strong> for the first user: SelfPhoneNG checks
@@ -471,8 +468,8 @@ function NumberingTab({ s }: { s: SettingsDto }) {
       </p>
       <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-2 text-sm">
         <span />
-        <span className="text-zinc-500">From</span>
-        <span className="text-zinc-500">To</span>
+        <span className="text-muted">From</span>
+        <span className="text-muted">To</span>
         {RANGES.map(([k, label]) => (
           <Fragment key={k}>
             <span>{label}</span>
@@ -495,7 +492,7 @@ function NumberingTab({ s }: { s: SettingsDto }) {
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save
         </Button>
-        {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+        {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
       </div>
       {save.error && <Alert>{save.error.message}</Alert>}
     </form>
@@ -539,7 +536,7 @@ function NetworkTab({ s }: { s: SettingsDto }) {
         <input type="checkbox" checked={watch} onChange={(e) => setWatch(e.target.checked)} />
         Re-check the public IP every 5 minutes (dynamic IP)
       </label>
-      <p className="-mt-2 text-xs text-zinc-500">
+      <p className="-mt-2 text-xs text-muted">
         When it changes, the new IP is saved and admins get an email asking for a telephony restart.
         Asks api.ipify.org (or ifconfig.me) for the address.
       </p>
@@ -562,7 +559,7 @@ function NetworkTab({ s }: { s: SettingsDto }) {
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save
         </Button>
-        {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+        {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
       </div>
       {(save.error ?? detect.error) && <Alert>{(save.error ?? detect.error)!.message}</Alert>}
     </form>
@@ -638,7 +635,7 @@ function AiTab({ s }: { s: SettingsDto }) {
         });
       }}
     >
-      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+      <p className="text-sm text-muted">
         AI runs on this server or your local network only: an address must be localhost or a local
         IP (127.x, 10.x, 172.16–31.x, 192.168.x). Calls and text never go anywhere else. Leave an
         address empty to turn that part off.
@@ -648,7 +645,7 @@ function AiTab({ s }: { s: SettingsDto }) {
         return (
           <fieldset key={kind} className="flex flex-col gap-2">
             <legend className="mb-1 font-medium">{title}</legend>
-            <p className="text-xs text-zinc-500">{hint}</p>
+            <p className="text-xs text-muted">{hint}</p>
             <div className="flex flex-wrap gap-2">
               <input
                 aria-label={`${title} address`}
@@ -700,7 +697,7 @@ function AiTab({ s }: { s: SettingsDto }) {
         <input type="checkbox" checked={vmText} onChange={(e) => setVmText(e.target.checked)} />
         Voicemail transcripts (speech to text)
       </label>
-      <p className="-mt-2 text-xs text-zinc-500">
+      <p className="-mt-2 text-xs text-muted">
         New messages are written out before the voicemail email goes, and the text is in the email
         and on the voicemail page.
       </p>
@@ -708,7 +705,7 @@ function AiTab({ s }: { s: SettingsDto }) {
         <input type="checkbox" checked={callText} onChange={(e) => setCallText(e.target.checked)} />
         Call transcripts (speech to text)
       </label>
-      <p className="-mt-2 text-xs text-zinc-500">
+      <p className="-mt-2 text-xs text-muted">
         Recorded calls are written out a minute or two after they end, the caller and the other side
         apart, and can be searched on the Recordings page. Only calls recorded while this is on.
       </p>
@@ -725,7 +722,7 @@ function AiTab({ s }: { s: SettingsDto }) {
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save
         </Button>
-        {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+        {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
       </div>
       {save.error && <Alert>{save.error.message}</Alert>}
     </form>
@@ -773,7 +770,7 @@ function SecurityTab({ s }: { s: SettingsDto }) {
     >
       <h2 className="font-medium">Desk phones</h2>
       {box(restrict, setRestrict, 'Only accept desk phones from the networks below')}
-      <p className="-mt-2 text-xs text-zinc-500">
+      <p className="-mt-2 text-xs text-muted">
         Local networks: {s['network.localNets'].join(', ')}. Phones anywhere else (at home, on a
         mobile network) can't sign in while this is on. Browser phones still work from anywhere:
         they come through this website.
@@ -792,7 +789,7 @@ function SecurityTab({ s }: { s: SettingsDto }) {
         )}
       </Field>
       <h2 className="font-medium">Outside calls at once</h2>
-      <p className="-mt-2 text-xs text-zinc-500">
+      <p className="-mt-2 text-xs text-muted">
         Limits the damage if someone steals a phone's password. Forwarded calls count for the person
         who set the forward. 911 is never limited. Callers over the limit hear "all circuits are
         busy". 0 = no limit.
@@ -842,7 +839,7 @@ function SecurityTab({ s }: { s: SettingsDto }) {
         )}
       </Field>
       {box(tcpOn, setTcpOn, 'Accept SIP over TCP')}
-      <p className="-mt-2 text-xs text-zinc-500">
+      <p className="-mt-2 text-xs text-muted">
         For phones and trunks set to TCP. Phones set up by this server use UDP.
       </p>
       <h2 className="font-medium">Encrypted SIP (TLS)</h2>
@@ -852,7 +849,7 @@ function SecurityTab({ s }: { s: SettingsDto }) {
           : (cert.data?.error ?? '…')}
       </p>
       {box(tlsOn, setTlsOn, 'Accept SIP over TLS')}
-      <p className="-mt-2 text-xs text-zinc-500">
+      <p className="-mt-2 text-xs text-muted">
         Needed for an encrypted voip.ms trunk. Turning it on or changing the port needs a telephony
         restart. After renewing the certificate, run scripts/tls-cert.sh.
       </p>
@@ -871,7 +868,7 @@ function SecurityTab({ s }: { s: SettingsDto }) {
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save
         </Button>
-        {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+        {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
       </div>
       {save.error && <Alert>{save.error.message}</Alert>}
     </form>
@@ -938,7 +935,7 @@ function BackupsTab({ s }: { s: SettingsDto }) {
           )}
         </Field>
         {box(recs, setRecs, 'Include call recordings (they can be large)')}
-        <p className="-mt-2 text-xs text-zinc-500">
+        <p className="-mt-2 text-xs text-muted">
           Backups hold the database, voicemail, sounds and music on hold, in data/backups on the
           server. Copy them somewhere else too. Passwords inside are encrypted with APP_SECRET from
           .env: keep a copy of .env, or a backup can't be restored. To restore, run
@@ -948,7 +945,7 @@ function BackupsTab({ s }: { s: SettingsDto }) {
           <Button type="submit" variant="primary" disabled={save.isPending}>
             Save
           </Button>
-          {save.isSuccess && <span className="text-sm text-zinc-500">Saved.</span>}
+          {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
         </div>
         {save.error && <Alert>{save.error.message}</Alert>}
       </form>
@@ -960,16 +957,16 @@ function BackupsTab({ s }: { s: SettingsDto }) {
           </Button>
         </div>
         {now.error && <Alert>{now.error.message}</Alert>}
-        {list.data?.length === 0 && <p className="text-sm text-zinc-500">No backups yet.</p>}
-        <ul aria-label="Backups" className="divide-y divide-zinc-200 dark:divide-zinc-800">
+        {list.data?.length === 0 && <p className="text-sm text-muted">No backups yet.</p>}
+        <ul aria-label="Backups" className="divide-y divide-line">
           {list.data?.map((b) => (
             <li key={b.name} className="flex items-center justify-between gap-3 py-2 text-sm">
               <span>
                 {new Date(b.createdAt).toLocaleString()}{' '}
-                <span className="text-zinc-500">({(b.size / 1048576).toFixed(1)} MB)</span>
+                <span className="text-muted">({(b.size / 1048576).toFixed(1)} MB)</span>
               </span>
               <a
-                className="text-sky-700 hover:underline dark:text-sky-400"
+                className="text-link hover:underline"
                 href={`/api/system/backups/${b.name}/download`}
                 download
               >
@@ -1054,12 +1051,12 @@ function WebhooksTab({ s }: { s: SettingsDto }) {
         />
         Allow addresses on private networks (10.x, 192.168.x, localhost …)
       </label>
-      <p className="-mt-4 text-xs text-zinc-500">
+      <p className="-mt-4 text-xs text-muted">
         Off by default, so a webhook can't reach services inside your network. Turn it on for a
         receiver in your own network (home lab).
       </p>
       {save.error && <Alert>{save.error.message}</Alert>}
-      <p className="text-xs text-zinc-500">
+      <p className="text-xs text-muted">
         Each POST has the headers X-SelfPhoneNG-Event, X-SelfPhoneNG-Timestamp and
         X-SelfPhoneNG-Signature: sha256= the hex HMAC-SHA256 of timestamp + &quot;.&quot; + body
         with the webhook&apos;s secret. A failed POST is tried again after 1 and 5 minutes, half an
@@ -1084,12 +1081,12 @@ function WebhookItem({ w, onChange }: { w: WebhookDto; onChange: () => void }) {
   });
   const remove = useMutation({ mutationFn: () => webhooksApi.remove(w.id), onSuccess: onChange });
   return (
-    <li className="flex flex-col gap-2 rounded-md border border-zinc-200 p-3 text-sm dark:border-zinc-800">
+    <li className="flex flex-col gap-2 rounded-md border border-line p-3 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium break-all">{w.url}</span>
-        <span className="text-zinc-500">{w.enabled ? 'On' : 'Off'}</span>
+        <span className="text-muted">{w.enabled ? 'On' : 'Off'}</span>
       </div>
-      <p className="text-zinc-500">{w.events.join(', ')}</p>
+      <p className="text-muted">{w.events.join(', ')}</p>
       <p>
         Secret: <code className="break-all">{w.secret}</code>
       </p>
@@ -1113,7 +1110,7 @@ function WebhookItem({ w, onChange }: { w: WebhookDto; onChange: () => void }) {
         </p>
       )}
       {showLog && (
-        <ul aria-label="Deliveries" className="text-xs text-zinc-600 dark:text-zinc-400">
+        <ul aria-label="Deliveries" className="text-xs text-muted">
           {log.data?.length === 0 && <li>Nothing sent yet.</li>}
           {log.data?.map((d) => (
             <li key={d.id}>
@@ -1195,19 +1192,19 @@ function TokensTab() {
           </div>
         )}
       </form>
-      <p className="-mt-2 text-xs text-zinc-500">
+      <p className="-mt-2 text-xs text-muted">
         Send it as the header Authorization: Bearer &lt;token&gt;. A token can do everything its
         admin can, except manage tokens. It stops working when revoked or when the admin is
         disabled.
       </p>
-      {list.data?.length === 0 && <p className="text-sm text-zinc-500">No tokens.</p>}
-      <ul aria-label="API tokens" className="divide-y divide-zinc-200 dark:divide-zinc-800">
+      {list.data?.length === 0 && <p className="text-sm text-muted">No tokens.</p>}
+      <ul aria-label="API tokens" className="divide-y divide-line">
         {list.data?.map((t) => (
           <li key={t.id} className="flex items-center justify-between gap-3 py-2 text-sm">
             <span>
               <span className="font-medium">{t.name}</span>{' '}
-              <code className="text-zinc-500">{t.tokenPrefix}…</code>
-              <span className="block text-xs text-zinc-500">
+              <code className="text-muted">{t.tokenPrefix}…</code>
+              <span className="block text-xs text-muted">
                 By {t.createdBy}, last used{' '}
                 {t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleString() : 'never'}
               </span>
@@ -1353,7 +1350,7 @@ export function ContactsTab({ s }: { s: SettingsDto }) {
               </span>
             )}
           </div>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Each person then connects their own Contrack account in My settings, Contacts. If the AI
             inside Contrack uses a cloud provider, what is stored there reaches that provider: turn
             it off in Contrack, or point it at your local AI.
@@ -1409,7 +1406,7 @@ function FtcSyncStatus({ st }: { st: SettingsDto['spam.state'] }) {
   });
   return (
     <div className="flex flex-col gap-1 text-sm">
-      <p className="text-zinc-500">
+      <p className="text-muted">
         {st.ftcCursor
           ? `Downloading: at the complaints of ${st.ftcCursor.day}.`
           : st.ftcLastSyncAt
@@ -1511,7 +1508,7 @@ function SpamTab({ s }: { s: SettingsDto }) {
         else submit();
       }}
     >
-      <p className="text-sm text-zinc-500">
+      <p className="text-sm text-muted">
         When an outside caller from the US isn&rsquo;t in anyone&rsquo;s contacts, look the number
         up and show what&rsquo;s known about them while it rings. Information only: calls are never
         blocked or sent elsewhere. IPQualityScore answers first when it&rsquo;s set up; the FTC list
@@ -1588,7 +1585,7 @@ function SpamTab({ s }: { s: SettingsDto }) {
 
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 font-medium">Desk phones</legend>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           Shown in front of the caller&rsquo;s name when the answer comes in before the phone rings.
           Letters, digits, spaces and . &apos; &amp; @ - only.
         </p>
@@ -1742,16 +1739,16 @@ function SignInTab({ s }: { s: SettingsDto }) {
       </fieldset>
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 font-medium">OpenID Connect</legend>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           Keycloak, Authentik, Authelia, Zitadel, Entra ID, Google and others. At the provider, make
           a confidential client using the standard (authorization code) flow, and add these:
         </p>
         <dl className="flex flex-col gap-2 text-sm">
           {uris.map(([label, uri]) => (
             <div key={label} className="flex flex-wrap items-center gap-2">
-              <dt className="w-48 text-zinc-500">{label}</dt>
+              <dt className="w-48 text-muted">{label}</dt>
               <dd className="flex items-center gap-2">
-                <code className="rounded bg-zinc-100 px-2 py-1 dark:bg-zinc-800">{uri}</code>
+                <code className="rounded bg-subtle px-2 py-1">{uri}</code>
                 <Button onClick={() => void navigator.clipboard?.writeText(uri)}>Copy</Button>
               </dd>
             </div>
@@ -1834,7 +1831,7 @@ function SignInTab({ s }: { s: SettingsDto }) {
           )}
           {test.error && <Alert>{test.error.message}</Alert>}
         </div>
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-muted">
           Then connect your own account in My account, and sign in from a private window.
         </p>
       </fieldset>
@@ -1910,12 +1907,12 @@ function DirectoryForm({ s }: { s: SettingsDto }) {
     >
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1 font-medium">Directory (LDAP)</legend>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           When a password isn&apos;t the one set here, SelfPhoneNG asks the directory. People sign
           in with their directory username or email; the first time, they&apos;re matched to their
           user here by email. Nobody gets a user just for being in the directory.
         </p>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           Every hour, someone no longer in the directory (or no longer matched by the user filter)
           is disabled here, password and OpenID sign-in included. It never enables anyone again: do
           that on Users.

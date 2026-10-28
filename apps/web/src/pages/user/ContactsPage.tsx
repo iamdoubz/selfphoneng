@@ -133,7 +133,7 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
               href={ctk.publicUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium hover:bg-zinc-100 dark:border-zinc-700 dark:hover:bg-zinc-800"
+              className="inline-flex items-center rounded-md border border-line-strong bg-surface px-3 py-2 text-sm font-medium hover:bg-subtle"
             >
               Import in Contrack
             </a>
@@ -146,7 +146,7 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
         )}
       </div>
       {note && (
-        <p role="status" className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p role="status" className="text-sm text-muted">
           {note}
         </p>
       )}
@@ -161,11 +161,9 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
       )}
       {ctk?.connected && ctk.toCopy > 0 && <CopyToContrack base={base} count={ctk.toCopy} />}
       {list.data && shown.length === 0 && (
-        <p className="text-sm text-zinc-500">
-          {q ? 'No contact matches that.' : 'No contacts yet.'}
-        </p>
+        <p className="text-sm text-muted">{q ? 'No contact matches that.' : 'No contacts yet.'}</p>
       )}
-      <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+      <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
         {shown.map((c) => (
           <li key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
             {canShare && (
@@ -184,9 +182,9 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
             )}
             <span className="min-w-40 flex-1">
               <span className="font-medium">{c.name}</span>
-              {c.company && <span className="text-zinc-500"> · {c.company}</span>}
+              {c.company && <span className="text-muted"> · {c.company}</span>}
               {base === MINE && c.book === 'company' && (
-                <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                <span className="ml-2 rounded bg-subtle px-1.5 py-0.5 text-xs text-muted">
                   Company
                 </span>
               )}
@@ -196,22 +194,17 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
                 <button
                   key={n.number}
                   type="button"
-                  className="text-sky-700 underline dark:text-sky-400"
+                  className="text-link underline"
                   aria-label={`Call ${c.name} ${n.label} ${show(n.number)}`}
                   onClick={() => call(n.number)}
                 >
-                  {n.label && <span className="text-zinc-500 no-underline">{n.label} </span>}
+                  {n.label && <span className="text-muted no-underline">{n.label} </span>}
                   {show(n.number)}
                 </button>
               ))}
             </span>
             {c.url && (
-              <a
-                href={c.url}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sky-700 underline dark:text-sky-400"
-              >
+              <a href={c.url} target="_blank" rel="noreferrer" className="text-link underline">
                 Open in Contrack
               </a>
             )}
@@ -272,7 +265,7 @@ function CopyToContrack({ base, count }: { base: ContactBase; count: number }) {
   return (
     <div
       role="status"
-      className="flex flex-wrap items-center gap-2 rounded-md bg-sky-50 p-3 text-sm dark:bg-sky-950"
+      className="flex flex-wrap items-center gap-2 rounded-md bg-primary-soft p-3 text-sm"
     >
       <span className="flex-1">
         {count} contact{count === 1 ? '' : 's'} from before Contrack{' '}
@@ -454,7 +447,7 @@ function ImportDialog({ base, onClose }: { base: ContactBase; onClose: () => voi
       }
     >
       <div className="flex flex-col gap-3 text-sm">
-        <p className="text-zinc-600 dark:text-zinc-400">
+        <p className="text-muted">
           vCard files (.vcf) from a phone, Google Contacts, Outlook or Apple Contacts, or a CSV with
           a header row: name, company, email, label1, number1, label2, number2…
         </p>
@@ -474,7 +467,7 @@ function ImportDialog({ base, onClose }: { base: ContactBase; onClose: () => voi
             if (read.length) run.mutate(false);
           }}
         />
-        {run.isPending && <p className="text-zinc-500">Reading…</p>}
+        {run.isPending && <p className="text-muted">Reading…</p>}
         {preview && (
           <div role="status" className="flex flex-col gap-1">
             <p>
@@ -538,7 +531,7 @@ function ShareDialog({ ids, onClose }: { ids: string[]; onClose: (done: boolean)
         </p>
       ) : (
         <div className="flex flex-col gap-2 text-sm">
-          <p className="text-zinc-600 dark:text-zinc-400">
+          <p className="text-muted">
             Each person gets a copy to accept into their own contacts, or deny.
           </p>
           <label className="flex items-center gap-2 font-medium">
@@ -564,7 +557,7 @@ function ShareDialog({ ids, onClose }: { ids: string[]; onClose: (done: boolean)
                       setTo(next);
                     }}
                   />
-                  {p.name} <span className="text-zinc-500">({p.number})</span>
+                  {p.name} <span className="text-muted">({p.number})</span>
                 </label>
               ))}
           {share.error && <Alert>{share.error.message}</Alert>}
@@ -604,7 +597,7 @@ function SharedWithYou() {
   return (
     <section
       aria-labelledby="shared-h"
-      className="flex flex-col gap-3 rounded-lg border border-sky-200 bg-sky-50 p-3 dark:border-sky-900 dark:bg-sky-950"
+      className="flex flex-col gap-3 rounded-lg border border-primary-line bg-primary-soft p-3"
     >
       <h2 id="shared-h" className="text-lg font-semibold">
         Shared with you
@@ -643,11 +636,9 @@ function SharedWithYou() {
               <li key={s.id} className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="flex-1">
                   {s.contact.name}
-                  {s.contact.company && (
-                    <span className="text-zinc-500"> · {s.contact.company}</span>
-                  )}
+                  {s.contact.company && <span className="text-muted"> · {s.contact.company}</span>}
                   {s.contact.numbers.map((n) => (
-                    <span key={n.number} className="text-zinc-500">
+                    <span key={n.number} className="text-muted">
                       {' '}
                       · {show(n.number)}
                     </span>

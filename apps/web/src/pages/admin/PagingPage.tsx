@@ -38,14 +38,14 @@ export function PagingPage() {
       </div>
       {groups.isError && <Alert>{groups.error.message}</Alert>}
       {groups.data?.length === 0 && (
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           No paging groups yet. Dialing a paging group's number (like 850) makes its desk phones
           answer by themselves, so everyone near them hears you. To talk to one desk phone this way,
           dial *80 and its extension (like *80101).
         </p>
       )}
       {groups.data && groups.data.length > 0 && (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
+        <ul className="divide-y divide-line rounded-xl border border-line bg-surface shadow-sm">
           {groups.data.map((g) => (
             <li
               key={g.id}
@@ -53,7 +53,7 @@ export function PagingPage() {
             >
               <span className="font-mono">{g.number}</span>
               <span className="font-medium">{g.name}</span>
-              <span className="min-w-0 flex-1 truncate text-zinc-500">
+              <span className="min-w-0 flex-1 truncate text-muted">
                 {g.duplex ? 'Two-way' : 'One-way'}:{' '}
                 {g.memberIds.map(nameOf).join(', ') || 'nobody yet'}
               </span>
@@ -193,7 +193,7 @@ function PagingForm({
               {x.number} {x.name}
             </label>
           ))}
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-muted">
             Only desk phones are paged, not the browser phone, and phones already on a call are
             skipped. Most Yealink, Grandstream, Polycom and Snom phones answer pages by themselves.
           </p>
