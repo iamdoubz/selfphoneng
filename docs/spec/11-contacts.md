@@ -190,6 +190,9 @@ against the pinned version's `openapi.json`.
   checked by reading contacts).
 - Admin, same page: the **company Contrack account's token** (read-only is enough; read-write lets
   "Add to company contacts" work), write-only like the SMTP password (`hasCompanyToken` in GET).
+  Like it, the saved token only goes to the address it was saved for: Test with another address
+  sends none, and saving a new address needs the token typed again (400). A new address also
+  clears everyone's own token: they connect again (08 §7 #7).
   The admin makes that account in Contrack (e.g. `company@…`) and fills it like any other.
 - Contrack tokens expire in 90 days unless made with **Never**: the guide and the forms say to pick
   Never (or a year).

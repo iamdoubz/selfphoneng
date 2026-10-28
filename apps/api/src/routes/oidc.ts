@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Sign in with OpenID Connect, connect and disconnect an OpenID account (12 §3.2, §3.3).
-import { and, eq, gt, isNull, notExists } from 'drizzle-orm';
+import { and, eq, gt, isNull, ne, notExists } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { decrypt, encrypt } from '../crypto/secrets.ts';
@@ -15,7 +15,7 @@ import {
 } from '../errors.ts';
 import { requireAdmin, requireAuth } from '../auth/guards.ts';
 import { isLoginBlocked, recordLoginFailure } from '../auth/login-limiter.ts';
-import { createSession, setSessionCookie } from '../auth/sessions.ts';
+import { COOKIE, createSession, getSessionUser, setSessionCookie } from '../auth/sessions.ts';
 import { audit } from '../services/audit.ts';
 import { getSetting } from '../services/settings.ts';
 import { decide, verifiedEmail } from '../sso/claims.ts';
@@ -146,7 +146,13 @@ export async function oidcRoutes(app: FastifyInstance) {
       .where(and(eq(userIdentities.kind, 'oidc'), eq(userIdentities.subject, r.subject)));
 
     if (connecting) {
-      // Connect (12 §3.3): to the user of the session that asked, if it's still signed in.
+      // Connect (12 §3.3): to the user of the session that asked, if it's still signed in, and
+      // only in that browser: a planted sp_oidc can't connect someone else's account (08 §7 #8).
+      const here = req.cookies[COOKIE]
+        ? await getSessionUser(db, req.cookies[COOKIE], false)
+        : null;
+      if (here?.sessionId !== connecting)
+        return fail('expired', 'connect finished in another browser than the one that asked');
       const [sess] = await db
         .select({ userId: sessions.userId, email: users.email })
         .from(sessions)
@@ -186,7 +192,8 @@ export async function oidcRoutes(app: FastifyInstance) {
 
     let userId = owner?.userId;
     if (!userId) {
-      // A user without a password or an OpenID account yet, by verified email (12 §3.3 step 2).
+      // A user without a password or any connected account yet, by verified email (12 §3.3
+      // step 2). Never an admin: a provider account with their email isn't them (08 §7 #2).
       const v = verifiedEmail(r.claims, s.trustEmail);
       const [u] = v
         ? await db
@@ -196,13 +203,12 @@ export async function oidcRoutes(app: FastifyInstance) {
               and(
                 eq(users.email, v),
                 isNull(users.passwordHash),
+                ne(users.role, 'admin'),
                 notExists(
                   db
                     .select({ id: userIdentities.id })
                     .from(userIdentities)
-                    .where(
-                      and(eq(userIdentities.userId, users.id), eq(userIdentities.kind, 'oidc')),
-                    ),
+                    .where(eq(userIdentities.userId, users.id)),
                 ),
               ),
             )
@@ -322,8 +328,15 @@ export async function oidcRoutes(app: FastifyInstance) {
       recordLoginFailure(req.ip, login);
       throw badRequest('The directory refused that username or password');
     }
-    if ((await connectDirectory(db, req.log, req.user!.id, entry, req.ip)) === 'taken')
+    const r = await connectDirectory(db, req.log, req.user!.id, entry, req.ip);
+    if (r === 'taken')
       throw new HttpError(409, 'taken', 'That directory account belongs to another user');
+    if (r === 'connected_other')
+      throw new HttpError(
+        409,
+        'connected_other',
+        'Another directory account is connected. Ask an admin to disconnect it first',
+      );
     return { ok: true };
   });
   app.delete('/api/users/:id/identities/:kind', { preHandler: requireAdmin }, (req, reply) => {

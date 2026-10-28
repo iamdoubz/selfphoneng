@@ -13,6 +13,7 @@ import { callExtensions, calls, extensions, recordings } from '../db/schema.ts';
 import { badRequest, forbidden, notFound } from '../errors.ts';
 import { audit } from '../services/audit.ts';
 import { sideFiles } from '../ai/calls.ts';
+import { ON_THE_CALL } from '../services/cdr.ts';
 
 /** The recording and, when call transcripts left them, its two side files. */
 const removeFiles = async (dir: string, filePath: string) => {
@@ -109,7 +110,10 @@ export async function recordingRoutes(app: FastifyInstance) {
     },
   );
 
-  /** Admins, or a participant: their extension is on the call this recording belongs to. */
+  /**
+   * Admins, or who was on the call: their extension made or answered it. Not a phone that only
+   * rang (a ring group, a queue): that's a coworker's conversation (08 §7 #3).
+   */
   async function mayHear(user: { id: string; role: string }, recordingId: string) {
     if (user.role === 'admin') return;
     const [mine] = await db
@@ -117,7 +121,13 @@ export async function recordingRoutes(app: FastifyInstance) {
       .from(calls)
       .innerJoin(callExtensions, eq(callExtensions.callId, calls.id))
       .innerJoin(extensions, eq(extensions.id, callExtensions.extensionId))
-      .where(and(eq(calls.recordingId, recordingId), eq(extensions.userId, user.id)))
+      .where(
+        and(
+          eq(calls.recordingId, recordingId),
+          eq(extensions.userId, user.id),
+          inArray(callExtensions.role, ON_THE_CALL),
+        ),
+      )
       .limit(1);
     if (!mine) throw forbidden('Not your call');
   }

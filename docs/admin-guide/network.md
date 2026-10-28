@@ -103,7 +103,8 @@ sudo ufw allow 8080/tcp
 (On GitHub, the downloads are at `https://github.com/iamdoubz/selfphoneng/releases/download/$v/…`.)
 To try it first without the service, run `./selfphoneng-probe-linux-x64` and open
 `http://<machine>:8080/healthz`. `PORT` changes the port; behind your own HTTPS reverse proxy
-that sets X-Forwarded-For, also set `TRUST_PROXY=true`.
+on the same machine that sets X-Forwarded-For, also set `TRUST_PROXY=true`. The probe then only
+listens on 127.0.0.1 (`HOST` changes it) and only believes X-Forwarded-For from there.
 
 **With Docker:**
 
@@ -116,6 +117,14 @@ test probe**. The probe only ever tests the address a request comes from, so nob
 against someone else, and each address gets a few tests per 10 minutes. Its SIP test is one
 OPTIONS request; if you run fail2ban or CrowdSec, add the probe's address to their allow list so a
 test never counts toward a ban.
+
+**Give the probe a key (strongly recommended).** Without one, anyone who finds your probe can use
+it to test their own address, and spend its few tests per 10 minutes. After saving the address,
+click **Generate key** under it, copy the `PROBE_KEY=…` line, and add it to the probe: under
+`environment:` in `deploy/probe/compose.yml` (`PROBE_KEY: '…'`), or as an `Environment=PROBE_KEY=…`
+line in the service file (`sudo systemctl edit selfphoneng-probe`). Restart the probe. From then on
+it only answers this server, and System → Diagnostics stops warning about it. The key is shown only
+once; a new probe address drops it, so generate one for the new probe.
 
 ## Firewall
 

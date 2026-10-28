@@ -42,6 +42,11 @@ export const SettingsSchemas = {
     .url({ protocol: /^https?$/ })
     .nullable()
     .default(null),
+  /**
+   * The probe's key (its PROBE_KEY), encrypted: made by POST /api/settings/network/probe-key,
+   * sent as a Bearer token, dropped when the address changes (08 §7 #9). Never in GET.
+   */
+  'network.probeKeyEnc': z.string().nullable().default(null),
   'network.stunServer': z
     .string()
     .regex(/^[A-Za-z0-9.-]+(:\d{1,5})?$/)
@@ -327,10 +332,17 @@ export type SettingsDto = {
   [
     K in Exclude<
       SettingKey,
-      'smtp' | 'sms.webhookToken' | 'contacts.contrack' | 'auth.oidc' | 'auth.ldap' | 'spam'
+      | 'smtp'
+      | 'sms.webhookToken'
+      | 'contacts.contrack'
+      | 'auth.oidc'
+      | 'auth.ldap'
+      | 'spam'
+      | 'network.probeKeyEnc'
     >
   ]: SettingValue<K>;
 } & {
+  'network.hasProbeKey': boolean;
   smtp: (Omit<SmtpInput, 'password'> & { hasPassword: boolean }) | null;
   'contacts.contrack': { url: string; publicUrl: string | null; hasCompanyToken: boolean } | null;
   spam: SpamSettingsDto;

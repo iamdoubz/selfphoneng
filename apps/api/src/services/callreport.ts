@@ -138,6 +138,9 @@ export async function sendCallReports(d: {
         aiDoneAt: recordings.aiDoneAt,
         out: sql<boolean>`exists (select 1 from ${callExtensions} where ${callExtensions.callId} = ${calls.id}
           and ${callExtensions.extensionId} = ${e.id} and ${callExtensions.role} = 'caller')`,
+        // Made or answered it: only rang means a coworker's conversation (08 §7 #3).
+        heard: sql<boolean>`exists (select 1 from ${callExtensions} where ${callExtensions.callId} = ${calls.id}
+          and ${callExtensions.extensionId} = ${e.id} and ${callExtensions.role} in ('caller', 'answered'))`,
       })
       .from(calls)
       .leftJoin(answerer, eq(answerer.id, calls.answeredByExtensionId))
@@ -177,9 +180,9 @@ export async function sendCallReports(d: {
       toNumber: r.c.toNumber,
       talkSeconds: r.c.talkSeconds,
       answeredBy: r.answeredById && r.answeredById !== e.id ? r.answeredBy : null,
-      recorded: r.c.recordingId !== null,
-      summary: r.summary,
-      summaryPending: r.c.recordingId !== null && r.aiDoneAt === null,
+      recorded: r.heard && r.c.recordingId !== null,
+      summary: r.heard ? r.summary : null,
+      summaryPending: r.heard && r.c.recordingId !== null && r.aiDoneAt === null,
     }));
     const withSummaries =
       e.callReportSummaries &&

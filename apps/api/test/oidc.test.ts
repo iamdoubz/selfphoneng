@@ -207,6 +207,56 @@ for (const alg of ['RS256', 'ES256'] as const)
       expect(ids).toMatchObject([{ kind: 'oidc', subject: `${idp.issuer} u-cara` }]);
     });
 
+    it('never matches by email an admin, or someone with a directory account (08 §7 #2)', async () => {
+      const [boss, dir] = await t.db
+        .insert(users)
+        .values([
+          { email: 'diradmin@example.com', displayName: 'Boss', passwordHash: null, role: 'admin' },
+          { email: 'diruser@example.com', displayName: 'Dir', passwordHash: null },
+        ])
+        .returning();
+      await t.db
+        .insert(userIdentities)
+        .values({ userId: dir!.id, kind: 'ldap', subject: 'dir-user-id' });
+      for (const u of [boss!, dir!]) {
+        idp.st.user = { sub: `u-${u.email}`, email: u.email, email_verified: true };
+        const { callback } = await flow();
+        expect(errorOf(callback!)).toBe('not_connected');
+        expect(session(callback!)).toBeNull();
+      }
+    });
+
+    it('connect finishes only in the browser whose session asked (08 §7 #8)', async () => {
+      // Mallory starts Connect, then plants her sp_oidc cookie in Vic's browser and sends him on.
+      await t.addUser('mallory@example.com', 'mallory-password-1');
+      const [m] = await t.db.select().from(users).where(eq(users.email, 'mallory@example.com'));
+      await t.addUser('vic@example.com', 'vic-password-123');
+      const mallory = await t.login('mallory@example.com', 'mallory-password-1');
+      const vic = await t.login('vic@example.com', 'vic-password-123');
+      idp.st.user = { sub: 'u-vic', email: 'vic@example.com', email_verified: true };
+      for (const theirs of [vic, '']) {
+        const start = await t.app.inject({
+          method: 'POST',
+          url: '/api/auth/oidc/connect',
+          headers: { ...H, cookie: mallory },
+          payload: {},
+        });
+        const pending = start.cookies.find((c) => c.name === 'sp_oidc')!;
+        const atIdp = await fetch((start.json() as { url: string }).url, { redirect: 'manual' });
+        const back = new URL(atIdp.headers.get('location')!);
+        const callback = await t.app.inject({
+          url: back.pathname + back.search,
+          headers: { cookie: [`sp_oidc=${pending.value}`, theirs].filter(Boolean).join('; ') },
+        });
+        expect(errorOf(callback)).toBe('expired');
+        const ids = await t.db
+          .select()
+          .from(userIdentities)
+          .where(eq(userIdentities.userId, m!.id));
+        expect(ids).toEqual([]);
+      }
+    });
+
     it('trustEmail matches an unverified email', async () => {
       await t.db
         .insert(users)

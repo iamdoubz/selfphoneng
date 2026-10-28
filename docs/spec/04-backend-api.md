@@ -286,7 +286,9 @@ As built (M7-T1):
   outside); otherwise `src`. An outbound call has no `answered_by` (no extension answered).
 - **recording** (M7-T3): `sp-sub-record` sets `CDR(SP_REC)`; the file (relative, under
   `RECORDINGS_DIR`) becomes a `recordings` row (size, ffprobe length) linked to the call.
-  `/api/recordings/:id/audio` serves it to admins and to users whose extension is on the call.
+  `/api/recordings/:id/audio` serves it to admins and to users whose extension made or answered
+  the call (`call_extensions` role `caller` or `answered`), not to a phone that only rang (08 §7
+  #3); `/api/me/calls` shows such a call without its `recordingId`.
   Retention runs once a day (and at start) in the same day-change check as the nightly regenerate.
 - Aggregation runs 5 s after a linkedid's last Cdr event; on every AMI connect, linkedids older
   than a minute without a `calls` row are aggregated (instead of the nightly job).
@@ -443,6 +445,7 @@ As built (M11-T6): `routes/reports.ts`. `from`/`to` are company-time-zone days, 
 | GET | `/api/system/warnings` | `{items: [{code, message, link, dismissable?}]}` for the dashboard banner: `restart_required`, `e911_cid_missing` (a trunk exists, no default E911 caller ID), `e911_address_unconfirmed` (that DID has no `e911_address`), `smtp_missing`, `tls_cert` (TLS on and the cert missing or expiring within 14 days, M11-T2), `backup_old` (backups on and today's not made yet though the job had its chance, M11-T3), `directory_check` (12 §4.2, §4.5: the directory unreachable at a sign-in or by `directoryCheck`, or that job refusing to disable most people), `spam_quota` (14 §3, dismissable). "Trunk down" comes from live state in the browser |
 | POST | `/api/system/warnings/spam_quota/dismiss` | hides `spam_quota` until IPQualityScore's credits run out again (14 §3) |
 | POST | `/api/settings/network/detect-public-ip` | |
+| POST | `/api/settings/network/probe-key` | a new key for the network test probe, `{ key }` shown this once, stored encrypted in `network.probeKeyEnc` (never in GET: `network.hasProbeKey`); 400 without a probe address. Diagnostics sends it as `Authorization: Bearer`; a new `network.probeUrl` drops it (08 §7 #9) |
 | GET | `/api/system/status` | `{ db: ok, ami: connected, asteriskVersion, uptime, trunks: [...], disk: {free, total}, restartRequired, lastGeneratorRun }` |
 | GET | `/api/system/tls` | the SIP TLS certificate in `TLS_DIR`: `{ok: true, subject, names, notAfter}` or `{ok: false, error}` (M11-T2) |
 | GET | `/api/system/generated-files` | names + contents of generated files, **passwords masked** (debug view) |
@@ -533,7 +536,8 @@ Events: `call.started`, `call.answered`, `call.ended`, `voicemail.new`, `sms.rec
 `sms.sent`, `emergency.call`, `trunk.registration_changed`, `extension.registration_changed`.
 
 - Payload: `{ "id": "<uuid>", "event": "call.ended", "createdAt": "...", "data": {...} }`.
-  `data` uses the same shapes as the REST API.
+  `data` uses the same shapes as the REST API, except `voicemail.new` has no `transcript`: a
+  webhook leaves the server and transcripts don't (10 §1, 08 §7 #6).
 - Headers: `Content-Type: application/json`, `X-SelfPhoneNG-Event`,
   `X-SelfPhoneNG-Timestamp` (unix seconds),
   `X-SelfPhoneNG-Signature: sha256=<hex HMAC-SHA256(secret, timestamp + "." + rawBody)>`.

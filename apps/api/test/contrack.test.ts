@@ -460,6 +460,19 @@ describe.skipIf(!hasTestDb)('contacts in Contrack', () => {
     fake.state.readOnly.clear();
     expect(await run()).toBe(0);
     expect(jane).toHaveLength(8);
+
+    // Only rang Dan (a coworker took it): on his timeline, but not its recording or summary.
+    const [k12] = await t.db
+      .insert(calls)
+      .values(call('k12', 1.5, { recordingId: done!.id }))
+      .returning();
+    await t.db
+      .insert(callExtensions)
+      .values({ callId: k12!.id, extensionId: ext!.id, role: 'rang' });
+    forgetBook(danId);
+    expect(await run()).toBe(1);
+    expect(jane.at(-1)!.content).not.toMatch(/recorded|Acme/);
+    expect(jane.at(-1)).not.toHaveProperty('actionItem');
   });
 
   it('contacts from before Contrack are copied once, the builtin ones kept (C6)', async () => {
@@ -520,5 +533,36 @@ describe.skipIf(!hasTestDb)('contacts in Contrack', () => {
       'Plumber',
     ]);
     expect((await dan('GET', '/api/me')).json().contrack).toBeNull();
+  });
+
+  it('the saved tokens only go to the address they were saved for (08 §7 #7)', async () => {
+    // Another machine on the network that answers like Contrack, and notes what it's sent.
+    const heard: string[] = [];
+    const other = createServer((req, res) => {
+      heard.push(String(req.headers.authorization ?? ''));
+      res.setHeader('content-type', 'application/json');
+      res.end('[]');
+    });
+    await new Promise<void>((ok) => other.listen(0, '127.0.0.1', ok));
+    const otherUrl = `http://127.0.0.1:${(other.address() as AddressInfo).port}`;
+    try {
+      await admin('POST', '/api/contacts/contrack/test', { url: otherUrl });
+      expect(heard.join(' ')).not.toContain('ctk_company');
+      // A new address needs its token typed again…
+      const kept = await admin('PATCH', '/api/settings', {
+        'contacts.contrack': { url: otherUrl },
+      });
+      expect(kept.statusCode).toBe(400);
+      expect(kept.json().error.message).toMatch(/token again/);
+      // …and people's own tokens are for the old one: they connect again.
+      const moved = await admin('PATCH', '/api/settings', {
+        'contacts.contrack': { url: otherUrl, companyToken: 'ctk_new_place' },
+      });
+      expect(moved.statusCode, moved.body).toBe(200);
+      const [d] = await t.db.select().from(users).where(eq(users.id, danId));
+      expect(d!.contrackTokenEnc).toBeNull();
+    } finally {
+      other.close();
+    }
   });
 });

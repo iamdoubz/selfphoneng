@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // A directory entry → its SelfPhoneNG user (12 §4.3): connected before, or by the directory's
 // email. Never a new user (owner, 2026-10-25).
-import { and, eq } from 'drizzle-orm';
+import { and, eq, notExists } from 'drizzle-orm';
 import { deleteUserSessions } from '../auth/sessions.ts';
 import type { Db } from '../db/client.ts';
 import { userIdentities, users } from '../db/schema.ts';
@@ -22,7 +22,21 @@ export async function directoryUserFor(db: Db, e: DirectoryEntry): Promise<UserR
     .where(and(eq(userIdentities.kind, 'ldap'), eq(userIdentities.subject, e.id)));
   if (byId) return byId.u;
   if (!e.email) return null;
-  const [byEmail] = await db.select().from(users).where(eq(users.email, e.email));
+  // Nobody with another way in either: an OpenID user's account is theirs to connect (08 §7 #1).
+  const [byEmail] = await db
+    .select()
+    .from(users)
+    .where(
+      and(
+        eq(users.email, e.email),
+        notExists(
+          db
+            .select({ id: userIdentities.id })
+            .from(userIdentities)
+            .where(eq(userIdentities.userId, users.id)),
+        ),
+      ),
+    );
   return byEmail && byEmailOk(byEmail) ? byEmail : null;
 }
 
@@ -35,19 +49,27 @@ export async function directoryUserFor(db: Db, e: DirectoryEntry): Promise<UserR
 const byEmailOk = (u: UserRow) =>
   u.role !== 'admin' && (u.passwordHash === null || u.mustChangePassword);
 
-/** Connect a directory account the person proved (My settings, 12 §4.3). */
+/**
+ * Connect a directory account the person proved (My settings, 12 §4.3). Not another one in place
+ * of the one they have: the leaver check follows it, so swapping is an admin's job (08 §7 #5).
+ */
 export async function connectDirectory(
   db: Db,
   log: { info(o: object, m: string): void },
   userId: string,
   e: DirectoryEntry,
   ip: string,
-): Promise<'connected' | 'taken'> {
+): Promise<'connected' | 'taken' | 'connected_other'> {
   const [owner] = await db
     .select({ userId: userIdentities.userId })
     .from(userIdentities)
     .where(and(eq(userIdentities.kind, 'ldap'), eq(userIdentities.subject, e.id)));
   if (owner && owner.userId !== userId) return 'taken';
+  const [mine] = await db
+    .select({ subject: userIdentities.subject })
+    .from(userIdentities)
+    .where(and(eq(userIdentities.userId, userId), eq(userIdentities.kind, 'ldap')));
+  if (mine && mine.subject !== e.id) return 'connected_other';
   await db.transaction(async (tx) => {
     await tx
       .delete(userIdentities)
@@ -101,11 +123,8 @@ export async function directorySignIn(
       entityId: u.id,
       summary: `${u.email} connected directory account ${e.dn}`,
     });
-  } else if (mine.subject !== e.id) {
-    // Their email matches, but another directory account is already theirs: not this one.
-    log.info({ userId: u.id }, `directory entry ${e.dn} matches by email but isn't theirs`);
-    return null;
   } else
+    // Found by this account's id (directoryUserFor never matches by email someone connected).
     await db
       .update(userIdentities)
       .set({ email: e.email, lastUsedAt: new Date() })

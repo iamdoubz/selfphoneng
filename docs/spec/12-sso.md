@@ -199,11 +199,12 @@ Failed callbacks count in the IP login limiter (04 §2.2).
 Signing in, in this order:
 
 1. A `user_identities` row (`oidc`, `"<iss> <sub>"`) → its user.
-2. Else, a user with that email (case-insensitive) who has **no password and no OpenID account
-   yet** (made by an admin in `oidc` mode, or whose password an admin removed), **and the email is
-   verified** (`email_verified === true`, or `trustEmail`) → connect it now (step 3's row) and sign
-   in. Users who have a password are never matched by email: they connect from My account, so a
-   provider where people can set their own email can't hand over an account.
+2. Else, a user with that email (case-insensitive) who is **not an admin** and has **no password
+   and no connected account of any kind yet** (made by an admin in `oidc` mode, or whose password
+   an admin removed), **and the email is verified** (`email_verified === true`, or `trustEmail`)
+   → connect it now (step 3's row) and sign in. Users who have a password, an admin, or someone
+   who signs in through the directory are never matched by email: they connect from My account,
+   so a provider where people can set their own email can't hand over an account (08 §7 #2).
 3. Else `not_connected`.
 
 Connecting (from My account, already signed in, any mode but `password`):
@@ -211,6 +212,9 @@ Connecting (from My account, already signed in, any mode but `password`):
 - After the callback, the session's user gets the `user_identities` row (email and groups as
   sent). Refused (`taken`) when that `iss sub` belongs to another user; a user who already has one
   replaces it (confirm in the UI). Other sessions stay. Audit `sso_connected`.
+- The callback must arrive in the browser whose session asked: its `sp_session` is the session in
+  `sp_oidc`, else `expired`. A planted `sp_oidc` (from a sibling subdomain) can't connect the
+  victim's provider account to someone else's user (08 §7 #8).
 - **Disconnect** (`DELETE /api/me/identities/oidc`; admins also on Users,
   `DELETE /api/users/:id/identities/oidc`): ends that user's `oidc` sessions. Refused (409
   `last_way_in`) when it would leave them no way to sign in in the current mode (no password, or
@@ -376,11 +380,13 @@ A user can have both a SelfPhoneNG password and a directory account: either pass
 
 1. A `user_identities` row (`ldap`, id) → its user. Their email here follows the directory's when
    it changes (unless another user has it: kept, logged).
-2. Else, a user with the directory email who is **not an admin** and has **no password or only the
-   temporary one** from Users (`must_change_password`) → connect it (add the row) and sign in,
+2. Else, a user with the directory email who is **not an admin**, has **no password or only the
+   temporary one** from Users (`must_change_password`) and **no connected account of any kind**
+   (an OpenID user's account is theirs, 08 §7 #1) → connect it (add the row) and sign in,
    audit `ldap_connected`. Anyone else connects on My settings → Sign-in → **Connect directory
    account** (`POST /api/me/identities/ldap`, `{ login, password }`, checked by the directory and
-   counted by the login limiter; 409 `taken` when another user has it). Security audit,
+   counted by the login limiter; 409 `taken` when another user has it, 409 `connected_other` when
+   they already have a different one: an admin disconnects it first, 08 §7 #5). Security audit,
    2026-10-26: a directory where people can edit their own `mail` (common OpenLDAP access rules)
    must not hand out the admin's account.
 3. Else → 401 "Wrong email or password" (no account is made, §1), with `login_failed` audited as

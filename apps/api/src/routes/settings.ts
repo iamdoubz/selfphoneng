@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // /api/settings (04 §7.3) and the dashboard warnings. Admin only.
-import { eq, inArray } from 'drizzle-orm';
+import { randomBytes } from 'node:crypto';
+import { eq, inArray, isNotNull } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
@@ -26,7 +27,7 @@ import {
   type Warning,
 } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
-import { dids, extensions, trunks } from '../db/schema.ts';
+import { dids, extensions, trunks, users } from '../db/schema.ts';
 import { HttpError, badRequest } from '../errors.ts';
 import { SLOW, requireAdmin } from '../auth/guards.ts';
 import { decrypt, encrypt } from '../crypto/secrets.ts';
@@ -63,6 +64,7 @@ const READ_ONLY = new Set<string>([
   'spam.state',
   'sms.webhookToken',
   'setup.completed',
+  'network.probeKeyEnc',
 ]);
 
 async function toDto(db: Db): Promise<SettingsDto> {
@@ -72,10 +74,12 @@ async function toDto(db: Db): Promise<SettingsDto> {
     'auth.oidc': oidc,
     'auth.ldap': ldap,
     spam,
+    'network.probeKeyEnc': probeKey,
     ...rest
   } = await getAllSettings(db);
   return {
     ...rest,
+    'network.hasProbeKey': probeKey !== null,
     spam: {
       ...spam,
       ipqs: spam.ipqs && { hasKey: true },
@@ -257,6 +261,7 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.patch('/api/settings', async (req) => {
     const body = z.record(z.string(), z.unknown()).parse(req.body);
     const values: Record<string, unknown> = {};
+    let contrackMoved = false;
     for (const [key, raw] of Object.entries(body)) {
       if (!(key in SettingsSchemas) || READ_ONLY.has(key))
         throw badRequest(`${key} can't be changed here`);
@@ -287,8 +292,13 @@ export async function settingsRoutes(app: FastifyInstance) {
           } catch (err) {
             throw badRequest(`Contrack address: ${(err as Error).message}`);
           }
+        // The saved tokens only go back to the address they were typed for (08 §7 #7).
+        const url = input?.url.replace(/\/+$/, '');
+        const moved = !!old && !!input && old.url !== url;
+        if (moved && old.companyTokenEnc && !input.companyToken && !input.clearCompanyToken)
+          throw badRequest('The Contrack address changed: enter the company token again');
         values[key] = input && {
-          url: input.url.replace(/\/+$/, ''),
+          url: url!,
           publicUrl: input.publicUrl,
           companyTokenEnc: input.companyToken
             ? encrypt(input.companyToken)
@@ -296,6 +306,7 @@ export async function settingsRoutes(app: FastifyInstance) {
               ? ''
               : (old?.companyTokenEnc ?? ''),
         };
+        if (moved) contrackMoved = true;
         forgetBook(null);
       } else if (key === 'auth.ldap') {
         values[key] = await ldapFromInput(raw);
@@ -349,8 +360,17 @@ export async function settingsRoutes(app: FastifyInstance) {
       const cert = await readTlsCert(app.config.TLS_DIR);
       if (!cert.ok) throw badRequest(`Can't turn on TLS. ${cert.error}`);
     }
+    // The probe's key was made for its address: another probe doesn't get it (08 §7 #9).
+    if ('network.probeUrl' in values && values['network.probeUrl'] !== before['network.probeUrl'])
+      values['network.probeKeyEnc'] = null;
     for (const [key, value] of Object.entries(values))
       await setSetting(db, key as SettingKey, value as never);
+    // People's own Contrack tokens were for the old address: they connect again (08 §7 #7).
+    if (contrackMoved)
+      await db
+        .update(users)
+        .set({ contrackTokenEnc: null })
+        .where(isNotNull(users.contrackTokenEnc));
     // A new IPQualityScore key may have credits: don't wait for spamQuotaCheck (14 §3).
     if ((body.spam as SpamInput | undefined)?.ipqs?.key) await resumeIpqs(db, 'a new key');
     const changed = Object.keys(values).filter(
@@ -473,6 +493,25 @@ export async function settingsRoutes(app: FastifyInstance) {
         }
       },
     );
+
+  /**
+   * A new key for the network test probe (08 §7 #9): shown this once, for its PROBE_KEY. Made for
+   * the probe address set now; the old key stops working on the next test.
+   */
+  app.post('/api/settings/network/probe-key', async (req) => {
+    if (!(await getSetting(db, 'network.probeUrl')))
+      throw badRequest('Set the probe address first');
+    const key = randomBytes(32).toString('base64url');
+    await setSetting(db, 'network.probeKeyEnc', encrypt(key));
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'update',
+      entityType: 'settings',
+      summary: 'Made a new network test probe key',
+    });
+    return { key };
+  });
 
   /** The server's public IPv4, as an outside service sees it (only sent when asked). */
   app.post('/api/settings/network/detect-public-ip', { config: SLOW }, async () => {
