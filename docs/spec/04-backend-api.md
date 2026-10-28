@@ -383,6 +383,8 @@ Auth & self:
 | GET | `/api/me/softphone-qr` | user | `{url, qr, expiresAt}`: Linphone setup link and its QR (PNG data URL), 24 h (07 §5) |
 | GET | `/api/me/webrtc` | user | `{ wsUrl: "wss://<host>/ws", sipUri: "sip:101-web@<host>", authUser: "101-web", password, displayName, iceServers: [...] }` |
 | GET | `/api/me/calls` | user | own call history (via `call_extensions`) |
+| GET | `/api/me/reports/summary?from&to` | user | `/api/reports/summary` of the calls that rang or were answered by me; `answered` and talk time are the ones I picked up |
+| POST | `/api/me/spam-reports` {callId, reason} | user | Report spam on an outside call that rang me; the number comes from the call. 404 not my call, 400 hidden number, 409 already blocked or already reported by me |
 | GET | `/api/me/voicemail` | user | list |
 | GET | `/api/me/voicemail/:id/audio` | user | streams the wav (`Content-Type: audio/wav`, supports Range) |
 | PATCH | `/api/me/voicemail/:id` | user | `{folder: 'Old'|'INBOX'}` |
@@ -416,6 +418,7 @@ Admin resources (all `requireAdmin`; standard CRUD = `GET /x`, `POST /x`, `GET /
 | `/api/moh-classes` | `POST {name}` (slug, not `default`), `DELETE /:id` (409 with `usedBy` while an extension or queue uses it), `POST /:id/files?name=&filename=` (raw file body, like sounds), `GET /:id/files/:fileId/audio`, `DELETE /:id/files/:fileId`. No rename: the name is the folder and is stored on extensions and queues. Extensions and queues may only pick `default` or an existing class (400) |
 | `/api/devices` | `GET /:id/config-preview` (rendered provisioning file, passwords masked). As built (M10-T1): body `{mac (any format), vendor, model, label, extensionId}`; the DTO carries `provisioningUrl` and the `provisioningPassword` (admins type it into the phone); MAC taken → 409; preview of a generic phone → 400 |
 | `/api/blocked-numbers` | |
+| `/api/spam-reports` | GET (with the reporter's name) and DELETE (Dismiss). Blocking a number deletes its reports |
 | `/api/contacts` | company phonebook; `POST /import` CSV (`name,company,email,label1,number1,...`) or vCard (11 §3.1) |
 | `/api/webhooks` | `POST /:id/test`, `GET /:id/deliveries` |
 | `/api/api-tokens` | POST returns the token once |

@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // My calls (05 §4): my call history; click the other number to call back (the softphone when it's
-// on, else my desk phone rings first). Names from my contacts (11 §1), "Add to contacts".
-import { useInfiniteQuery } from '@tanstack/react-query';
+// on, else my desk phone rings first). Names from my contacts (11 §1), "Add to contacts", "Report
+// spam".
+import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import type { MyCallDto } from '@selfphoneng/shared';
 import { meApi, recordingsApi } from '../../api/client.ts';
-import { Alert, Button } from '../../components/ui.tsx';
+import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 import { softphone } from '../../softphone/SoftphoneEngine.ts';
 import { DIRECTION_TEXT, StatusBadge, fmtDuration, fmtNumber } from '../admin/CallsPage.tsx';
 import { AddToContacts, useContactName } from './ContactsPage.tsx';
-import { SpamNote } from '../../components/SpamNote.tsx';
+import { SpamNote, spamLine } from '../../components/SpamNote.tsx';
 
 /** The other side of the call, from where I sit. */
 export const otherParty = (c: MyCallDto) =>
@@ -28,6 +29,64 @@ export function useCallBack() {
     p.then(setNote, (e: Error) => setNote(e.message));
   };
   return { call, note };
+}
+
+/** To the admins' Blocked numbers: the spam check's line when it flagged the call, else my words. */
+function ReportSpam({ c }: { c: MyCallDto }) {
+  const flagged = c.spam && c.spam.risk !== 'low' ? spamLine(c.spam) : null;
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState('');
+  const send = useMutation({
+    mutationFn: (r: string) => meApi.reportSpam({ callId: c.id, reason: r }),
+  });
+  if (send.isSuccess)
+    return (
+      <span role="status" className="text-muted">
+        Reported to your admin
+      </span>
+    );
+  return (
+    <>
+      {open ? (
+        <form
+          aria-label={`Report ${fmtNumber(c.fromNumber)} as spam`}
+          className="flex w-full flex-wrap items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            send.mutate(reason);
+          }}
+        >
+          <Field label="Why is it spam?">
+            {(p) => (
+              <input
+                {...p}
+                className={inputClass}
+                maxLength={200}
+                placeholder="Robocall about my car warranty"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            )}
+          </Field>
+          <Button type="submit" variant="primary" disabled={!reason.trim() || send.isPending}>
+            Report
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+        </form>
+      ) : (
+        <Button
+          variant="ghost"
+          disabled={send.isPending}
+          onClick={() => (flagged ? send.mutate(flagged) : setOpen(true))}
+        >
+          Report spam
+        </Button>
+      )}
+      {send.error && <Alert>{send.error.message}</Alert>}
+    </>
+  );
 }
 
 export function MyCallsPage() {
@@ -98,6 +157,9 @@ export function MyCallsPage() {
               )}
               <StatusBadge status={c.status} />
               <span className="w-12 text-right tabular-nums">{fmtDuration(c.talkSeconds)}</span>
+              {c.myRole === 'in' && c.direction === 'inbound' && other.number && !known && (
+                <ReportSpam c={c} />
+              )}
             </li>
           );
         })}

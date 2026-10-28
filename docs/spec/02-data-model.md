@@ -480,6 +480,14 @@ create table ftc_complaints (          -- the FTC copy (14 §2.2), kept windowDa
 create index on ftc_complaints (number);
 create index on ftc_complaints (reported_at);
 
+create table spam_reports (            -- a user's Report spam (05 §4), until an admin blocks or dismisses it
+  id           uuid primary key default gen_random_uuid(),
+  number       text not null,                              -- normalized, from the call
+  reason       text not null,                              -- the spam check's line, or the user's words
+  reported_by  uuid references users(id) on delete set null,
+  unique (number, reported_by)
+);
+
 create table call_extensions (                        -- which extensions were involved (for per-user history)
   call_id       uuid not null references calls(id) on delete cascade,
   extension_id  uuid not null references extensions(id) on delete cascade,

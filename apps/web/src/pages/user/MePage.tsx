@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// My Phone (05 §4): Home, Calls, Voicemail, Contacts (11), Settings, People, and the softphone.
+// My Phone (05 §4): Home, Calls, Voicemail, Contacts (11), Reports, Settings, People, and the
+// softphone.
 import {
   BookUser,
+  ChartColumn,
   House,
   Info,
   LogOut,
@@ -30,6 +32,7 @@ import { fmtNumber } from '../admin/CallsPage.tsx';
 import { ParkedCalls } from '../../components/ParkedCalls.tsx';
 import { DndSwitch, MeSettingsPage, showTarget, useMe } from './MeSettingsPage.tsx';
 import { ContactsPage, useContactName, useContactShares } from './ContactsPage.tsx';
+import { ReportsPage } from '../admin/ReportsPage.tsx';
 
 const link = 'text-link underline';
 
@@ -124,6 +127,12 @@ export function MePage({ user }: { user: AuthUser }) {
             </span>
           )}
         </NavLink>
+        {user.extension && (
+          <NavLink to="/me/reports" className={tab} onClick={close}>
+            <ChartColumn className={icon} />
+            Reports
+          </NavLink>
+        )}
         <NavLink to="/me/settings" className={tab} onClick={close}>
           <Settings className={icon} />
           Settings
@@ -180,6 +189,7 @@ export function MePage({ user }: { user: AuthUser }) {
             <Route path="calls" element={<MyCallsPage />} />
             <Route path="voicemail" element={<VoicemailPage />} />
             <Route path="contacts" element={<ContactsPage />} />
+            <Route path="reports" element={<ReportsPage mine />} />
             <Route path="settings" element={<MeSettingsPage />} />
             <Route path="people" element={<PresencePanel me={me} />} />
           </Routes>
