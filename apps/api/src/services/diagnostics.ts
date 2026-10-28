@@ -9,6 +9,7 @@ import { BlockList, isIPv4 } from 'node:net';
 import type { DiagnosticCheck, NetworkTestDto } from '@selfphoneng/shared';
 import type { AmiClient } from '../ami/client.ts';
 import type { Config } from '../config.ts';
+import { decrypt } from '../crypto/secrets.ts';
 import type { Db } from '../db/client.ts';
 import { detectPublicIp } from '../jobs.ts';
 import { getAllSettings } from './settings.ts';
@@ -221,15 +222,23 @@ export async function insideChecks(d: DiagDeps): Promise<DiagnosticCheck[]> {
   );
 
   out.push(
-    s['network.probeUrl']
-      ? check('probe', 'Network test probe', 'ok', s['network.probeUrl'])
-      : check(
+    !s['network.probeUrl']
+      ? check(
           'probe',
           'Network test probe',
           'skip',
           'None set, so nothing is tested from outside your network.',
           'Run apps/probe on a machine outside this network (deploy/probe), then put its URL in Settings → Network.',
-        ),
+        )
+      : s['network.probeKeyEnc']
+        ? check('probe', 'Network test probe', 'ok', `${s['network.probeUrl']}, with its key`)
+        : check(
+            'probe',
+            'Network test probe',
+            'warn',
+            `${s['network.probeUrl']} has no key: anyone who finds it can use it.`,
+            'Settings → Network → Generate key, then set it as PROBE_KEY on the probe and restart it (strongly recommended).',
+          ),
   );
   return out;
 }
@@ -289,14 +298,20 @@ export async function networkTest(
   let ip: string | null = null;
   let results: ProbeResult[] = [];
   let probeError: string | null = null;
+  let keyRefused = false;
+  const key = s['network.probeKeyEnc'];
   try {
     const r = await (d.fetchProbe ?? fetch)(new URL('/v1/check', probe), {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        'content-type': 'application/json',
+        ...(key && { authorization: `Bearer ${decrypt(key)}` }),
+      },
       body: JSON.stringify({ host, tests }),
       signal: AbortSignal.timeout(30_000),
     });
     const body = (await r.json()) as { ip?: string; results?: ProbeResult[]; error?: string };
+    keyRefused = r.status === 401;
     if (!r.ok) probeError = body.error ?? `HTTP ${r.status}`;
     else ({ ip = null, results = [] } = body as { ip: string; results: ProbeResult[] });
     // Datagrams sent last arrive just after the answer.
@@ -316,7 +331,9 @@ export async function networkTest(
           'Network test probe',
           'fail',
           `${probe} didn't answer: ${probeError}`,
-          'Check the probe runs and is reachable from this server, then try again.',
+          keyRefused
+            ? "The probe's PROBE_KEY isn't this server's key. Settings → Network → Generate key, set it as PROBE_KEY on the probe and restart it."
+            : 'Check the probe runs and is reachable from this server, then try again.',
         ),
       ],
     };

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // POST /v1/check {host, tests}: runs the tests against the address the request came from and
 // answers {ip, results}. GET /healthz. No other target can be given, which is what keeps the probe
-// from being aimed at someone else; each address gets a few checks per 10 minutes.
+// from being aimed at someone else; each address gets a few checks per 10 minutes. With a key
+// (PROBE_KEY, made in SelfPhoneNG's Settings → Network), only who sends it is tested (08 §7 #9).
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import { isIP } from 'node:net';
 import { runTest, type Result, type Test } from './checks.ts';
@@ -9,6 +11,8 @@ import { runTest, type Result, type Test } from './checks.ts';
 export type ProbeOptions = {
   /** Behind a reverse proxy: the address is the last X-Forwarded-For entry (the proxy adds it). */
   trustProxy?: boolean;
+  /** Only requests with `Authorization: Bearer <key>` are tested. None: anyone may ask. */
+  key?: string;
   /** Checks per address per window. */
   maxChecks?: number;
   windowMs?: number;
@@ -65,6 +69,10 @@ export const clientIp = (req: IncomingMessage, trustProxy: boolean) => {
     : peer;
 };
 
+/** Equal, in the same time whatever was sent (hashes, so lengths don't show either). */
+const sameKey = (a: string, b: string) =>
+  timingSafeEqual(createHash('sha256').update(a).digest(), createHash('sha256').update(b).digest());
+
 function readJson(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve, reject) => {
     let size = 0;
@@ -86,7 +94,7 @@ function readJson(req: IncomingMessage): Promise<unknown> {
 }
 
 export function createProbe(opts: ProbeOptions = {}): Server {
-  const { trustProxy = false, maxChecks = 10, windowMs = 10 * 60_000 } = opts;
+  const { trustProxy = false, key, maxChecks = 10, windowMs = 10 * 60_000 } = opts;
   // ponytail: in-process memory; addresses past the window are swept on each check.
   const seen = new Map<string, number[]>();
   const allow = (ip: string, now = Date.now()) => {
@@ -103,6 +111,8 @@ export function createProbe(opts: ProbeOptions = {}): Server {
     if (req.method === 'GET' && req.url === '/healthz') return send(res, 200, { ok: true });
     if (req.method !== 'POST' || req.url !== '/v1/check')
       return send(res, 404, { error: 'not found' });
+    if (key && !sameKey(req.headers.authorization ?? '', `Bearer ${key}`))
+      return send(res, 401, { error: 'this probe needs its key' });
     const ip = clientIp(req, trustProxy);
     void readJson(req)
       .then(async (body) => {

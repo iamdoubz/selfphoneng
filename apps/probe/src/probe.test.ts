@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The probe against stand-ins on 127.0.0.1: TCP, HTTP and a WebSocket upgrade, SIP over UDP and
 // TCP, raw UDP; and the server: it only tests the address that asked, validates, rate-limits,
-// and believes X-Forwarded-For only from a proxy on this machine (08 §7 #4).
+// believes X-Forwarded-For only from a proxy on this machine (08 §7 #4), and with PROBE_KEY only
+// answers who sends it (#9).
 import { createSocket, type Socket as UdpSocket } from 'node:dgram';
 import {
   createServer as httpServer,
@@ -168,6 +169,25 @@ describe('probe server', () => {
     expect((await fetch(`http://127.0.0.1:${port(probe)}/healthz`)).status).toBe(200);
     probe.close();
     target.close();
+  });
+});
+
+describe('the probe key', () => {
+  it('with a key, only a request that sends it gets tested (08 §7 #9)', async () => {
+    const key = 'k3y'.repeat(15);
+    const probe = await listen(createProbe({ key }));
+    const post = (authorization?: string) =>
+      fetch(`http://127.0.0.1:${port(probe)}/v1/check`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', ...(authorization && { authorization }) },
+        body: JSON.stringify({ host: 'pbx.test', tests: [{ id: 'a', kind: 'tcp', port: 1 }] }),
+      });
+    expect((await post()).status).toBe(401);
+    expect((await post('Bearer wrong')).status).toBe(401);
+    expect((await post(`Bearer ${key}x`)).status).toBe(401);
+    expect((await post(`Bearer ${key}`)).status).toBe(200);
+    expect((await fetch(`http://127.0.0.1:${port(probe)}/healthz`)).status).toBe(200);
+    probe.close();
   });
 });
 

@@ -505,6 +505,11 @@ function NetworkTab({ s }: { s: SettingsDto }) {
   const [watch, setWatch] = useState(s['network.publicIpWatch']);
   const [probe, setProbe] = useState(s['network.probeUrl'] ?? '');
   const detect = useMutation({ mutationFn: systemApi.detectPublicIp, onSuccess: setIp });
+  const qc = useQueryClient();
+  const makeKey = useMutation({
+    mutationFn: systemApi.probeKey,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+  });
   return (
     <form
       className="flex flex-col gap-4"
@@ -555,13 +560,61 @@ function NetworkTab({ s }: { s: SettingsDto }) {
           />
         )}
       </Field>
+      {s['network.probeUrl'] && (
+        <section
+          aria-labelledby="probe-key-h"
+          className="flex flex-col gap-2 rounded-lg border border-line p-3 text-sm"
+        >
+          <h3 id="probe-key-h" className="font-medium">
+            Probe key
+          </h3>
+          {s['network.hasProbeKey'] ? (
+            <p className="text-muted">Set: the probe only answers this server.</p>
+          ) : (
+            <p className="text-amber-800 dark:text-amber-200">
+              Not set: anyone who finds your probe can use it. Strongly recommended: generate a key
+              and set it on the probe.
+            </p>
+          )}
+          {makeKey.data ? (
+            <>
+              <p>
+                Set this on the probe (its compose file or service), then restart it. It&rsquo;s
+                shown only now.
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <code className="min-w-0 flex-1 rounded bg-subtle p-2 font-mono text-xs break-all select-all">
+                  PROBE_KEY={makeKey.data}
+                </code>
+                <Button
+                  type="button"
+                  onClick={() => void navigator.clipboard.writeText(makeKey.data)}
+                >
+                  Copy
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div>
+              <Button type="button" onClick={() => makeKey.mutate()} disabled={makeKey.isPending}>
+                {s['network.hasProbeKey'] ? 'Generate a new key' : 'Generate key'}
+              </Button>
+            </div>
+          )}
+          <p className="text-xs text-muted">
+            A new probe address drops the key: generate one for the new probe.
+          </p>
+        </section>
+      )}
       <div className="flex items-center gap-3">
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save
         </Button>
         {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
       </div>
-      {(save.error ?? detect.error) && <Alert>{(save.error ?? detect.error)!.message}</Alert>}
+      {(save.error ?? detect.error ?? makeKey.error) && (
+        <Alert>{(save.error ?? detect.error ?? makeKey.error)!.message}</Alert>
+      )}
     </form>
   );
 }

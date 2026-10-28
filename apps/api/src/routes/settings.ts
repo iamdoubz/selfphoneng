@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // /api/settings (04 §7.3) and the dashboard warnings. Admin only.
+import { randomBytes } from 'node:crypto';
 import { eq, inArray, isNotNull } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -63,6 +64,7 @@ const READ_ONLY = new Set<string>([
   'spam.state',
   'sms.webhookToken',
   'setup.completed',
+  'network.probeKeyEnc',
 ]);
 
 async function toDto(db: Db): Promise<SettingsDto> {
@@ -72,10 +74,12 @@ async function toDto(db: Db): Promise<SettingsDto> {
     'auth.oidc': oidc,
     'auth.ldap': ldap,
     spam,
+    'network.probeKeyEnc': probeKey,
     ...rest
   } = await getAllSettings(db);
   return {
     ...rest,
+    'network.hasProbeKey': probeKey !== null,
     spam: {
       ...spam,
       ipqs: spam.ipqs && { hasKey: true },
@@ -356,6 +360,9 @@ export async function settingsRoutes(app: FastifyInstance) {
       const cert = await readTlsCert(app.config.TLS_DIR);
       if (!cert.ok) throw badRequest(`Can't turn on TLS. ${cert.error}`);
     }
+    // The probe's key was made for its address: another probe doesn't get it (08 §7 #9).
+    if ('network.probeUrl' in values && values['network.probeUrl'] !== before['network.probeUrl'])
+      values['network.probeKeyEnc'] = null;
     for (const [key, value] of Object.entries(values))
       await setSetting(db, key as SettingKey, value as never);
     // People's own Contrack tokens were for the old address: they connect again (08 §7 #7).
@@ -486,6 +493,25 @@ export async function settingsRoutes(app: FastifyInstance) {
         }
       },
     );
+
+  /**
+   * A new key for the network test probe (08 §7 #9): shown this once, for its PROBE_KEY. Made for
+   * the probe address set now; the old key stops working on the next test.
+   */
+  app.post('/api/settings/network/probe-key', async (req) => {
+    if (!(await getSetting(db, 'network.probeUrl')))
+      throw badRequest('Set the probe address first');
+    const key = randomBytes(32).toString('base64url');
+    await setSetting(db, 'network.probeKeyEnc', encrypt(key));
+    await audit(db, {
+      actorUserId: req.user!.id,
+      actorIp: req.ip,
+      action: 'update',
+      entityType: 'settings',
+      summary: 'Made a new network test probe key',
+    });
+    return { key };
+  });
 
   /** The server's public IPv4, as an outside service sees it (only sent when asked). */
   app.post('/api/settings/network/detect-public-ip', { config: SLOW }, async () => {

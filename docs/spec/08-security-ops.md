@@ -117,6 +117,9 @@ how to fix it.
     works on Gitea's runner, where the job's checkout can't be bind-mounted).
     `deploy/probe/selfphoneng-probe.service` runs it under systemd with `DynamicUser` and a
     read-only system. About 45 MB of memory.
+  - With `PROBE_KEY` set the probe only answers `Authorization: Bearer <key>` (401 otherwise,
+    compared in constant time); without it, it answers anyone and logs a warning at start. The key
+    is made in Settings → Network and sent by the api only, never the browser (08 §7 #9).
   - `POST /v1/check {host, tests}`: the probe tests **only the address the request came from** (the
     last X-Forwarded-For entry with `TRUST_PROXY=true`, believed only from a proxy on 127.0.0.1
     or ::1, where the probe then listens by default; 08 §7 #4), so it can't be aimed at anyone else; 20
@@ -257,8 +260,10 @@ High.
 | 6 | Low, privacy | The `voicemail.new` webhook carried the transcript, though webhooks leave the server and 10 §1 says transcripts don't | the webhook has no `transcript` (04 §9) | `voicemail.test.ts` |
 | 7 | Low | Contrack's saved company token went to any address: Test with another URL, or saving a new URL, sent it there (SMTP, LDAP and OpenID already refused) | the saved token only for the saved address; a new address needs it typed again and clears everyone's own token (11 §4.3) | `contrack.test.ts` |
 | 8 | Low | The OpenID connect callback wasn't tied to the browser that asked: a planted `sp_oidc` (a sibling subdomain can set it) connected the victim's provider account to the attacker's user | the callback's own session must be the one in `sp_oidc`, else `expired` (12 §3.3) | `oidc.test.ts`, both key types |
+| 9 | Low | Anyone who found a probe could use it (owner's idea after #4): to test their own address, and spend its per-address limits | an optional key: Settings → Network → Generate key, set as the probe's `PROBE_KEY`; the api sends it as a Bearer token, encrypted at rest, dropped when the probe address changes. Without a key the probe stays open (owner, 2026-10-28) and Diagnostics warns, strongly recommending one (§2.6) | `probe.test.ts`, `diagnostics.test.ts` |
 
-The independent agent found 1, 2, 4, 5 and 8, the author 3; both found 6 and 7. The agent had
+The independent agent found 1, 2, 4, 5 and 8, the author 3; both found 6 and 7; 9 was the
+owner's idea. The agent had
 checked the recording rule and called it sound: it's the same rule as the audio, which §6 also
 passed.
 

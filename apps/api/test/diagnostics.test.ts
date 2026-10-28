@@ -154,4 +154,55 @@ describe.skipIf(!hasTestDb)('diagnostics', () => {
       401,
     );
   });
+
+  it('the probe key: made here, shown once, sent to the probe, never in settings (08 §7 #9)', async () => {
+    const cookie = await t.login(ADMIN.email, ADMIN.password);
+    const as = (method: string, url: string, payload?: object) =>
+      t.app.inject({ method: method as 'GET', url, payload, headers: { ...H, cookie } });
+    await setSetting(t.db, 'network.probeUrl', 'https://probe.test');
+    // No key yet: the inside checks say to make one.
+    expect(byId(await insideChecks(deps)).probe).toMatchObject({ status: 'warn' });
+
+    const g = await as('POST', '/api/settings/network/probe-key');
+    expect(g.statusCode, g.body).toBe(200);
+    const { key } = g.json() as { key: string };
+    expect(key).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const s = await as('GET', '/api/settings');
+    expect(s.json()['network.hasProbeKey']).toBe(true);
+    expect(s.body).not.toContain(key);
+    expect(s.json()).not.toHaveProperty('network.probeKeyEnc');
+    expect((await as('PATCH', '/api/settings', { 'network.probeKeyEnc': 'x' })).statusCode).toBe(
+      400,
+    );
+    expect(byId(await insideChecks(deps)).probe).toMatchObject({ status: 'ok' });
+
+    let auth: string | null = null;
+    await networkTest(
+      {
+        ...deps,
+        fetchProbe: (async (_u: URL, init: RequestInit) => {
+          auth = new Headers(init.headers).get('authorization');
+          return new Response(JSON.stringify({ ip: '203.0.113.10', results: [] }));
+        }) as unknown as typeof fetch,
+      },
+      'quick',
+    );
+    expect(auth).toBe(`Bearer ${key}`);
+    // The probe refusing it says what to do.
+    const refused = await networkTest(
+      {
+        ...deps,
+        fetchProbe: (async () =>
+          new Response(JSON.stringify({ error: 'a key is needed' }), {
+            status: 401,
+          })) as unknown as typeof fetch,
+      },
+      'quick',
+    );
+    expect(byId(refused.checks).probe!.fix).toContain('PROBE_KEY');
+
+    // Another address: the key was for the old probe, so it's gone.
+    await as('PATCH', '/api/settings', { 'network.probeUrl': 'https://other-probe.test' });
+    expect((await as('GET', '/api/settings')).json()['network.hasProbeKey']).toBe(false);
+  });
 });

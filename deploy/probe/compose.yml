@@ -18,6 +18,9 @@ services:
     environment:
       PORT: '8080'
       TRUST_PROXY: 'false'
+      # Strongly recommended: SelfPhoneNG → Settings → Network → Generate key, paste it here, and
+      # the probe only answers your server. Empty: anyone who finds the probe can use it.
+      PROBE_KEY: ''
     logging:
       driver: json-file
       options: { max-size: 10m, max-file: '3' }

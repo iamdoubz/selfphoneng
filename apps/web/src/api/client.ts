@@ -295,6 +295,9 @@ export const systemApi = {
     api<{ ok: true }>('POST', `/api/system/asterisk/restart?now=${now}`),
   detectPublicIp: () =>
     api<{ ip: string }>('POST', '/api/settings/network/detect-public-ip').then((r) => r.ip),
+  /** A new key for the network test probe, shown this once (08 §7 #9). */
+  probeKey: () =>
+    api<{ key: string }>('POST', '/api/settings/network/probe-key').then((r) => r.key),
   tls: () => api<TlsCert>('GET', '/api/system/tls'),
   diagnostics: () => api<DiagnosticsDto>('GET', '/api/system/diagnostics'),
   networkTest: (mode: 'quick' | 'complete') =>
