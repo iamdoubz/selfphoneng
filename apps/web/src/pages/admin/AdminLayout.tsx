@@ -6,7 +6,7 @@ import { Navigate, NavLink, Outlet, useNavigate } from 'react-router';
 import type { AuthUser } from '@selfphoneng/shared';
 import { signOut, systemApi } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
-import { Brand, Button } from '../../components/ui.tsx';
+import { Brand, Button, MenuIcon } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
 
 export const ADMIN_PAGES = [
@@ -91,7 +91,7 @@ export function AdminLayout({ user }: { user: AuthUser }) {
             aria-label="Menu"
             onClick={() => setNavOpen((o) => !o)}
           >
-            ☰
+            <MenuIcon />
           </Button>
           <Brand className="md:hidden" />
           <div className="ml-auto flex items-center gap-1 whitespace-nowrap sm:gap-2">

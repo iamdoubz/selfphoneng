@@ -1,2 +1,12 @@
 @import 'tailwindcss';
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* iOS zooms into any field under 16px on focus and stays zoomed, which left the incoming call
+   dialog off screen. Unlayered, so it beats text-sm. */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

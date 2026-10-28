@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // My Phone (05 §4): Home, Calls, Voicemail, Contacts (11), Settings, People, and the softphone.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, Route, Routes, useNavigate } from 'react-router';
 import type { AuthUser } from '@selfphoneng/shared';
 import { meApi, signOut } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
-import { Alert, Brand, Button } from '../../components/ui.tsx';
+import { Alert, Brand, Button, MenuIcon } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
 import { SoftphoneDock } from '../../softphone/SoftphoneDock.tsx';
 import { PresencePanel } from '../../softphone/PresencePanel.tsx';
@@ -36,15 +36,24 @@ export function MePage({ user }: { user: AuthUser }) {
   const toasts = useLive((s) => s.toasts);
   const offers = useContactShares().data?.length ?? 0;
 
+  const [menu, setMenu] = useState(false);
+  const close = () => setMenu(false);
+  async function logout() {
+    await signOut(); // may leave for the OpenID provider's sign-out page (12 §3.5)
+    qc.clear();
+    nav('/login', { replace: true });
+  }
+
   const tab = ({ isActive }: { isActive: boolean }) =>
-    `rounded-md px-3 py-2 text-sm font-medium ${isActive ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'}`;
+    `rounded-md px-3 py-2 text-sm font-medium pointer-coarse:py-3 ${isActive ? 'bg-zinc-100 dark:bg-zinc-800' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800'}`;
+  const row = tab({ isActive: false });
   return (
     <main className="mx-auto flex min-h-dvh max-w-6xl flex-col gap-6 p-4 sm:p-8">
-      <header className="flex flex-wrap items-center justify-between gap-2">
+      <header className="flex items-center justify-between gap-2">
         <h1 className="text-xl">
           <Brand />
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="hidden items-center gap-2 md:flex">
           {user.role === 'admin' && (
             <Link className={`${link} text-sm`} to="/admin">
               Admin
@@ -54,32 +63,40 @@ export function MePage({ user }: { user: AuthUser }) {
             About
           </Link>
           <ThemeToggle />
-          <Button
-            variant="ghost"
-            onClick={async () => {
-              await signOut(); // may leave for the OpenID provider's sign-out page (12 §3.5)
-              qc.clear();
-              nav('/login', { replace: true });
-            }}
-          >
+          <Button variant="ghost" onClick={logout}>
             Sign out
           </Button>
         </div>
+        <Button
+          variant="ghost"
+          className="relative md:hidden"
+          aria-expanded={menu}
+          aria-controls="me-nav"
+          aria-label={offers > 0 ? `Menu, ${offers} shared with you` : 'Menu'}
+          onClick={() => setMenu((o) => !o)}
+        >
+          <MenuIcon />
+          {offers > 0 && (
+            <span className="absolute top-1.5 right-1.5 size-2 rounded-full bg-sky-600" />
+          )}
+        </Button>
       </header>
+      {/* On phones the tabs and the header links fold into the menu button. */}
       <nav
+        id="me-nav"
         aria-label="My phone"
-        className="flex gap-1 border-b border-zinc-200 pb-2 dark:border-zinc-800"
+        className={`${menu ? 'flex' : 'hidden'} flex-col gap-1 border-b border-zinc-200 pb-2 md:flex md:flex-row dark:border-zinc-800`}
       >
-        <NavLink to="/me" end className={tab}>
+        <NavLink to="/me" end className={tab} onClick={close}>
           Home
         </NavLink>
-        <NavLink to="/me/calls" className={tab}>
+        <NavLink to="/me/calls" className={tab} onClick={close}>
           Calls
         </NavLink>
-        <NavLink to="/me/voicemail" className={tab}>
+        <NavLink to="/me/voicemail" className={tab} onClick={close}>
           Voicemail
         </NavLink>
-        <NavLink to="/me/contacts" className={tab}>
+        <NavLink to="/me/contacts" className={tab} onClick={close}>
           Contacts
           {offers > 0 && (
             <span className="ml-1 rounded-full bg-sky-600 px-1.5 text-xs text-white">
@@ -88,13 +105,30 @@ export function MePage({ user }: { user: AuthUser }) {
             </span>
           )}
         </NavLink>
-        <NavLink to="/me/settings" className={tab}>
+        <NavLink to="/me/settings" className={tab} onClick={close}>
           Settings
         </NavLink>
         {/* People is a right-hand column on wide screens, a tab on small ones (05 §4.1). */}
-        <NavLink to="/me/people" className={(s) => `${tab(s)} lg:hidden`}>
+        <NavLink to="/me/people" className={(s) => `${tab(s)} lg:hidden`} onClick={close}>
           People
         </NavLink>
+        <div className="mt-1 flex flex-col gap-1 border-t border-zinc-200 pt-2 md:hidden dark:border-zinc-800">
+          {user.role === 'admin' && (
+            <Link className={row} to="/admin">
+              Admin
+            </Link>
+          )}
+          <Link className={row} to="/about">
+            About
+          </Link>
+          <div className="flex items-center justify-between pl-3 text-sm font-medium">
+            Theme
+            <ThemeToggle />
+          </div>
+          <button type="button" className={`${row} text-left`} onClick={logout}>
+            Sign out
+          </button>
+        </div>
       </nav>
       {toasts.map((t) => (
         <div

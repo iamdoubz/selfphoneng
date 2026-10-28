@@ -6,7 +6,6 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { formatNumber } from '@selfphoneng/shared';
 import { meApi } from '../api/client.ts';
-import { Dialog } from '../components/Dialog.tsx';
 import { SpamNote } from '../components/SpamNote.tsx';
 import { Button, inputClass } from '../components/ui.tsx';
 import { useLive } from '../live/store.ts';
@@ -247,34 +246,106 @@ export function SoftphoneDock() {
           <Devices />
         </div>
       )}
-      <Dialog
-        open={dialogCall !== undefined}
-        onClose={() => dialogCall && run(softphone.decline(dialogCall.id))}
-        title="Incoming call"
-        footer={
-          dialogCall && (
-            <>
-              <Button onClick={() => run(softphone.decline(dialogCall.id))}>Decline</Button>
-              <Button variant="primary" onClick={() => run(softphone.answer(dialogCall.id))}>
-                Answer
-              </Button>
-            </>
-          )
-        }
-      >
-        {dialogCall && (
-          <p className="text-lg">
-            <span className="font-semibold">{nameOf(dialogCall)}</span>
-            {nameOf(dialogCall) !== dialogCall.remote && (
-              <span className="block text-sm text-zinc-500">
-                {dialogCall.remote.length > 6 ? formatNumber(dialogCall.remote) : dialogCall.remote}
-              </span>
-            )}
-          </p>
-        )}
-        {dialogCall && <CallerCheck call={dialogCall} />}
-      </Dialog>
+      {dialogCall && (
+        <IncomingCall
+          call={dialogCall}
+          name={nameOf(dialogCall)}
+          onAnswer={() => run(softphone.answer(dialogCall.id))}
+          onDecline={() => run(softphone.decline(dialogCall.id))}
+        />
+      )}
     </section>
+  );
+}
+
+// Feather's phone; turned 135° it's the hang-up handset.
+const PHONE =
+  'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z';
+
+function RoundButton({
+  label,
+  color,
+  hangUp = false,
+  onClick,
+}: {
+  label: string;
+  color: string;
+  hangUp?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex flex-col items-center gap-2 rounded-lg text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-sky-500"
+    >
+      <span
+        className={`grid size-16 place-items-center rounded-full text-white transition-transform group-active:scale-95 motion-reduce:transition-none ${color}`}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          className={`size-7 ${hangUp ? 'rotate-[135deg]' : ''}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d={PHONE} />
+        </svg>
+      </span>
+      {label}
+    </button>
+  );
+}
+
+/** The ringing screen: full screen on a phone, a card on wider screens. Esc declines. */
+function IncomingCall({
+  call,
+  name,
+  onAnswer,
+  onDecline,
+}: {
+  call: CallInfo;
+  name: string;
+  onAnswer: () => void;
+  onDecline: () => void;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const d = ref.current;
+    if (d && !d.open) d.showModal();
+  }, []);
+  return (
+    <dialog
+      ref={ref}
+      aria-labelledby="ring-title"
+      onCancel={(e) => {
+        e.preventDefault();
+        onDecline();
+      }}
+      className="m-0 h-dvh max-h-none w-full max-w-none bg-white p-0 text-zinc-900 backdrop:bg-black/60 sm:m-auto sm:h-auto sm:max-w-sm sm:rounded-2xl sm:shadow-xl dark:bg-zinc-900 dark:text-zinc-100"
+    >
+      <div className="flex h-full flex-col items-center justify-between gap-10 px-6 py-16 text-center sm:py-8">
+        <div className="flex flex-col items-center gap-2">
+          <h2 id="ring-title" className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+            Incoming call
+          </h2>
+          <p className="text-3xl font-semibold break-words">{name}</p>
+          {name !== call.remote && (
+            <p className="text-zinc-600 tabular-nums dark:text-zinc-400">
+              {call.remote.length > 6 ? formatNumber(call.remote) : call.remote}
+            </p>
+          )}
+          <CallerCheck call={call} />
+        </div>
+        <div className="flex gap-16">
+          <RoundButton label="Decline" color="bg-red-600" hangUp onClick={onDecline} />
+          <RoundButton label="Answer" color="bg-emerald-600" onClick={onAnswer} />
+        </div>
+      </div>
+    </dialog>
   );
 }
 
