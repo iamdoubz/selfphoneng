@@ -14,6 +14,12 @@ import { callExtensions, calls, cdr, dids, extensions, recordings } from '../db/
 import { durationMs } from '../media/audio.ts';
 
 type CdrRow = typeof cdr.$inferSelect;
+
+/**
+ * The call_extensions roles of someone who was on the call, not just rung: they may hear its
+ * recording and read its transcript and summary (08 §7 #3).
+ */
+export const ON_THE_CALL = ['caller', 'answered'];
 type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 /** cdr_manager.conf has usegmtime = yes: "2026-10-18 19:28:37" is UTC. */

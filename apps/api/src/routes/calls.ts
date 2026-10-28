@@ -29,6 +29,7 @@ import {
 } from '../db/schema.ts';
 import { contactNames } from '../contacts/book.ts';
 import { badRequest, conflict, notFound } from '../errors.ts';
+import { ON_THE_CALL } from '../services/cdr.ts';
 import { getSetting } from '../services/settings.ts';
 
 const answerer = alias(extensions, 'answerer');
@@ -228,6 +229,8 @@ export async function callRoutes(app: FastifyInstance) {
           const out = mine.includes('caller');
           return {
             ...c,
+            // Only rang (a ring group): someone else's conversation (08 §7 #3).
+            recordingId: mine.some((r) => ON_THE_CALL.includes(r)) ? c.recordingId : null,
             myRole: out ? 'out' : 'in',
             missedByMe: !out && (MISSED as readonly string[]).includes(c.status),
           };

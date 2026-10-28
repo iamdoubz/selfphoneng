@@ -72,8 +72,10 @@ on, each recorded call is also recorded one side at a time, and a minute or two 
 - the two one-side files are deleted. The normal recording stays.
 
 On the **Recordings** page each call shows its summary, **Show transcript**, and the search box
-finds calls by what was said. People who were on a call can read its transcript too, like they can
-play its recording, and get its summary in their call report email (My settings → Call report).
+finds calls by what was said. People who made or answered a call can read its transcript too, like
+they can play its recording, and get its summary in their call report email (My settings → Call
+report). Someone whose phone only rang (a ring group or queue a coworker answered) can't: it's
+someone else's conversation.
 
 - Only calls that are recorded are written out (user record modes, phone numbers, queues and
   conference rooms set to record), and only those recorded while it's on.

@@ -181,4 +181,43 @@ describe.skipIf(!hasTestDb)('call report email', () => {
     await run('2026-10-23T13:06:00Z');
     expect(t.mails[1]!.text).not.toContain('quote');
   });
+
+  it('no recording or summary of a call that only rang my phone (08 §7 #3)', async () => {
+    await dan('PATCH', '/api/me', { callReportSummaries: true });
+    const [rec] = await t.db
+      .insert(recordings)
+      .values({
+        linkedid: 'r4',
+        filePath: '2026/10/24/r4.wav',
+        startedAt: new Date('2026-10-24T15:00:00Z'),
+        summary: 'Secret pricing for Acme',
+        aiDoneAt: new Date(),
+      })
+      .returning();
+    const [c] = await t.db
+      .insert(calls)
+      .values({
+        linkedid: 'c4', // the ring group rang Dan; a coworker answered and talked
+        direction: 'inbound',
+        status: 'answered',
+        startedAt: new Date('2026-10-24T15:00:00Z'),
+        endedAt: new Date('2026-10-24T15:05:00Z'),
+        fromNumber: '13125557777',
+        talkSeconds: 300,
+        recordingId: rec!.id,
+      })
+      .returning();
+    await t.db.insert(callExtensions).values({ callId: c!.id, extensionId: extId, role: 'rang' });
+    await t.db
+      .update(extensions)
+      .set({ callReportSentAt: new Date('2026-10-24T13:00:00Z') })
+      .where(eq(extensions.id, extId));
+    t.mails.length = 0;
+    expect(await run('2026-10-25T13:06:00Z')).toBe(1);
+    const text = t.mails[0]!.text;
+    expect(text).toContain('Incoming from (312) 555-7777');
+    expect(text).not.toContain('Secret pricing');
+    expect(text).not.toContain('recorded');
+    expect(text).not.toContain('Summary not ready');
+  });
 });

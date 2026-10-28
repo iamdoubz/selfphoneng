@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // M7-T3: a recorded call (sp_recording) is linked to its calls row and playable by admins and the
-// people on the call; delete and retention remove file and row.
+// people on the call (not a phone that only rang, 08 §7 #3); delete and retention remove file and row.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AmiMessage } from '../src/ami/events.ts';
-import { calls, cdr, extensions, recordings } from '../src/db/schema.ts';
+import { callExtensions, calls, cdr, extensions, recordings, users } from '../src/db/schema.ts';
 import { encrypt } from '../src/crypto/secrets.ts';
 import { cleanupRecordings } from '../src/routes/recordings.ts';
 import { aggregateCall, toCdrRow } from '../src/services/cdr.ts';
@@ -56,6 +56,8 @@ describe.skipIf(!hasTestDb)('call recordings', () => {
     };
   });
   afterAll(() => t?.close());
+  const bobId = async () =>
+    (await t.db.select().from(users).where(eq(users.email, 'bob@example.com')))[0]!.id;
 
   it('the recording is linked to its call, with size and length', async () => {
     const [c] = await t.db.select().from(calls);
@@ -89,6 +91,26 @@ describe.skipIf(!hasTestDb)('call recordings', () => {
     expect((await as.alice('GET', `/api/recordings/${recId}/audio`)).statusCode).toBe(200);
     expect((await as.bob('GET', `/api/recordings/${recId}/audio`)).statusCode).toBe(403);
     expect((await as.alice('GET', '/api/recordings')).statusCode).toBe(403);
+  });
+
+  it('a phone that only rang (ring group, queue) gets neither audio nor transcript (08 §7 #3)', async () => {
+    const [bob] = await t.db
+      .insert(extensions)
+      .values({
+        number: '102',
+        name: 'Bob',
+        userId: await bobId(),
+        sipPasswordEnc: encrypt('x'),
+        voicemailPinEnc: encrypt('4826'),
+      })
+      .returning();
+    const [c] = await t.db.select().from(calls);
+    await t.db.insert(callExtensions).values({ callId: c!.id, extensionId: bob!.id, role: 'rang' });
+    expect((await as.bob('GET', `/api/recordings/${recId}/audio`)).statusCode).toBe(403);
+    expect((await as.bob('GET', `/api/recordings/${recId}/transcript`)).statusCode).toBe(403);
+    const mine = (await as.bob('GET', '/api/me/calls')).json();
+    expect(mine.items).toEqual([expect.objectContaining({ id: c!.id, recordingId: null })]);
+    expect((await as.alice('GET', `/api/recordings/${recId}/transcript`)).statusCode).toBe(200);
   });
 
   it('retention deletes recordings past their days; delete removes file and link', async () => {

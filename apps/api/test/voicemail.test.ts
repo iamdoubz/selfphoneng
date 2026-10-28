@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { LiveMessage } from '@selfphoneng/shared';
-import { extensions, voicemailMessages } from '../src/db/schema.ts';
+import { extensions, voicemailMessages, webhookDeliveries, webhooks } from '../src/db/schema.ts';
 import { parseCallerId, type watchVoicemail } from '../src/services/voicemail.ts';
 import { setSetting } from '../src/services/settings.ts';
 import { hasTestDb } from './db.ts';
@@ -175,11 +175,21 @@ describe.skipIf(!hasTestDb)('voicemail watcher', () => {
     const url = `http://127.0.0.1:${(stt.address() as AddressInfo).port}/v1`;
     await setSetting(t.db, 'ai.stt', { url, model: 'whisper' });
     await setSetting(t.db, 'ai.voicemailTranscripts', true);
+    await t.db
+      .insert(webhooks)
+      .values({ url: 'https://hooks.example.com/x', secretEnc: 'x', events: ['voicemail.new'] });
     try {
       leave('INBOX', 3, '1792300700-00000004', '<104>');
       await w.scan('101');
       const r = (await rows()).find((x) => x.msgId === '1792300700-00000004')!;
       expect(r.transcript).toBe('Please call me.');
+      // A webhook goes off this server: the words stay here (10 §1, 08 §7 #6).
+      const [hook] = await t.db
+        .select()
+        .from(webhookDeliveries)
+        .where(eq(webhookDeliveries.event, 'voicemail.new'));
+      expect((hook!.payload as { data: object }).data).toMatchObject({ id: r.id });
+      expect((hook!.payload as { data: object }).data).not.toHaveProperty('transcript');
       expect(t.mails.at(-1)!.text).toContain(
         'What they said (automatic, may have mistakes):\nPlease call me.',
       );

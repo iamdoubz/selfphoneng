@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // /api/settings (04 §7.3) and the dashboard warnings. Admin only.
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, isNotNull } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
@@ -26,7 +26,7 @@ import {
   type Warning,
 } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
-import { dids, extensions, trunks } from '../db/schema.ts';
+import { dids, extensions, trunks, users } from '../db/schema.ts';
 import { HttpError, badRequest } from '../errors.ts';
 import { SLOW, requireAdmin } from '../auth/guards.ts';
 import { decrypt, encrypt } from '../crypto/secrets.ts';
@@ -257,6 +257,7 @@ export async function settingsRoutes(app: FastifyInstance) {
   app.patch('/api/settings', async (req) => {
     const body = z.record(z.string(), z.unknown()).parse(req.body);
     const values: Record<string, unknown> = {};
+    let contrackMoved = false;
     for (const [key, raw] of Object.entries(body)) {
       if (!(key in SettingsSchemas) || READ_ONLY.has(key))
         throw badRequest(`${key} can't be changed here`);
@@ -287,8 +288,13 @@ export async function settingsRoutes(app: FastifyInstance) {
           } catch (err) {
             throw badRequest(`Contrack address: ${(err as Error).message}`);
           }
+        // The saved tokens only go back to the address they were typed for (08 §7 #7).
+        const url = input?.url.replace(/\/+$/, '');
+        const moved = !!old && !!input && old.url !== url;
+        if (moved && old.companyTokenEnc && !input.companyToken && !input.clearCompanyToken)
+          throw badRequest('The Contrack address changed: enter the company token again');
         values[key] = input && {
-          url: input.url.replace(/\/+$/, ''),
+          url: url!,
           publicUrl: input.publicUrl,
           companyTokenEnc: input.companyToken
             ? encrypt(input.companyToken)
@@ -296,6 +302,7 @@ export async function settingsRoutes(app: FastifyInstance) {
               ? ''
               : (old?.companyTokenEnc ?? ''),
         };
+        if (moved) contrackMoved = true;
         forgetBook(null);
       } else if (key === 'auth.ldap') {
         values[key] = await ldapFromInput(raw);
@@ -351,6 +358,12 @@ export async function settingsRoutes(app: FastifyInstance) {
     }
     for (const [key, value] of Object.entries(values))
       await setSetting(db, key as SettingKey, value as never);
+    // People's own Contrack tokens were for the old address: they connect again (08 §7 #7).
+    if (contrackMoved)
+      await db
+        .update(users)
+        .set({ contrackTokenEnc: null })
+        .where(isNotNull(users.contrackTokenEnc));
     // A new IPQualityScore key may have credits: don't wait for spamQuotaCheck (14 §3).
     if ((body.spam as SpamInput | undefined)?.ipqs?.key) await resumeIpqs(db, 'a new key');
     const changed = Object.keys(values).filter(

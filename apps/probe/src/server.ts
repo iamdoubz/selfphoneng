@@ -48,13 +48,21 @@ export function parseCheck(body: unknown): { host: string; tests: Test[] } | str
   return { host: b.host, tests };
 }
 
-const clientIp = (req: IncomingMessage, trustProxy: boolean) => {
+/**
+ * The address to test. X-Forwarded-For only counts when the request came from a proxy on this
+ * machine: reached directly, the header is whatever the caller wrote (08 §7 #4).
+ */
+export const clientIp = (req: IncomingMessage, trustProxy: boolean) => {
+  const peer = req.socket.remoteAddress!.replace(/^::ffff:/, '');
   const xff = req.headers['x-forwarded-for'];
-  const raw =
-    trustProxy && typeof xff === 'string'
-      ? xff.split(',').at(-1)!.trim()
-      : req.socket.remoteAddress!;
-  return raw.replace(/^::ffff:/, '');
+  const local = peer === '127.0.0.1' || peer === '::1';
+  return trustProxy && local && typeof xff === 'string'
+    ? xff
+        .split(',')
+        .at(-1)!
+        .trim()
+        .replace(/^::ffff:/, '')
+    : peer;
 };
 
 function readJson(req: IncomingMessage): Promise<unknown> {

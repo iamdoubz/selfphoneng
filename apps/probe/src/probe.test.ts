@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // The probe against stand-ins on 127.0.0.1: TCP, HTTP and a WebSocket upgrade, SIP over UDP and
-// TCP, raw UDP; and the server: it only tests the address that asked, validates, rate-limits.
+// TCP, raw UDP; and the server: it only tests the address that asked, validates, rate-limits,
+// and believes X-Forwarded-For only from a proxy on this machine (08 §7 #4).
 import { createSocket, type Socket as UdpSocket } from 'node:dgram';
-import { createServer as httpServer, type Server as HttpServer } from 'node:http';
+import {
+  createServer as httpServer,
+  type IncomingMessage,
+  type Server as HttpServer,
+} from 'node:http';
 import { createServer as tcpServer, type AddressInfo, type Server } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runTest } from './checks.ts';
-import { createProbe, parseCheck } from './server.ts';
+import { clientIp, createProbe, parseCheck } from './server.ts';
 
 const port = (s: Server | HttpServer) => (s.address() as AddressInfo).port;
 const listen = <T extends Server | HttpServer>(s: T) =>
@@ -163,5 +168,21 @@ describe('probe server', () => {
     expect((await fetch(`http://127.0.0.1:${port(probe)}/healthz`)).status).toBe(200);
     probe.close();
     target.close();
+  });
+});
+
+describe('the address that asked', () => {
+  const req = (peer: string, xff?: string) =>
+    ({
+      headers: xff ? { 'x-forwarded-for': xff } : {},
+      socket: { remoteAddress: peer },
+    }) as unknown as IncomingMessage;
+
+  it('takes X-Forwarded-For only from the local proxy (08 §7 #4)', () => {
+    // Reached straight from the internet: the header is whatever the caller wrote.
+    expect(clientIp(req('203.0.113.5', '198.51.100.9'), true)).toBe('203.0.113.5');
+    for (const proxy of ['127.0.0.1', '::ffff:127.0.0.1', '::1'])
+      expect(clientIp(req(proxy, '10.0.0.1, 198.51.100.9'), true)).toBe('198.51.100.9');
+    expect(clientIp(req('::ffff:203.0.113.5', '198.51.100.9'), false)).toBe('203.0.113.5');
   });
 });

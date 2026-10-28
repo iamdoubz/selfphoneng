@@ -286,7 +286,9 @@ As built (M7-T1):
   outside); otherwise `src`. An outbound call has no `answered_by` (no extension answered).
 - **recording** (M7-T3): `sp-sub-record` sets `CDR(SP_REC)`; the file (relative, under
   `RECORDINGS_DIR`) becomes a `recordings` row (size, ffprobe length) linked to the call.
-  `/api/recordings/:id/audio` serves it to admins and to users whose extension is on the call.
+  `/api/recordings/:id/audio` serves it to admins and to users whose extension made or answered
+  the call (`call_extensions` role `caller` or `answered`), not to a phone that only rang (08 §7
+  #3); `/api/me/calls` shows such a call without its `recordingId`.
   Retention runs once a day (and at start) in the same day-change check as the nightly regenerate.
 - Aggregation runs 5 s after a linkedid's last Cdr event; on every AMI connect, linkedids older
   than a minute without a `calls` row are aggregated (instead of the nightly job).
@@ -533,7 +535,8 @@ Events: `call.started`, `call.answered`, `call.ended`, `voicemail.new`, `sms.rec
 `sms.sent`, `emergency.call`, `trunk.registration_changed`, `extension.registration_changed`.
 
 - Payload: `{ "id": "<uuid>", "event": "call.ended", "createdAt": "...", "data": {...} }`.
-  `data` uses the same shapes as the REST API.
+  `data` uses the same shapes as the REST API, except `voicemail.new` has no `transcript`: a
+  webhook leaves the server and transcripts don't (10 §1, 08 §7 #6).
 - Headers: `Content-Type: application/json`, `X-SelfPhoneNG-Event`,
   `X-SelfPhoneNG-Timestamp` (unix seconds),
   `X-SelfPhoneNG-Signature: sha256=<hex HMAC-SHA256(secret, timestamp + "." + rawBody)>`.

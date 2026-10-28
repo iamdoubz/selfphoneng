@@ -103,7 +103,8 @@ sudo ufw allow 8080/tcp
 (On GitHub, the downloads are at `https://github.com/iamdoubz/selfphoneng/releases/download/$v/…`.)
 To try it first without the service, run `./selfphoneng-probe-linux-x64` and open
 `http://<machine>:8080/healthz`. `PORT` changes the port; behind your own HTTPS reverse proxy
-that sets X-Forwarded-For, also set `TRUST_PROXY=true`.
+on the same machine that sets X-Forwarded-For, also set `TRUST_PROXY=true`. The probe then only
+listens on 127.0.0.1 (`HOST` changes it) and only believes X-Forwarded-For from there.
 
 **With Docker:**
 

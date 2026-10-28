@@ -18,6 +18,7 @@ import {
 import { todayIn } from '../generator/load.ts';
 import { getSetting } from '../services/settings.ts';
 import { ContrackError, contrackBook, contrackInteraction, contrackSettings } from './contrack.ts';
+import { ON_THE_CALL } from '../services/cdr.ts';
 
 /** A recorded call waits this long for its summary before it's logged without one. */
 const SUMMARY_WAIT_MS = 30 * 60_000;
@@ -141,11 +142,13 @@ export async function logCallsToContrack(d: {
     .limit(500);
 
   // One entry per call and person (a person can be in a call as caller, rang and answered).
-  const todo = new Map<string, (typeof rows)[number] & { out: boolean }>();
+  // `heard`: made or answered it; a phone that only rang gets no recording or summary (08 §7 #3).
+  const todo = new Map<string, (typeof rows)[number] & { out: boolean; heard: boolean }>();
   for (const r of rows) {
     const k = `${r.call.id}|${r.userId}`;
     const out = r.role === 'caller' || todo.get(k)?.out === true;
-    todo.set(k, { ...r, out });
+    const heard = ON_THE_CALL.includes(r.role) || todo.get(k)?.heard === true;
+    todo.set(k, { ...r, out, heard });
   }
   const skipUser = new Set<string>(); // Contrack down or token refused: try again next run
   let logged = 0;
@@ -169,7 +172,8 @@ export async function logCallsToContrack(d: {
       await record(null);
       continue;
     }
-    const wantSummary = r.withSummary && summariesOn && r.call.recordingId !== null;
+    const recorded = r.heard && r.call.recordingId !== null;
+    const wantSummary = r.withSummary && summariesOn && recorded;
     if (wantSummary && !r.aiDoneAt && now.getTime() - r.call.endedAt.getTime() < SUMMARY_WAIT_MS)
       continue; // the transcript job hasn't summarized it yet
     const e = timelineEntry(
@@ -180,7 +184,7 @@ export async function logCallsToContrack(d: {
         toNumber: r.call.toNumber,
         talkSeconds: r.call.talkSeconds,
         answeredBy: r.answeredById && r.answeredById !== r.extId ? r.answeredBy : null,
-        recorded: r.call.recordingId !== null,
+        recorded,
       },
       wantSummary ? r.summary : null,
     );

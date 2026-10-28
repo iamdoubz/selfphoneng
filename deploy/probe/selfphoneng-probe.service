@@ -12,7 +12,8 @@ Wants=network-online.target
 [Service]
 ExecStart=/usr/local/bin/selfphoneng-probe
 Environment=PORT=8080
-# Behind your own HTTPS reverse proxy that sets X-Forwarded-For: PORT to a local one, and
+# Behind your own HTTPS reverse proxy on this machine that sets X-Forwarded-For: PORT to a local
+# one, and TRUST_PROXY=true (it then listens on 127.0.0.1 only; HOST changes that).
 #Environment=TRUST_PROXY=true
 Restart=always
 RestartSec=5

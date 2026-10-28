@@ -270,8 +270,10 @@ export async function contactRoutes(app: FastifyInstance) {
         .object({ url: z.string().trim().min(1), companyToken: z.string().trim().optional() })
         .parse(req.body);
       const saved = await getSetting(db, 'contacts.contrack');
+      // The saved token only for the saved address: another one gets none (08 §7 #7).
+      const same = saved?.url === b.url.replace(/\/+$/, '');
       const token =
-        b.companyToken || (saved?.companyTokenEnc ? decrypt(saved.companyTokenEnc) : null);
+        b.companyToken || (same && saved.companyTokenEnc ? decrypt(saved.companyTokenEnc) : null);
       try {
         return { ok: true, detail: await contrackCheck(b.url, token) };
       } catch (err) {

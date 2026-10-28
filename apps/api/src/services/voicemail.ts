@@ -121,11 +121,12 @@ async function transcribeMessage(d: VoicemailDeps, row: Row): Promise<string | n
 async function announce(d: VoicemailDeps, box: Box, found: Row) {
   const transcript = await transcribeMessage(d, found);
   const row = { ...found, transcript };
-  // Every mailbox, with or without a user (the live message is only for the user's own).
-  void enqueueWebhook(d.db, 'voicemail.new', {
-    ...toVoicemailDto(row),
-    extension: box.number,
-  }).catch((err: unknown) => d.log.error({ err }, 'webhook enqueue failed'));
+  // Every mailbox, with or without a user (the live message is only for the user's own). Not
+  // the transcript: webhooks go off this server, and transcripts never do (10 §1, 08 §7 #6).
+  const { transcript: _words, ...hook } = toVoicemailDto(row);
+  void enqueueWebhook(d.db, 'voicemail.new', { ...hook, extension: box.number }).catch(
+    (err: unknown) => d.log.error({ err }, 'webhook enqueue failed'),
+  );
   if (box.userId)
     d.live.emit('message', {
       type: 'voicemail.new',
