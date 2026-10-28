@@ -152,6 +152,15 @@ the same commit. **Pinned: `24.0.0-rc2` (2026-10-17).** The file in the repo is 
 > or dialplan function in this spec turns out to have changed in 24, follow the Asterisk 24
 > docs and update the spec (AGENTS rule 10).
 
+**Changing the version** (owner, 2026-10-28). `apps/api/test/asterisk/verified.ts` lists what the
+code relies on Asterisk doing (the "checked on 24.0.0-rcN" notes in these specs, and the TLS
+qualify workaround in 08 §2.1), with the version it was measured on. `asterisk-version.test.ts`
+(part of `pnpm test`) fails while the Dockerfile pins another version or this section names
+another. To move: build the image, run `pnpm test:asterisk-upgrade` (boots it with the one-user
+golden config next to a TLS provider with its own CA, measures each fact, and lists every one
+that moved with what depends on it) and `pnpm test:asterisk`, change what moved, then set
+`VERIFIED_ASTERISK` and update this section.
+
 ```dockerfile
 # SPDX-License-Identifier: AGPL-3.0-or-later
 FROM debian:trixie-slim AS build
