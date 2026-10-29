@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { AmiClient } from '../../src/ami/client.ts';
 import { field, type AmiMessage } from '../../src/ami/events.ts';
 import { FACTS, VERIFIED_ASTERISK, pinnedAsterisk, type Fact } from './verified.ts';
+import { testManagerConf } from './manager-conf.ts';
 
 const IMAGE = process.env.ASTERISK_IMAGE ?? 'selfphoneng-asterisk';
 const GOLDEN = fileURLToPath(
@@ -146,10 +147,7 @@ async function main() {
   appendFileSync(join(pbxConf, 'extensions_selfphoneng.conf'), pbxDialplan);
   for (const f of readdirSync(GOLDEN))
     writeFileSync(join(provConf, f), f === 'pjsip_selfphoneng.conf' ? providerPjsip : '');
-  writeFileSync(
-    join(pbxConf, 'manager.conf.template'),
-    '[general]\nenabled = yes\nport = 5038\nbindaddr = 0.0.0.0\n\n[selfphoneng]\nsecret = ${AMI_SECRET}\npermit = 0.0.0.0/0.0.0.0\nread = all\nwrite = all\n',
-  );
+  writeFileSync(join(pbxConf, 'manager.conf.template'), testManagerConf());
 
   const ami = new AmiClient({
     host: '127.0.0.1',

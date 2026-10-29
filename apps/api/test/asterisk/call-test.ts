@@ -13,6 +13,7 @@ import { SettingsSchemas, type SettingKey } from '@selfphoneng/shared';
 import { AmiClient } from '../../src/ami/client.ts';
 import { GENERATED_FILES, render } from '../../src/generator/index.ts';
 import type { Snapshot } from '../../src/generator/load.ts';
+import { testManagerConf } from './manager-conf.ts';
 
 const IMAGE = process.env.ASTERISK_IMAGE ?? 'selfphoneng-asterisk';
 const CALL_SECONDS = Number(process.env.CALL_SECONDS ?? 30);
@@ -126,11 +127,8 @@ async function main() {
   spawnSync('mkdir', ['-p', conf]);
   const files = render(snapshot());
   for (const f of GENERATED_FILES) writeFileSync(join(conf, f), files[f]);
-  // Test-only manager.conf: reachable through the published port (the real one is 127.0.0.1-only).
-  writeFileSync(
-    join(dir, 'manager.conf.template'),
-    '[general]\nenabled = yes\nport = 5038\nbindaddr = 0.0.0.0\n\n[selfphoneng]\nsecret = ${AMI_SECRET}\npermit = 0.0.0.0/0.0.0.0\nread = all\nwrite = all\n',
-  );
+  // The real manager.conf, reachable through the published port (test/asterisk/manager-conf.ts).
+  writeFileSync(join(dir, 'manager.conf.template'), testManagerConf());
   phoneConfig(dir, '101', 5070, 440);
   phoneConfig(dir, '102', 5072, 880);
 

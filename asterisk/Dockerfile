@@ -28,7 +28,9 @@ RUN ./configure --with-pjproject-bundled --with-jansson-bundled \
  && mkdir -p /out/usr/share/selfphoneng \
  && mv /out/var/lib/asterisk/moh /out/usr/share/selfphoneng/moh-opsound
 # Debian's /var/run is a symlink to /run; a real directory here breaks the COPY below.
+# Modules that run host commands go: AMI's ModuleLoad (class system) loads them past noload (08 §8).
 RUN rm -rf /out/var/run \
+ && for m in app_system func_shell app_disa res_agi app_externalivr; do rm /out/usr/lib/asterisk/modules/$m.so; done \
  && mkdir -p /out/etc/asterisk \
  && cp configs/samples/indications.conf.sample /out/etc/asterisk/indications.conf
 

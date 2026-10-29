@@ -18,6 +18,7 @@ import type { AmiMessage } from '../../src/ami/events.ts';
 import { GENERATED_FILES, render } from '../../src/generator/index.ts';
 import type { Snapshot, SnapExtension } from '../../src/generator/load.ts';
 import { providerDialplan, providerPjsip } from './provider.ts';
+import { testManagerConf } from './manager-conf.ts';
 
 const IMAGE = process.env.ASTERISK_IMAGE ?? 'selfphoneng-asterisk';
 const OUT = fileURLToPath(new URL('../fixtures/cdr/', import.meta.url));
@@ -243,10 +244,7 @@ async function main() {
     );
   }
   const runPhones = phoneFiles(dir);
-  writeFileSync(
-    join(dir, 'manager.conf.template'),
-    '[general]\nenabled = yes\nport = 5038\nbindaddr = 0.0.0.0\n\n[selfphoneng]\nsecret = ${AMI_SECRET}\npermit = 0.0.0.0/0.0.0.0\nread = all\nwrite = all\n',
-  );
+  writeFileSync(join(dir, 'manager.conf.template'), testManagerConf());
   const ami = new AmiClient({
     host: '127.0.0.1',
     port: AMI_PORT,

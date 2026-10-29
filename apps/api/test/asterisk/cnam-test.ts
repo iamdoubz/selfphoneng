@@ -17,6 +17,7 @@ import { AmiClient } from '../../src/ami/client.ts';
 import { GENERATED_FILES, render } from '../../src/generator/index.ts';
 import type { Snapshot } from '../../src/generator/load.ts';
 import { providerPjsip } from './provider.ts';
+import { testManagerConf } from './manager-conf.ts';
 
 const IMAGE = process.env.ASTERISK_IMAGE ?? 'selfphoneng-asterisk';
 const NET = 'sp-cnam';
@@ -223,10 +224,7 @@ async function main() {
     );
   }
   phoneFiles(dir);
-  writeFileSync(
-    join(dir, 'manager.conf.template'),
-    '[general]\nenabled = yes\nport = 5038\nbindaddr = 0.0.0.0\n\n[selfphoneng]\nsecret = ${AMI_SECRET}\npermit = 0.0.0.0/0.0.0.0\nread = all\nwrite = all\n',
-  );
+  writeFileSync(join(dir, 'manager.conf.template'), testManagerConf());
   const problems: string[] = [];
   const ami = new AmiClient({
     host: '127.0.0.1',

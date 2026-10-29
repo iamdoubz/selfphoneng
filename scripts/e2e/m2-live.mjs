@@ -15,6 +15,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { launch } from './cdp.mjs';
+import { testManagerConf } from '../../apps/api/test/asterisk/manager-conf.ts';
 
 const NET = 'sp-live';
 const AST = 'sp-live-ast';
@@ -33,10 +34,7 @@ if (cmd === 'up') {
   mkdirSync(conf, { recursive: true });
   for (const d of [vm, sounds, recs, moh]) if (d) mkdirSync(d, { recursive: true });
   const dir = mkdtempSync(join(tmpdir(), 'sp-live-'));
-  writeFileSync(
-    join(dir, 'manager.conf.template'),
-    '[general]\nenabled = yes\nport = 5038\nbindaddr = 0.0.0.0\n\n[selfphoneng]\nsecret = ${AMI_SECRET}\npermit = 0.0.0.0/0.0.0.0\nread = all\nwrite = all\n',
-  );
+  writeFileSync(join(dir, 'manager.conf.template'), testManagerConf());
   // The browser softphone (m5-*) runs on the host: SIP-over-WebSocket and a small RTP range are
   // published on 127.0.0.1, and the api maps the container's ICE candidate to 127.0.0.1.
   writeFileSync(
