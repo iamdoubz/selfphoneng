@@ -8,3 +8,5 @@ coverage/
 *.pid
 # The mobile app is its own repo (13), checked out here beside the PBX.
 mobile/
+# voip.ms's API example bundle (06 §5.1): their copyright, kept locally for reference.
+docs/voip.ms-api/

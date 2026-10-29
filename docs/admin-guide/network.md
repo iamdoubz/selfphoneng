@@ -89,7 +89,7 @@ needs inside (`selfphoneng-probe-linux-x64`, or `-arm64` for ARM machines), next
 With Node 22 or newer installed you can take the small `selfphoneng-probe.cjs` instead.
 
 ```sh
-v=v0.0.12  # the release
+v=v0.0.13  # the release
 curl -fLO https://git.dou.bet/spng/selfphoneng/releases/download/$v/selfphoneng-probe-linux-x64
 curl -fLO https://git.dou.bet/spng/selfphoneng/releases/download/$v/SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS
@@ -345,6 +345,9 @@ Someone with a stolen SIP password calling expensive international numbers is th
 real money. Keep:
 
 - international calling **off** at voip.ms and in **Outbound rules** unless you need it;
+- **IP restriction** on the voip.ms sub-account, allowing only your server's public IP: a stolen
+  trunk password used from another server skips every limit below
+  ([voip.ms setup](voipms.md#1-in-the-voipms-portal));
 - the voip.ms **balance alerts and spending limits** on;
 - the **desk phone network limit** above on if your phones are all in the office;
 - the **outside calls at once** limits (Settings → Security) as low as your office needs: per

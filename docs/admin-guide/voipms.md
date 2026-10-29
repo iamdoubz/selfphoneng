@@ -18,6 +18,11 @@ then; if a menu name below doesn't match, look for the closest one.
    - **International calling:** leave it **off** unless you need it. It's your best protection
      against toll fraud if a password ever leaks.
    - **Encrypted SIP traffic (TLS/SRTP):** optional; see [SIP over TLS](#sip-over-tls).
+   - **IP restriction** (edit the sub-account → Security): turn it **on** and allow only your
+     server's public IP. voip.ms then refuses outgoing calls from anywhere else, so a stolen
+     sub-account password can't be used from the thief's own server, where none of SelfPhoneNG's
+     limits apply. It needs a fixed public IP: if yours changes, outgoing calls fail until you
+     update it here (SelfPhoneNG emails admins when it sees the change).
 2. **Pick a POP server** near the PBX, e.g. `chicago1.voip.ms`. Write it down: the trunk and every
    number must use the same one.
 3. **Point each number at the sub-account** (DID Numbers → Manage DIDs → edit the number):

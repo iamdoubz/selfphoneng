@@ -5,6 +5,26 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
+## v0.0.13 — 2026-10-29
+
+**Updating:** no database changes. Portainer: change both tags to `0.0.13` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.13`.
+
+Hardening after the attacks on FreePBX servers (spec 08 §8), where stolen trunk passwords were used
+for toll fraud:
+
+- **Fraud alerts:** every admin gets an email, and the System page a warning, when the phone system
+  calls an international or premium number (including Caribbean area codes, which are dialed like
+  a US call but cost like abroad), when voip.ms bills calls on the trunk that this phone system
+  didn't make, or when the voip.ms balance drops more than 10 in an hour. The last two need the
+  voip.ms API login on the trunk. All three can be changed on Settings → Security → **Fraud
+  alerts**.
+- **voip.ms IP restriction** (strongly recommended): the setup checklist on Trunks now says to
+  turn it on for the sub-account, with only this server's public IP. A stolen trunk password is
+  then useless anywhere else ([voip.ms](docs/admin-guide/voipms.md#1-in-the-voipms-portal)).
+- **Asterisk:** the api's manager login (AMI) can only do what SelfPhoneNG uses, and the image no
+  longer has the modules that run commands on the server.
+
 ## v0.0.12 — 2026-10-28
 
 **Before you update:** this version changes the database (spam reports); the api backs up first,

@@ -11,6 +11,7 @@ import { SettingsSchemas, type SettingKey } from '@selfphoneng/shared';
 import { AmiClient } from '../../src/ami/client.ts';
 import { GENERATED_FILES, render } from '../../src/generator/index.ts';
 import type { Snapshot } from '../../src/generator/load.ts';
+import { testManagerConf } from './manager-conf.ts';
 
 const IMAGE = process.env.ASTERISK_IMAGE ?? 'selfphoneng-asterisk';
 const NET = 'sp-vm';
@@ -111,10 +112,7 @@ async function main() {
   spawnSync('mkdir', ['-p', conf]);
   const files = render(snapshot());
   for (const f of GENERATED_FILES) writeFileSync(join(conf, f), files[f]);
-  writeFileSync(
-    join(dir, 'manager.conf.template'),
-    '[general]\nenabled = yes\nport = 5038\nbindaddr = 0.0.0.0\n\n[selfphoneng]\nsecret = ${AMI_SECRET}\npermit = 0.0.0.0/0.0.0.0\nread = all\nwrite = all\n',
-  );
+  writeFileSync(join(dir, 'manager.conf.template'), testManagerConf());
   phoneConfig(dir, '101', 5070);
   phoneConfig(dir, '102', 5072);
 

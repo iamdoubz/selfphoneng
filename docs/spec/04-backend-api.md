@@ -64,7 +64,8 @@ an admin (`requireAdmin` refuses them). See `13-mobile.md` §2 and §4.
 
 ### 2.4 Guards
 Fastify `preHandler` hooks in `auth/guards.ts`:
-- `requireAuth`: sets `req.user`.
+- `requireAuth`: sets `req.user`. An admin outside `auth.adminAllowedNets` is set as a user
+  (`req.adminElsewhere`), and `auth.requireAdminTotp` adds `totp_setup_required` (08 §8.2, M11-T9).
 - `requireAdmin`.
 - `requireSelfOrAdmin(paramName)`: for `/api/me/*` and per-user resources.
 
@@ -481,6 +482,8 @@ Provisioning and inbound hooks (outside `/api`, no session):
 | `webhookDelivery` | every 10 s | send pending deliveries (§9) |
 | `trunkWatch` | every 60 s | if a trunk is unregistered for more than 5 min → email admins once per outage |
 | `diskWatch` | hourly | if free disk < 10% → email admins once a day |
+| `riskyCallWatch` | every 60 s | new outside calls to risky numbers → email admins (08 §8.3) |
+| `providerWatch` | every 15 min | voip.ms calls the PBX didn't make, and a balance drop → email admins (08 §8.3) |
 | `contactsWarm` | every 5 min, Contrack mode | refresh the company's and each connected person's Contrack book, so a ringing phone's caller-name lookup (11 §6.1) finds them |
 | `contrackLog` | every 60 s, Contrack mode | calls ended over 1 min ago (and within 2 days) of people logging calls: one `call` interaction on the matching contact's Contrack timeline (11 §4.4) |
 | `callReports` | every 60 s | each user whose call report period (05 §4) ended over 5 min ago and isn't reported yet: email their calls of that period (by hang-up time) if there were any; `extensions.call_report_sent_at` = the period's end. Changing the schedule sets it to now, so the first report is the next period's |

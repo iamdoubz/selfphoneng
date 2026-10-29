@@ -796,6 +796,9 @@ function SecurityTab({ s }: { s: SettingsDto }) {
   const [provOn, setProvOn] = useState(s['provisioning.enabled']);
   const [perExt, setPerExt] = useState(String(s['calls.maxPerExtension']));
   const [total, setTotal] = useState(String(s['calls.maxTotal']));
+  const [riskyCalls, setRiskyCalls] = useState(s['alerts.riskyCalls']);
+  const [providerCalls, setProviderCalls] = useState(s['alerts.providerCalls']);
+  const [balanceDrop, setBalanceDrop] = useState(String(s['alerts.balanceDropPerHour']));
   const box = (checked: boolean, set: (v: boolean) => void, label: string) => (
     <label className="flex items-center gap-2 text-sm">
       <input type="checkbox" checked={checked} onChange={(e) => set(e.target.checked)} />
@@ -814,6 +817,9 @@ function SecurityTab({ s }: { s: SettingsDto }) {
           'provisioning.enabled': provOn,
           'calls.maxPerExtension': Number(perExt),
           'calls.maxTotal': Number(total),
+          'alerts.riskyCalls': riskyCalls,
+          'alerts.providerCalls': providerCalls,
+          'alerts.balanceDropPerHour': Number(balanceDrop),
           'sip.udpPort': Number(sipPort),
           'sip.tcpEnabled': tcpOn,
           'sip.tlsEnabled': tlsOn,
@@ -873,6 +879,36 @@ function SecurityTab({ s }: { s: SettingsDto }) {
           )}
         </Field>
       </div>
+      <h2 className="font-medium">Fraud alerts</h2>
+      <p className="-mt-2 text-xs text-muted">
+        Emails to every admin. The last two need the voip.ms API login on the trunk (Trunks).
+      </p>
+      {box(riskyCalls, setRiskyCalls, 'Calls to international, premium and Caribbean numbers')}
+      {box(
+        providerCalls,
+        setProviderCalls,
+        "Calls voip.ms billed that this phone system didn't make",
+      )}
+      <p className="-mt-2 text-xs text-muted">
+        Checked every 15 minutes. That&apos;s what a stolen trunk password looks like: the calls
+        never pass through this server, so no limit here can stop them.
+      </p>
+      <Field
+        label="voip.ms balance drop in an hour"
+        hint="In your account's currency. 0 = no email."
+      >
+        {(p) => (
+          <input
+            {...p}
+            className={`${inputClass} max-w-32`}
+            type="number"
+            min={0}
+            step="any"
+            value={balanceDrop}
+            onChange={(e) => setBalanceDrop(e.target.value)}
+          />
+        )}
+      </Field>
       <h2 className="font-medium">Phone setup files</h2>
       {box(provOn, setProvOn, 'Serve setup files to phones (Phones page)')}
       {box(lanOnly, setLanOnly, 'Only to phones on the local networks')}

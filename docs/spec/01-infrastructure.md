@@ -192,7 +192,9 @@ RUN ./configure --with-pjproject-bundled --with-jansson-bundled \
  && mkdir -p /out/usr/share/selfphoneng \
  && mv /out/var/lib/asterisk/moh /out/usr/share/selfphoneng/moh-opsound
 # Debian's /var/run is a symlink to /run; a real directory here breaks the COPY below.
+# Modules that run host commands go: AMI's ModuleLoad (class system) loads them past noload (08 §8).
 RUN rm -rf /out/var/run \
+ && for m in app_system func_shell app_disa res_agi app_externalivr; do rm /out/usr/lib/asterisk/modules/$m.so; done \
  && mkdir -p /out/etc/asterisk \
  && cp configs/samples/indications.conf.sample /out/etc/asterisk/indications.conf
 
@@ -369,10 +371,13 @@ timestampevents = yes
 secret = ${AMI_SECRET}
 deny = 0.0.0.0/0.0.0.0
 permit = 127.0.0.1/255.255.255.255
-read = all
-write = all
+read = system,call,agent,user,cdr,dialplan
+write = system,call,command,originate,agent,user
 writetimeout = 5000
 ```
+Only the classes the api uses (owner, 2026-10-29; the list per action and event is in 08 §8).
+The Asterisk tests mount this template with only `bindaddr` and `permit` opened up
+(`test/asterisk/manager-conf.ts`), so a missing class fails them.
 
 ### 3.5 `http.conf` (WebSocket for the browser softphone)
 ```ini

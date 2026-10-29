@@ -592,6 +592,11 @@ function VoipmsChecklist() {
           number, international calling <em>off</em> unless you need it.
         </li>
         <li>
+          <strong>Turn on IP restriction</strong> (edit the sub-account → Security) and allow only
+          this server&apos;s public IP. A stolen password then can&apos;t make calls from anywhere
+          else. If your public IP changes, update it there too.
+        </li>
+        <li>
           <strong>Pick a POP server</strong> close to you (e.g. chicago1.voip.ms). Enter the same
           one below.
         </li>

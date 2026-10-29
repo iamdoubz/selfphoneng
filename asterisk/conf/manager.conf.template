@@ -9,6 +9,12 @@ timestampevents = yes
 secret = ${AMI_SECRET}
 deny = 0.0.0.0/0.0.0.0
 permit = 127.0.0.1/255.255.255.255
-read = all
-write = all
+; Only the classes the api uses (08 §8). An action needs any one of its classes, so `system`
+; still allows GetConfig and ModuleLoad; config (UpdateConfig, CreateConfig) is what this drops.
+; Events: system (ContactStatus, Registry), call (channels, bridges, parking, ExtensionStatus,
+; MessageWaiting), agent (queues), user (UserEvent, VoicemailPasswordChange), cdr, dialplan (VarSet, Newexten).
+read = system,call,agent,user,cdr,dialplan
+; Actions: system (DB*, PJSIP*), call (Redirect, Hangup, ParkedCalls), command, originate,
+; agent (QueuePause), user (VoicemailMove, VoicemailRemove).
+write = system,call,command,originate,agent,user
 writetimeout = 5000
