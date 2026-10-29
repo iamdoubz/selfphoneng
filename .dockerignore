@@ -39,3 +39,4 @@
 **/*.key
 **/*.log
 **/*.pid
+docs/voip.ms-api
