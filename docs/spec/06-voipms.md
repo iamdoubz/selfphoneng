@@ -19,6 +19,13 @@ trunk fallback (same fields, no voip.ms-specific help text or API features).
    - Encrypted SIP traffic (TLS/SRTP): optional. If on, set our trunk transport to TLS, port 5061, SRTP on. Needs Settings → Security → Accept SIP over TLS (a certificate in `data/tls`, 08 §2.1) first. voip.ms's certificate names every POP, so the trunk checks it (`verify_server`).
    - CallerID Number: your main DID.
    - International calling: leave **disabled** unless needed (toll-fraud protection on their side too).
+   - IP restriction (owner, 2026-10-29; edit the sub-account → Security, **verify** the label):
+     **on**, allowing only the PBX's public IP. voip.ms then refuses outgoing calls from anywhere
+     else, so a stolen sub-account password can't be used from the thief's own server, which skips
+     every limit the PBX has (08 §8). Whether it also refuses a REGISTER from elsewhere (which would
+     take incoming calls) is unverified. Needs a fixed public IP: when it changes, outgoing calls
+     fail until the list is updated (`publicIpWatch` mails admins, 04 §8). IP authentication is
+     the same protection without a password.
 2. **Choose a POP server** close to the PBX (e.g. `chicago1.voip.ms`). The sub-account registers to this server.
 3. **Point each DID at the sub-account** (DID Numbers → Manage DIDs → edit):
    - Routing: **SIP/IAX → the sub-account**
@@ -83,14 +90,25 @@ GET https://voip.ms/api/v1/rest.php
 - Messages over 160 characters: use `method=sendMMS` (`message` up to 2048 chars **(verify limit)**),
   plus `media1`…`media3` URLs for pictures. We split nothing ourselves.
 - Numbers: voip.ms wants 10 digits for NANP, so strip the leading `1`.
-- The API password goes in a query string, so **never log the request URL**.
+- The API password goes in a query string, so **never log the request URL**. voip.ms now also
+  offers a Bearer token (owner, 2026-10-29); we keep `api_username`/`api_password` for now.
 - Rate limit our sends to 1 per second per DID (queue in memory).
 - Other methods used: `getDIDsInfo` (DID import), `getServersInfo` (server dropdown),
   `getSMS` (optional polling fallback). All behind `voipmsApi(method, params)` with a 15 s timeout.
 - `getBalance` (owner, 2026-10-21: the balance on Reports): `balance.current_balance`, a string
   like `"12.3456"` in the account's currency **(verify the shape and that the API login needs
   nothing more, with a real account)**. Each Reports load asks once per voip.ms trunk that has an
-  API login.
+  API login. The fraud alerts ask every 15 minutes too (08 §8.3).
+- `getCDR` (owner, 2026-10-29: fraud alerts, 08 §8.3): `date_from`, `date_to` (YYYY-MM-DD, at most
+  92 days), `answered`, `noanswer`, `busy`, `failed` (`1` each), `timezone=0` (times come back in
+  UTC, no zone suffix; left out, they're in the account's own zone, which no API call reports),
+  `account` (the sub-account). Answer `cdr: [{date: "2026-09-16 19:14:35", callerid, destination,
+  description, account, disposition, duration, seconds, rate, total, uniqueid}]`; no calls is
+  status `no_cdr`. voip.ms's example bundle (`docs/voip.ms-api`: `server.wsdl`,
+  `Examples REST for PHP/07.CDR.php`) confirms the request, `no_cdr` and the fields `date`,
+  `callerid`, `destination`, `description`, `duration`, `seconds`, `rate`, `total`.
+  `account`, `disposition` and `uniqueid` in the answer are **(verify)**; without them the
+  check still works (the request already names the sub-account).
 
 ### 5.2 Receiving
 Endpoint: `GET|POST /hooks/voipms/sms/:token`. `:token` is a 32-char random value stored

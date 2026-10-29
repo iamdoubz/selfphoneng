@@ -142,7 +142,7 @@ backup.
 3. Run `./scripts/install.sh`. It keeps the existing `.env`.
 4. Run `./scripts/restore.sh <backup>`.
 5. If the public IP changed: update it on **Settings → Network**, change your DNS record and any
-   IP-based settings at voip.ms (IP authentication, API whitelist), then
+   IP-based settings at voip.ms (IP restriction, IP authentication, API whitelist), then
    `docker compose restart asterisk`.
 6. Desk phones fetch their setup from the host name, so they follow the DNS change.
 
