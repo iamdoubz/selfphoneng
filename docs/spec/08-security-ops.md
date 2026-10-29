@@ -7,12 +7,13 @@
 | SIP scanners / password guessing | "friendly-scanner", sipvicious hitting 5060 | Generated 24-char SIP passwords; no anonymous endpoint; trunks matched by source address only (`identify_by = ip`, M11-T8); fail2ban/CrowdSec on `security.log`; optional phone ACL (§2.2), browser endpoints included; firewall allow-list |
 | **Toll fraud** (the expensive one) | Stolen SIP creds used to call premium international numbers | International route disabled by default; per-user outbound class; outside calls at once per extension (3) and in total (10), Settings → Security; trunk `max_channels`; voip.ms-side international block + balance limits (06 §1); forward targets checked against class; dialed numbers `FILTER`ed before the route's Goto (M11-T8: a "," skipped the class check) |
 | Web credential stuffing | Login brute force | argon2id, rate limits, audit log, TOTP for admins (M11) |
+| Admin panel bugs | FreePBX 2025–26: an auth bypass + SQL injection, then webshells and stolen trunk passwords (§8) | Admin pages only from listed networks, two-step sign-in required for admins (§8.2, M11-T9) |
 | Voicemail PIN guessing | Calling *98 and trying PINs | 6-digit default PIN, `maxlogins=3`, reject trivial PINs (`000000`, `123456`, the extension number repeated). As built (M11-T1): also for PINs changed from the phone's voicemail menu: `externpasscheck = /usr/local/bin/sp-vm-pincheck` (asterisk image, same rules, a unit test keeps it in step with `isTrivialPin`), `minpassword = 4`; the api stores accepted ones from AMI `VoicemailPasswordChange` (`services/vmpin.ts`), otherwise the next config write would put the old PIN back |
 | Provisioning leaks | Fetching `/prov/<mac>.cfg` to steal SIP passwords | Per-device Basic auth, 404 on unknown MAC, rate limit + temporary IP block, optional LAN-only |
 | Dialplan injection | Name `x); System(...)`; dialed `011…,4` or `…&PJSIP/…` | Sanitizers (03 §2), no `System()` anywhere; at call time, `FILTER` on every `${EXTEN}` from a phone that reaches an app's arguments (M11-T8) |
 | SSRF via webhooks | Webhook to `http://127.0.0.1:5038` | Private IP block by default (04 §9), NAT64/6to4 included |
 | Stolen backup | Backup file copied | Backups exclude generated plaintext configs; DB secrets are encrypted with `APP_SECRET` (kept in `.env`, not in the backup); mode 0600 |
-| AMI exposure | AMI reachable from network | Bound to 127.0.0.1, `permit` 127.0.0.1 only, random secret |
+| AMI exposure | AMI reachable from network | Bound to 127.0.0.1, `permit` 127.0.0.1 only, random secret; only the classes the api uses, and no module in the image that runs host commands (§8.1) |
 
 ## 2. Required controls
 
@@ -276,3 +277,135 @@ encrypted provider tokens; LDAP filter escaping and no empty binds; the caller-n
 for Asterisk on this machine with its token; phonebook XML and timeline HTML escaped, report
 emails plain text; AI and Contrack addresses literal local IPs with redirects refused; the spam
 provider key kept out of errors; every new raw SQL parameterized; no secret in any GET.
+
+## 8. After the FreePBX campaign (owner, 2026-10-29)
+
+INJ3CTOR3 got into internet-facing FreePBX through its admin panel: CVE-2025-57819 (Endpoint
+module, an auth bypass + SQL injection, no sign-in needed) and CVE-2025-64328 (filestore, command
+injection after sign-in). It left PHP webshells, cron jobs and backdoor accounts, then copied out
+the trunk, AMI, database and mail passwords. With the trunk password it registers to the provider
+from its own machine, so the calls skip the PBX entirely. Our stack has no PHP and no shell in
+reach of the web (§6, §7). Two changes follow.
+
+### 8.1 AMI: only the classes we use (as built)
+
+| Class | Actions the api sends | Events the api reads |
+|---|---|---|
+| `system` | DBPut, DBDel, DBDelTree, PJSIPShowContacts, PJSIPShowEndpoint, PJSIPShowRegistrationsOutbound, PJSIPQualify, CoreShowChannels | ContactStatus, Registry |
+| `call` | Redirect, Hangup, ParkedCalls, ExtensionStateList | Newchannel, Newstate, NewCallerid, NewConnectedLine, BridgeEnter/Leave, Hold/Unhold, Hangup, ParkedCall, ParkedCallTimeOut, ParkedCallGiveUp, UnParkedCall, ExtensionStatus, MessageWaiting |
+| `command` | Command (reloads, `core show uptime`, `core restart`, `pjsip show transports`) | |
+| `originate` | Originate | |
+| `agent` | QueuePause | QueueCaller*, QueueMember*, AgentConnect |
+| `user` | VoicemailMove, VoicemailRemove | UserEvent, VoicemailPasswordChange |
+| `cdr` | | Cdr |
+| `dialplan` | | VarSet, Newexten |
+
+Ping, Login, Logoff and QueueStatus need no class. Action classes come from `manager show command`
+on 24.0.0-rc3; event classes from Asterisk's AMI event docs.
+
+Measured on 24.0.0-rc3: an action is allowed when the user has **any one** of its classes. So
+`system`, which DB* and PJSIP* need, still allows GetConfig (any config file, trunk passwords
+included) and ModuleLoad, and ModuleLoad loaded `func_shell.so` past `noload` in modules.conf
+(`Command: module load` does the same). Class limits are no barrier (Asterisk's docs say not to
+rely on them). What dropping the rest takes away is `config`: UpdateConfig and CreateConfig, a
+way to write a trunk into a file the admin panel never shows. The barrier is the image itself:
+`asterisk/Dockerfile` deletes `app_system`, `func_shell`, `app_disa`, `res_agi` and
+`app_externalivr`, so nothing is left for ModuleLoad to load. The AMI secret is still the whole
+key (Originate is enough for toll fraud), so AMI stays on 127.0.0.1.
+
+The Asterisk tests mount the real template with only `bindaddr` and `permit` opened
+(`test/asterisk/manager-conf.ts`), so a class the api needs and the template lacks fails them.
+
+### 8.2 Admin access (to build: M11-T9)
+
+Both FreePBX bugs were reached through an admin panel open to the internet, and Sangoma's first
+advice was to block it. SelfPhoneNG serves the admin pages, the user portal and the browser
+phone's WebSocket on one host and port, so a firewall can't keep one out and let the others in. Two settings on
+Settings → Security, both off by default (today's behaviour):
+
+**`auth.adminAllowedNets`**: CIDR list, IPv4 and IPv6 (`z.union([z.cidrv4(), z.cidrv6()])`).
+Empty means admin from anywhere.
+- `requireAuth` (`auth/guards.ts`), once `req.user` is set: an admin whose `req.ip` is outside the
+  list, and isn't 127.0.0.1 or ::1, gets `req.user = { ...user, role: 'user' }` and
+  `req.adminElsewhere = true`, the same way a paired phone is never an admin (13 §2). Every role
+  check after that sees a user: `requireAdmin`, recordings (`role === 'admin'`), the OpenID
+  `next` default. Sessions and API tokens alike (a token acts as its admin, 04 §2.3).
+- Matching: node:net `BlockList`, as `/prov` does (`isLocal` in `routes/provisioning.ts`, which
+  becomes the shared `inNets(ip, nets)`), with `::ffff:`-mapped IPv4 unwrapped. The list is read
+  with `getSetting` only when the user is an admin (one row by key).
+- `/api/live` (`live/hub.ts`) reads the session itself: `admin` at connect uses the same rule
+  with the socket's `req.ip`. The 30 s re-check compares the same way and closes with 4401 when
+  the list changes under it.
+- Two-step routes (`/api/auth/totp/*`) check the stored role, not the downgraded one: an admin
+  away from the office can still look after their own sign-in.
+- Signing in works from anywhere. An admin outside the list gets their own portal (My phone,
+  voicemail, calls). `GET /api/auth/me` adds `adminElsewhere: true`, and the web app shows
+  one line where the admin menu would be: "Admin pages open only from an allowed network
+  (Settings → Security)."
+- 127.0.0.1 and ::1 always count as allowed. That's the way back in when the list is wrong:
+  `ssh -L 8080:127.0.0.1:8080 <server>`, then `http://localhost:8080` (browsers keep `Secure`
+  cookies on localhost). The admin guide shows it.
+- `PATCH /api/settings` refuses, like `sip.tlsEnabled` (§2.1):
+  - 409 `would_lock_out` when the new list isn't empty and the request's own address isn't in it
+    (loopback counts as in);
+  - 409 `trust_proxy_off` when `req.ip` is loopback and the request has `X-Forwarded-For`: behind
+    a proxy without `TRUST_PROXY=true` every request looks local and the list would do nothing.
+- The form offers "Add the local networks" (`network.localNets`) and the address you're using now.
+  Its help text: integrations calling admin routes with an API token need their address listed
+  too; a VPN into the office network is the usual answer for working away.
+- Diagnostics (§2.6): a warning when the list is empty ("Admin pages open from anywhere");
+  otherwise the list.
+
+**`auth.requireAdminTotp`**: boolean.
+- When on, an admin without two-step sign-in (`totpSecretEnc` null) whose session came from a
+  password or the directory gets a session that works like `must_change_password` (04 §2.2):
+  every route outside `/api/auth/*` → 403 `totp_setup_required`, and the web app sends them to
+  My account → Two-step sign-in. The check reads the user row on each request, so the session
+  turns normal once two-step is on. `mustChange` in `auth/sessions.ts` grows this case, so
+  `/api/live` follows it too.
+- Exempt: OpenID sessions (`sessions.method = 'oidc'`, the provider does the second factor, 12)
+  and API tokens (made by an admin who signed in).
+- Turning it on needs the saving admin to have two-step on (409 `totp_first`).
+- "Turn off for a lost phone" (`POST /api/users/:id/reset-two-step`) still works: that admin is
+  sent to set it up again at their next sign-in.
+
+Tests (each fails without its rule): an admin outside the list gets 403 on an admin route and
+200 on `/api/me`, from 127.0.0.1 and from inside it is an admin (IPv4, IPv6, `::ffff:`); an API
+token the same; `/api/live` gives `admin: false` outside; a recording of someone else refused
+outside; `would_lock_out` and `trust_proxy_off`; `totp_setup_required` until two-step is on,
+then 200; an OpenID session exempt; `totp_first`.
+
+Setup (owner, 2026-10-29): the first-run wizard offers both, switched on, with the list
+prefilled from the local networks (05 §2.1 step 3a). The settings' own defaults stay off, so an
+update changes nothing on an existing install.
+
+### 8.3 Fraud alerts (owner, 2026-10-29; M11-T10)
+
+Until now an admin learned of toll fraud from voip.ms's balance alert or the bill. Fraud with a
+stolen trunk password leaves no call in our records at all: the calls never touch the PBX. Three
+checks, each an email to every admin plus a `warning` system event; all three are on by default
+and on Settings → Security, "Fraud alerts". In `services/fraud.ts`, run from `jobs.ts`.
+
+- **`riskyCallWatch`** (every minute; `alerts.riskyCalls`): outside calls the PBX placed, new
+  since the last run (`calls.created_at`), to a number `riskyDestination` calls risky: `011…`
+  (international), area code 900 or exchange 976 (premium), and the NANP area codes outside the
+  US and Canada, which are dialed like a domestic call but billed at international rates and are
+  the usual one-ring-scam targets: 242 246 264 268 284 345 441 473 649 658 664 721 758 767 784
+  809 829 849 868 869 876 **(verify the list)**. One email per run listing the calls. The
+  cursor starts when the api starts: calls made while it was down have no row anyway (their CDR
+  events are lost).
+- **`providerCallCheck`** (every 15 minutes; `alerts.providerCalls`; voip.ms trunks with an API
+  login, 06 §5.1): voip.ms's call records for the trunk's sub-account (`getCDR`,
+  `account = trunks.username`, `timezone = 0` so times are UTC) from 2 hours to 10 minutes ago.
+  Records to one of our DIDs are incoming and skipped. Every other record must match an
+  outbound `calls` row: same last 10 digits of the number, started within 5 minutes. One that
+  doesn't is a call voip.ms billed that this PBX didn't make: the email lists them and says to
+  change the sub-account password, turn on its IP restriction (06 §1), and that a call made while
+  the api was restarting, or by another device on the same sub-account, also shows here. Each
+  voip.ms record is reported once (by `uniqueid`, time and number, kept in memory for 3 hours).
+- **`balanceWatch`** (every 15 minutes, same API logins; `alerts.balanceDropPerHour`, 0 = off):
+  the balance (`getBalance`) more than that amount below its highest in the last hour → one email
+  per hour. It catches what the call check can't: another sub-account, or one made with a stolen
+  API password. A deposit only raises the balance, so it never alerts.
+
+An API error is logged (`warn`), not emailed: Reports already shows why the balance can't be read.

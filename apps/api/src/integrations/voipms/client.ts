@@ -2,8 +2,8 @@
 // voip.ms REST/JSON API (06 §5.1): GET rest.php?api_username&api_password&method&…, JSON back with
 // `status` = "success" or an error code. The password is in the query string, so the URL is never
 // logged or put in an error.
-// TODO(spec): response shapes and error codes are from the 06 spec, not a real account yet
-// (voip.ms's API docs need a login); check them with the owner's account and fix here.
+// TODO(spec): most response shapes and error codes are from the 06 spec, not a real account yet;
+// voip.ms's example bundle (docs/voip.ms-api) only shows getCDR's. Check with the owner's account.
 import { normalizeNumber } from '@selfphoneng/shared';
 
 export type VoipmsCreds = { username: string; password: string };
@@ -101,6 +101,59 @@ export async function getDids(baseUrl: string, creds: VoipmsCreds): Promise<Voip
         number: normalizeNumber(raw),
         description: str(d.description).slice(0, 60),
         smsEnabled: str(d.sms_enabled) === '1',
+      },
+    ];
+  });
+}
+
+export type VoipmsCall = {
+  at: Date;
+  destination: string;
+  account: string;
+  disposition: string;
+  seconds: number;
+  total: string;
+  uniqueid: string;
+};
+
+/**
+ * One sub-account's call records between two UTC dates (getCDR, 06 §5.1). `timezone=0` makes
+ * `date` UTC. The request, `no_cdr` and most fields are in voip.ms's examples; `account`,
+ * `disposition` and `uniqueid` aren't (verify), and come back '' if missing.
+ */
+export async function getCdr(
+  baseUrl: string,
+  creds: VoipmsCreds,
+  q: { from: string; to: string; account: string },
+): Promise<VoipmsCall[]> {
+  let r: Record<string, unknown>;
+  try {
+    r = await voipmsApi(baseUrl, creds, 'getCDR', {
+      date_from: q.from,
+      date_to: q.to,
+      answered: '1',
+      noanswer: '1',
+      busy: '1',
+      failed: '1',
+      timezone: '0',
+      account: q.account,
+    });
+  } catch (e) {
+    if (e instanceof VoipmsError && e.status === 'no_cdr') return [];
+    throw e;
+  }
+  return list(r.cdr).flatMap((c) => {
+    const at = new Date(`${str(c.date).replace(' ', 'T')}Z`);
+    if (Number.isNaN(at.getTime())) return [];
+    return [
+      {
+        at,
+        destination: str(c.destination),
+        account: str(c.account),
+        disposition: str(c.disposition),
+        seconds: Number(str(c.seconds)) || 0,
+        total: str(c.total),
+        uniqueid: str(c.uniqueid),
       },
     ];
   });

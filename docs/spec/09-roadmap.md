@@ -265,6 +265,8 @@ As built: all four tasks done and tested with simulated phones (`scripts/e2e/m10
 **M11-T6** Reports page (05 §2).
 **M11-T7** `docs/admin-guide/`: install, voip.ms setup with screenshots, NAT/SIP ALG, firewall + fail2ban/CrowdSec, E911 duties, recording law notice, troubleshooting (08 §3.3), updating, backup/restore.
 **M11-T8** Security review: run through 08 §1 line by line, and get a review from a separate agent that didn't write the code. Fix findings.
+**M11-T9** (owner, 2026-10-29) Admin access: `auth.adminAllowedNets` and `auth.requireAdminTotp` (08 §8.2), Settings → Security, setup wizard step 3a (05 §2.1), Diagnostics line, admin guide (the SSH way back in).
+**M11-T10** (owner, 2026-10-29) Fraud alerts (08 §8.3): risky calls, voip.ms calls the PBX didn't make, balance drop.
 ✅ An outside tester follows only the admin guide and gets inbound/outbound calls working on a fresh VM.
 
 ---

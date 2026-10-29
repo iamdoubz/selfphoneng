@@ -31,6 +31,7 @@ import { logCallsToContrack } from './contacts/timeline.ts';
 import { checkDirectory } from './sso/directory.ts';
 import { checkOidcSessions } from './sso/oidcCheck.ts';
 import { logEvent } from './services/events.ts';
+import { createFraudWatch } from './services/fraud.ts';
 import { spamQuotaCheck } from './spam/check.ts';
 import { ftcSync } from './spam/ftc.ts';
 import { deliverDue } from './services/webhooks.ts';
@@ -130,6 +131,13 @@ export async function retentionCleanup(d: JobDeps) {
 export function createJobs(d: JobDeps) {
   const now = d.now ?? (() => new Date());
   const tz = () => getSetting(d.db, 'general.timezone');
+  const fraud = createFraudWatch({
+    db: d.db,
+    voipmsUrl: d.config.VOIPMS_API_URL,
+    mail: (subject, text) => mailAdmins(d, subject, text),
+    log: d.log,
+    now,
+  });
 
   // Holidays roll over at midnight (03 §6.10): render again when the local date changes.
   // Retention runs then too (and at start), not at 02:00.
@@ -195,7 +203,8 @@ export function createJobs(d: JobDeps) {
       `Public IP changed to ${ip}`,
       `The phone system's public IP changed from ${old ?? 'none'} to ${ip}.\n` +
         'Restart telephony so calls use the new address: Admin → System says how (it drops calls in progress).\n' +
-        'Phones and the provider may need the new IP if they were set up with the old one.',
+        'Phones and the provider may need the new IP if they were set up with the old one ' +
+        '(voip.ms: the sub-account’s IP restriction or IP authentication, and the API whitelist).',
     );
   };
 
@@ -296,6 +305,8 @@ export function createJobs(d: JobDeps) {
     publicIpWatch,
     trunkWatch,
     diskWatch,
+    riskyCallWatch: fraud.riskyCallWatch,
+    providerWatch: fraud.providerWatch,
     callReports,
     contactsWarm,
     contrackLog,
@@ -321,6 +332,8 @@ export function startJobs(d: JobDeps): () => void {
     run('trunkWatch', j.trunkWatch);
     if (minute % 5 === 0) run('publicIpWatch', j.publicIpWatch);
     if (minute % 60 === 0) run('diskWatch', j.diskWatch);
+    run('riskyCallWatch', j.riskyCallWatch);
+    if (minute % 15 === 0) run('providerWatch', j.providerWatch);
     run('callReports', j.callReports);
     if (minute % 5 === 0) run('contactsWarm', j.contactsWarm);
     run('contrackLog', j.contrackLog);

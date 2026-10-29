@@ -684,6 +684,9 @@ with a zod schema per key and a default. Missing rows return the default.
 | `sip.extraAllowedNets` | string[] | `[]` | e.g. a VPN subnet |
 | `calls.maxPerExtension` | number | 3 | outside calls going out at once per extension (the caller, or whose forward it is); 0 = no limit (08 §1) |
 | `calls.maxTotal` | number | 10 | outside calls going out at once in total; 0 = no limit. 911 counts toward neither |
+| `alerts.riskyCalls` | boolean | true | email admins about calls to international, premium and Caribbean numbers (08 §8.3) |
+| `alerts.providerCalls` | boolean | true | email admins about calls voip.ms billed that this PBX didn't make (08 §8.3) |
+| `alerts.balanceDropPerHour` | number | 10 | email admins when the voip.ms balance drops more than this in an hour; 0 = off (08 §8.3) |
 | `provisioning.lanOnly` | boolean | false | only serve `/prov` to clients from local nets |
 | `provisioning.enabled` | boolean | true | |
 | `system.restartRequired` | boolean | false | set by generator |

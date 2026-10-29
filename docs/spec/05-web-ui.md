@@ -59,6 +59,14 @@ to the next one. Steps can be skipped where noted.
 2. Company name, timezone (default from the browser), language.
 3. Network: "Detect public IP", LAN IP (prefilled from `/api/system/status` if detectable), local nets.
    A big note about SIP ALG and port forwarding (01 §4.2) with a checkbox "I've done this".
+3a. Admin access (owner, 2026-10-29; 08 §8.2, M11-T9), skippable. Both switches start on:
+   - "Admin pages only from these networks" (`auth.adminAllowedNets`), the list prefilled with
+     step 3's local nets, plus the address in use now when it's outside them (else the save
+     would be refused with `would_lock_out`), marked "the address you're using now: remove it
+     if it changes".
+   - "Require two-step sign-in for admins" (`auth.requireAdminTotp`): turning it on sets up the
+     wizard admin's own two-step sign-in right here (QR, one code, recovery codes), so
+     `totp_first` is met. Skipping that setup leaves the switch off.
 4. Email (SMTP), skippable. Test button.
 5. Trunk: voip.ms form (06 §2), with the voip.ms portal checklist next to it. "Test" must show Registered before Next is enabled. Skippable for now ("I'll add it later").
 6. Phone numbers: Import from voip.ms (if API creds were given) or add manually.

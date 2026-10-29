@@ -103,6 +103,11 @@ export const SettingsSchemas = {
   // Toll fraud (08 §1): outside calls going out at once, per extension and in total. 0 = no limit.
   'calls.maxPerExtension': z.number().int().min(0).max(100).default(3),
   'calls.maxTotal': z.number().int().min(0).max(1000).default(10),
+  // Fraud alerts (08 §8.3): emails to admins.
+  'alerts.riskyCalls': z.boolean().default(true),
+  'alerts.providerCalls': z.boolean().default(true),
+  /** In the voip.ms account's currency; 0 = off. */
+  'alerts.balanceDropPerHour': z.number().min(0).max(100000).default(10),
   'provisioning.lanOnly': z.boolean().default(false),
   'provisioning.enabled': z.boolean().default(true),
   'system.restartRequired': z.boolean().default(false),
