@@ -1019,6 +1019,12 @@ exten => _X!,1,Answer()        ; X! also matches a one-digit "0" (caller unknown
 
 ## 7. `voicemail_selfphoneng.conf`
 
+`minsecs = 1` with `maxsilence = 10` makes app_voicemail log one WARNING at every load:
+"maxsilence should be less than minsecs or you may get empty messages". It is expected and left
+as is (looked at on 24.0.0, 2026-11-10). Asterisk measures a message without its silence
+(`sound_duration` in `main/app.c`, checked against `minsecs` in `app_voicemail.c`), so a caller
+who says nothing is still dropped; and a `minsecs` above 10 would throw away short real messages.
+
 ```ini
 [general]
 format = wav

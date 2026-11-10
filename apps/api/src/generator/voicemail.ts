@@ -12,6 +12,10 @@ export function renderVoicemail(snap: Snapshot): string {
       const num = s.digits(e.number);
       return `${num} => ${s.pin(e.voicemailPin)},${s.name(e.name) || num},,,tz=local|attach=no`;
     });
+  // minsecs = 1 with maxsilence = 10 makes app_voicemail warn at load ("maxsilence should be
+  // less than minsecs or you may get empty messages"). Left as is: Asterisk counts a message's
+  // length without its silence (sound_duration), so a caller who says nothing is still dropped
+  // by minsecs, and making minsecs longer than 10 s would throw away short real messages.
   return `[general]
 format = wav
 attach = no                 ; the api sends emails itself
