@@ -12,7 +12,7 @@ import {
   type QueueCreate,
   type QueueDto,
 } from '@selfphoneng/shared';
-import { extensionsApi, queuesApi } from '../../api/client.ts';
+import { extensionsApi, queuesApi, settingsApi } from '../../api/client.ts';
 import { DestinationPicker } from '../../components/DestinationPicker.tsx';
 import { MohOptions } from '../../components/MohOptions.tsx';
 import { ConfirmDialog, Dialog } from '../../components/Dialog.tsx';
@@ -54,9 +54,14 @@ function QueueList() {
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold">Queues</h1>
-        <Button variant="primary" onClick={() => setEditing('new')}>
-          Add queue
-        </Button>
+        <div className="flex items-center gap-3">
+          <Link className="text-sm text-link underline" to="/wallboard">
+            Wallboard
+          </Link>
+          <Button variant="primary" onClick={() => setEditing('new')}>
+            Add queue
+          </Button>
+        </div>
       </div>
       {queues.isError && <Alert>{queues.error.message}</Alert>}
       {queues.data?.length === 0 && (
@@ -91,6 +96,7 @@ function QueueList() {
           })}
         </ul>
       )}
+      <BreakReasons />
       {editing && (
         <QueueForm
           queue={editing === 'new' ? null : editing}
@@ -116,6 +122,58 @@ function QueueList() {
         onConfirm={() => deleting && remove.mutate(deleting.id)}
       />
     </section>
+  );
+}
+
+/** The break reasons agents can give (16 §2): one per line; the line number is the *46 digit. */
+function BreakReasons() {
+  const qc = useQueryClient();
+  const settings = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get });
+  const saved = settings.data?.['queues.breakReasons'];
+  const [text, setText] = useState<string | null>(null);
+  const value = text ?? saved?.join('\n') ?? '';
+  const list = value
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const save = useMutation({
+    mutationFn: () => settingsApi.patch({ 'queues.breakReasons': list }),
+    onSuccess: async () => {
+      setText(null);
+      await qc.invalidateQueries({ queryKey: ['settings'] });
+    },
+  });
+  if (!saved) return null;
+  return (
+    <form
+      className="flex max-w-md flex-col gap-2 text-sm"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate();
+      }}
+    >
+      <Field
+        label="Break reasons"
+        hint="One per line, up to 9: letters, digits, spaces and dashes. Agents pick one on their Home page when they stop taking calls, or dial *46, the line's number, then the queue. Leave empty to ask for none."
+      >
+        {(a) => (
+          <textarea
+            {...a}
+            rows={Math.max(3, list.length + 1)}
+            className={inputClass}
+            placeholder={'Lunch\nMeeting\nPaperwork'}
+            value={value}
+            onChange={(e) => setText(e.target.value)}
+          />
+        )}
+      </Field>
+      <div>
+        <Button type="submit" disabled={text === null || save.isPending}>
+          Save break reasons
+        </Button>
+      </div>
+      {save.error && <Alert>Check the list: {save.error.message}</Alert>}
+    </form>
   );
 }
 
@@ -210,7 +268,11 @@ function QueueDetail({ id }: { id: string }) {
                   <span className="w-12 font-mono">{e?.number}</span>
                   <span className="min-w-0 flex-1 truncate">{e?.name}</span>
                   <span className="text-muted">
-                    {paused ? 'Paused' : STATE_LABEL[l?.state ?? 'unavailable']}
+                    {paused
+                      ? `Paused${l?.pausedReason ? `: ${l.pausedReason}` : ''}${
+                          l?.pausedSince ? ` · ${since(l.pausedSince, now)}` : ''
+                        }`
+                      : STATE_LABEL[l?.state ?? 'unavailable']}
                     {l ? ` · ${l.callsTaken} call${l.callsTaken === 1 ? '' : 's'}` : ''}
                   </span>
                   <Button
@@ -225,7 +287,8 @@ function QueueDetail({ id }: { id: string }) {
           </ul>
         )}
         <p className="mt-1 text-xs text-muted">
-          Agents can also log in and out from a phone with *45{q.number}.
+          Agents can also log in and out from a phone with *45{q.number}, or go on a break with a
+          reason: *46, the reason's number, then {q.number}.
         </p>
       </div>
 

@@ -42,6 +42,8 @@ export type MeUpdate = z.input<typeof MeUpdateSchema>;
 
 export type MeDto = {
   extension: { number: string; name: string };
+  /** What I can give as the reason when I stop taking queue calls (16 §2); may be empty. */
+  breakReasons: string[];
   dnd: boolean;
   /** Stored normalized: an internal number, or an outside number like 13125551234. */
   cfu: string | null;

@@ -88,10 +88,24 @@ export class QueueTracker {
     if (!ext) return false;
     const prev = q.members.get(ext);
     const last = Number(field(m, 'LastCall') ?? 0);
+    const paused =
+      field(m, 'Paused') !== undefined ? field(m, 'Paused') === '1' : (prev?.paused ?? false);
+    // The break (16 §2): app_queue carries the reason and when it began.
+    const reason = field(m, 'PausedReason');
+    const lastPause = Number(field(m, 'LastPause') ?? 0);
     q.members.set(ext, {
       ext,
-      paused:
-        field(m, 'Paused') !== undefined ? field(m, 'Paused') === '1' : (prev?.paused ?? false),
+      paused,
+      pausedReason: !paused
+        ? undefined
+        : reason !== undefined
+          ? reason || undefined
+          : prev?.pausedReason,
+      pausedSince: !paused
+        ? undefined
+        : lastPause > 0
+          ? new Date(lastPause * 1000).toISOString()
+          : (prev?.pausedSince ?? new Date().toISOString()),
       state:
         field(m, 'Status') !== undefined
           ? memberState(Number(field(m, 'Status')))

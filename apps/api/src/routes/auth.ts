@@ -1,15 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // /api/auth/* (04 §2, §7.3).
-import { and, eq, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, eq, isNull, lt, or, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   ChangePasswordSchema,
   LoginSchema,
+  PasskeyAddSchema,
+  PasskeyLoginSchema,
   PasswordConfirmSchema,
   TotpEnableSchema,
   APP_NAME,
   type AuthMethods,
   type AuthUser,
+  type Passkey,
+  type PasskeyCreateOptions,
+  type PasskeyLoginOptions,
   type SignInWays,
   type TotpSetup,
   type TotpStatus,
@@ -23,8 +28,15 @@ import {
   newTotpSecret,
   otpauthUrl,
 } from '../auth/totp.ts';
+import {
+  newChallenge,
+  PASSKEY_ALGS,
+  PasskeyError,
+  verifyAssertion,
+  verifyRegistration,
+} from '../auth/passkeys.ts';
 import type { Db } from '../db/client.ts';
-import { extensions, sessions, userIdentities, users } from '../db/schema.ts';
+import { extensions, passkeys, sessions, userIdentities, users } from '../db/schema.ts';
 import { endSessionUrl, oidcError } from '../sso/oidc.ts';
 import { directorySignIn, directoryWarning } from '../sso/directory.ts';
 import { ldapAuthenticate } from '../sso/ldap.ts';
@@ -35,6 +47,7 @@ import {
   badRequest,
   conflict,
   forbidden,
+  notFound,
   HttpError,
 } from '../errors.ts';
 import { audit } from '../services/audit.ts';
@@ -321,6 +334,184 @@ export async function authRoutes(app: FastifyInstance) {
       entityType: 'user',
       entityId: user.id,
       summary: `${user.email} logged in${method === 'ldap' ? ' with the directory' : ''}`,
+    });
+    return { user: await toAuthUser(db, user) };
+  });
+
+  // ───────────── passkeys (15) ─────────────
+  const b64u = (v: string) => Buffer.from(v, 'base64url');
+  /** The browser's origin and WebAuthn's site id: the public name, without a port for the id. */
+  const site = {
+    origin: `https://${app.config.PUBLIC_HOSTNAME}`,
+    rpId: app.config.PUBLIC_HOSTNAME.replace(/:\d+$/, ''),
+  };
+  const MAX_PASSKEYS = 10;
+  const myPasskeys = (userId: string) =>
+    db.select().from(passkeys).where(eq(passkeys.userId, userId)).orderBy(asc(passkeys.createdAt));
+
+  app.get('/api/auth/passkeys', { preHandler: requireAuth }, async (req) => {
+    const items: Passkey[] = (await myPasskeys(req.user!.id)).map((p) => ({
+      id: p.id,
+      name: p.name,
+      createdAt: p.createdAt.toISOString(),
+      lastUsedAt: p.lastUsedAt?.toISOString() ?? null,
+    }));
+    return { items };
+  });
+
+  app.post(
+    '/api/auth/passkeys/options',
+    { preHandler: requireAuth },
+    async (req): Promise<PasskeyCreateOptions> => {
+      const u = req.user!;
+      return {
+        challenge: newChallenge(u.id),
+        rpId: site.rpId,
+        rpName: APP_NAME,
+        user: { id: u.id, name: u.email, displayName: u.displayName },
+        algs: PASSKEY_ALGS,
+        exclude: (await myPasskeys(u.id)).map((p) => p.credentialId),
+      };
+    },
+  );
+
+  app.post('/api/auth/passkeys', { preHandler: requireAuth }, async (req) => {
+    const body = PasskeyAddSchema.parse(req.body);
+    const u = await myRow(req.user!.id);
+    // Like two-step sign-in: a stolen session alone can't add its own way back in (15 §1).
+    if (!u.passwordHash)
+      throw badRequest('You have no password here. Ask an admin to reset it to get one.');
+    if (!(await myPasswordOk(req, u.passwordHash, body.password)))
+      throw badRequest('Wrong password');
+    if ((await myPasskeys(u.id)).length >= MAX_PASSKEYS)
+      throw conflict(`You have ${MAX_PASSKEYS} passkeys already. Remove one first.`);
+    let cred;
+    try {
+      cred = verifyRegistration(
+        {
+          id: b64u(body.id),
+          clientDataJSON: b64u(body.clientDataJSON),
+          authenticatorData: b64u(body.authenticatorData),
+          publicKey: b64u(body.publicKey),
+          alg: body.alg,
+        },
+        site,
+        u.id,
+      );
+    } catch (err) {
+      if (!(err instanceof PasskeyError)) throw err;
+      req.log.warn({ event: 'auth.passkey', why: err.message }, 'passkey not added');
+      throw badRequest('That passkey couldn’t be added. Try again.');
+    }
+    const [row] = await db
+      .insert(passkeys)
+      .values({ userId: u.id, name: body.name, ...cred })
+      .onConflictDoNothing()
+      .returning({ id: passkeys.id });
+    if (!row) throw conflict('That passkey is already added.');
+    await audit(db, {
+      actorUserId: u.id,
+      actorIp: req.ip,
+      action: 'create',
+      entityType: 'passkey',
+      entityId: row.id,
+      summary: `${u.email} added the passkey "${body.name}"`,
+    });
+    return { id: row.id };
+  });
+
+  app.delete<{ Params: { id: string } }>(
+    '/api/auth/passkeys/:id',
+    { preHandler: requireAuth },
+    async (req) => {
+      if (!/^[0-9a-f-]{36}$/.test(req.params.id)) throw notFound();
+      const [row] = await db
+        .delete(passkeys)
+        .where(and(eq(passkeys.id, req.params.id), eq(passkeys.userId, req.user!.id)))
+        .returning({ name: passkeys.name });
+      if (!row) throw notFound();
+      await audit(db, {
+        actorUserId: req.user!.id,
+        actorIp: req.ip,
+        action: 'delete',
+        entityType: 'passkey',
+        entityId: req.params.id,
+        summary: `${req.user!.email} removed the passkey "${row.name}"`,
+      });
+      return { ok: true };
+    },
+  );
+
+  /** Public, and the same for everyone: a passkey names its own user (no email typed). */
+  app.post('/api/auth/passkey/options', async (): Promise<PasskeyLoginOptions> => ({
+    challenge: newChallenge(null),
+    rpId: site.rpId,
+  }));
+
+  app.post('/api/auth/passkey/login', async (req, reply) => {
+    const body = PasskeyLoginSchema.parse(req.body);
+    // No login name to count by: failures count per address only, like the OpenID callback.
+    if (isLoginBlocked(req.ip, null)) throw rateLimited();
+    const [found] = await db
+      .select({ passkey: passkeys, user: users })
+      .from(passkeys)
+      .innerJoin(users, eq(users.id, passkeys.userId))
+      .where(eq(passkeys.credentialId, body.id));
+    let signCount: number | null = null;
+    let why = 'unknown passkey';
+    if (found)
+      try {
+        signCount = verifyAssertion(
+          {
+            clientDataJSON: b64u(body.clientDataJSON),
+            authenticatorData: b64u(body.authenticatorData),
+            signature: b64u(body.signature),
+          },
+          found.passkey,
+          site,
+        );
+      } catch (err) {
+        if (!(err instanceof PasskeyError)) throw err;
+        why = err.message;
+      }
+    if (!found || signCount === null || !found.user.isActive) {
+      recordLoginFailure(req.ip, null);
+      req.log.warn({ event: 'auth.failed', ip: req.ip, why }, 'passkey login failed');
+      await audit(db, {
+        actorUserId: found?.user.id,
+        actorIp: req.ip,
+        action: 'login_failed',
+        entityType: 'user',
+        entityId: found?.user.id,
+        summary: `Failed passkey login${found ? ` for ${found.user.email}` : ''}`,
+      });
+      throw unauthorized('That passkey didn’t work here');
+    }
+    const { user, passkey } = found;
+    // OpenID only (12 §1.1): like the password, a passkey is then for admins.
+    if (user.role !== 'admin' && (await getSetting(db, 'auth.mode')) === 'oidc')
+      throw forbidden('Use the sign-in button instead', 'password_sign_in_off');
+    const now = new Date();
+    await db
+      .update(passkeys)
+      .set({ signCount, lastUsedAt: now })
+      .where(eq(passkeys.id, passkey.id));
+    const token = await createSession(
+      db,
+      user.id,
+      req.ip,
+      req.headers['user-agent'] ?? null,
+      'passkey',
+    );
+    setSessionCookie(reply, token);
+    await db.update(users).set({ lastLoginAt: now }).where(eq(users.id, user.id));
+    await audit(db, {
+      actorUserId: user.id,
+      actorIp: req.ip,
+      action: 'login',
+      entityType: 'user',
+      entityId: user.id,
+      summary: `${user.email} logged in with the passkey "${passkey.name}"`,
     });
     return { user: await toAuthUser(db, user) };
   });

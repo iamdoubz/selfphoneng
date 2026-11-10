@@ -89,7 +89,7 @@ needs inside (`selfphoneng-probe-linux-x64`, or `-arm64` for ARM machines), next
 With Node 22 or newer installed you can take the small `selfphoneng-probe.cjs` instead.
 
 ```sh
-v=v0.0.13  # the release
+v=v0.0.14  # the release
 curl -fLO https://git.dou.bet/spng/selfphoneng/releases/download/$v/selfphoneng-probe-linux-x64
 curl -fLO https://git.dou.bet/spng/selfphoneng/releases/download/$v/SHA256SUMS
 sha256sum --check --ignore-missing SHA256SUMS
@@ -125,6 +125,49 @@ click **Generate key** under it, copy the `PROBE_KEY=…` line, and add it to th
 line in the service file (`sudo systemctl edit selfphoneng-probe`). Restart the probe. From then on
 it only answers this server, and System → Diagnostics stops warning about it. The key is shown only
 once; a new probe address drops it, so generate one for the new probe.
+
+## Browser phone away from the office: STUN and TURN
+
+The browser phone (and the mobile app) usually work from anywhere with nothing set here: the
+audio goes straight to the server's call audio ports. On some networks (hotel and guest Wi-Fi,
+some mobile carriers, offices that only allow web traffic) that path is blocked and calls connect
+with no sound. A **TURN server** relays the audio for those cases. You run it yourself;
+[coturn](https://github.com/coturn/coturn) is the usual choice.
+
+**Settings → Network → Browser phone: STUN and TURN:**
+
+- **STUN server** (optional), like `stun.example.com:3478`. Asterisk uses it too, to find its own
+  public address, so changing it needs a telephony restart.
+- **TURN server addresses**, one per line: `turn:turn.example.com:3478`, and for networks that
+  only allow web traffic `turns:turn.example.com:5349?transport=tcp` (TLS).
+- **How phones sign in to the TURN server:**
+  - **A time-limited key** (recommended). The TURN server and SelfPhoneNG share one key. Each
+    person gets their own sign-in made from it, which stops working after the time you set (a
+    day by default). In `turnserver.conf`:
+
+    ```
+    use-auth-secret
+    static-auth-secret=<a long random key, the same one you enter in Settings>
+    realm=turn.example.com
+    ```
+
+  - **One username and password**, the same for everyone. Simpler, but every signed-in person's
+    browser can read them, and they work until you change them. In `turnserver.conf`:
+
+    ```
+    lt-cred-mech
+    user=pbx:<the password>
+    realm=turn.example.com
+    ```
+
+The key or password is never shown again after saving; leave the field empty to keep it.
+
+The same values can be given as environment variables for a new install (`STUN_SERVER`,
+`TURN_URLS`, and `TURN_SECRET` or `TURN_USERNAME` + `TURN_PASSWORD`; see `.env.example`). Once
+you save the Settings page, it wins.
+
+Open the TURN server's own ports on its firewall (3478 UDP and TCP, 5349 TCP for TLS, and its
+relay port range). They are separate from SelfPhoneNG's ports.
 
 ## Firewall
 

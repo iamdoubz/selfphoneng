@@ -968,6 +968,9 @@ limits forwards via `SP_CLASS_<ext>` in `sp-sub-forward`.
 As built (M6-T7): everything above except `*45` (queues) and `*80` (intercom), which come with M8.
 `*80` (M8-T4) only pages a desk phone: digits only (no `&` sneaking in another channel), and the
 endpoint must exist with context `sp-from-ext`; anything else plays `ss-noservice`.
+`*46<n><queue>` (2026-11-10): on a break with reason n, from `SP_BREAK_<n>` in the globals
+file; the code and its rules are in 16 §2.
+
 `*45` (M8-T1) checks `PQMSTATUS`/`UPQMSTATUS`, so a code for a queue the caller isn't an agent of plays
 `ss-noservice` and stores nothing (the original snippet stored the key and said "logged off" anyway).
 `*8` also has a dialplan line (`Pickup()`): `pickupexten` only catches it straight from a phone's
@@ -1015,6 +1018,12 @@ exten => _X!,1,Answer()        ; X! also matches a one-digit "0" (caller unknown
 (If an admin uploads a sound named `emergency-alert`, play `custom/emergency-alert` first.)
 
 ## 7. `voicemail_selfphoneng.conf`
+
+`minsecs = 1` with `maxsilence = 10` makes app_voicemail log one WARNING at every load:
+"maxsilence should be less than minsecs or you may get empty messages". It is expected and left
+as is (looked at on 24.0.0, 2026-11-10). Asterisk measures a message without its silence
+(`sound_duration` in `main/app.c`, checked against `minsecs` in `app_voicemail.c`), so a caller
+who says nothing is still dropped; and a `minsecs` above 10 would throw away short real messages.
 
 ```ini
 [general]

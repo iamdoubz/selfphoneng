@@ -12,7 +12,7 @@
 4. The api renders the file from the vendor template with that extension's data.
 
 Code: `apps/api/src/provisioning/`. Templates are TypeScript functions
-(`templates/yealink.ts`, `templates/grandstream.ts`, `templates/polycom.ts`) that take a
+(`templates/yealink.ts`, `templates/grandstream.ts`, `templates/polycom.ts`, `templates/snom.ts`) that take a
 `ProvisionContext` and return a string. No template engine dependency.
 
 ```ts
@@ -37,6 +37,8 @@ type ProvisionContext = {
 | `GET /prov/<mac>.cfg` | Yealink (also Polycom master, see §3.3) | MAC lowercase. Decide by `devices.vendor` |
 | `GET /prov/y0000000000<xx>.cfg` | Yealink common file | Return an empty valid file `#!version:1.0.0.1\n` |
 | `GET /prov/cfg<mac>.xml` | Grandstream | |
+| `GET /prov/phone-<mac>.cfg` | Polycom (§3.3) | the account file the master file names |
+| `GET /prov/snom<model>-<MAC>.htm` | Snom (§3.5) | the phone sends its MAC in capitals; `snom<model>.htm` is a 404 |
 | `GET /prov/phonebook/<mac>.xml` | both | extensions + the phone owner's contacts + company phonebook (11 §6.2), vendor-specific XML |
 | `GET /prov/linphone/<token>.xml` | Linphone (§5) | token auth instead of Basic |
 
@@ -62,7 +64,11 @@ As built (M10-T1), `routes/provisioning.ts` + `provisioning/limiter.ts`:
   voicemail, pickup codes and the provisioning settings; BLF keys, time zone and the phonebook come
   with M10-T2. `scripts/e2e/m10-t1.mjs` registers a baresip phone with only the account from the
   served file.
-- Vendors offered: Yealink, Grandstream, generic (Polycom stays a stretch goal).
+- Vendors offered: Yealink, Grandstream, generic (Polycom stays a stretch goal). From 2026-11-10
+  also Polycom and Snom, both experimental (§3.3, §3.5).
+- As built (2026-11-10): the file table in `routes/provisioning.ts` maps each file name to what
+  each make gets for it, since Yealink's config and Polycom's master file share `<mac>.cfg`. A
+  name asked by a phone of another make is still a failure; a name no make uses is a plain 404.
 
 ## 3. Templates
 
@@ -152,6 +158,53 @@ All XML values must be XML-escaped.
 Stretch goal for M10. Serve `<mac>.cfg` as a master config whose `CONFIG_FILES`
 points to `phone-<mac>.cfg` with `reg.1.address`, `reg.1.auth.userId`,
 `reg.1.auth.password`, `reg.1.server.1.address`, `msg.mwi.1.subscribe`. Mark as experimental.
+
+As built (2026-11-10, owner: more phone vendors), `templates/polycom.ts`, **experimental**:
+- `<mac>.cfg`: `<APPLICATION APP_FILE_PATH="sip.ld" CONFIG_FILES="phone-<mac>.cfg" …/>`. No
+  firmware is served: `sip.ld` is a 404 and the phone keeps what it has.
+- `phone-<mac>.cfg` (`<polycomConfig>`): the parameters above plus `reg.1.displayName`,
+  `reg.1.label`, `reg.1.server.1.port`, `.transport` (`UDPOnly`), `.expires` (300),
+  `msg.mwi.1.callBackMode` (`contact`) and `.callBack` (`*97`), `tcpIpApp.sntp.address` and
+  `.gmtOffset` (seconds, from the Yealink offset in the zone table). All **(verify per model)**.
+- Not set: BLF keys (`attendant.resourceList`), the phonebook (`<mac>-directory.xml`), daylight
+  saving rules (the phone's defaults are the US ones), dial rules.
+- **Open:** a real VVX. Until then the Phones page says experimental.
+
+### 3.5 Snom (D-series)
+As built (2026-11-10), `templates/snom.ts`, **experimental**. From Snom's "Auto Provisioning" and
+"Desk Phone Configuration Files" pages (service.snom.com): with the setting server
+`https://<host>/prov/` the phone asks for `snom<model>.htm`, then `snom<model>-<MAC>.htm`.
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<settings>
+  <phone-settings>
+    <user_active idx="1" perm="">on</user_active>
+    <user_realname idx="1" perm="">{ext.name}</user_realname>
+    <user_name idx="1" perm="">{ext.number}</user_name>
+    <user_pass idx="1" perm="">{ext.sipPassword}</user_pass>
+    <user_host idx="1" perm="">{host}</user_host>   <!-- :{sipPort} only when not 5060 -->
+  </phone-settings>
+  <functionKeys e="2">
+    <fkey idx="{n}" context="active" label="{blf.label}" lp="on" default_text="$name" perm="">blf sip:{blf.number}@{host};user=phone</fkey>
+  </functionKeys>
+</settings>
+```
+- Only settings those pages show. BLF keys start at `idx="2"` (the first two keys are taken to be
+  the phone's lines): **(verify per model)**.
+- Not set, until the names are taken from Snom's settings reference or a real phone's export:
+  the time zone (Snom has its own zone codes, like `GER+1`), NTP, the voicemail key, the
+  phonebook (`<tbook>`), dial rules, and keeping the setting server's user name and password.
+- **Open:** a real Snom: does it send the Basic auth it was given for the setting server, and
+  which keys are free for BLF.
+
+### 3.6 Not built: Fanvil, Gigaset, Cisco
+Wanted (09, To chase next). Each waits for a config sample that can be trusted (the vendor's
+template or a real phone's export, never memory):
+- **Fanvil**: asks for `<mac>.cfg` (the name Yealink and Polycom use: the make decides, as now).
+  The file format differs by firmware (text, XML); no sample at hand.
+- **Gigaset**: its newer desk phones take a Snom-like XML; DECT bases have their own.
+- **Cisco**: SPA/MPP phones take `<flat-profile>` XML (as the ATAs in 09); 7900/8800 phones on
+  enterprise firmware need TFTP and aren't planned.
 
 ### 3.4 Timezone mapping
 `provisioning/timezones.ts`: a table for at least the US/Canada zones (Eastern, Central,

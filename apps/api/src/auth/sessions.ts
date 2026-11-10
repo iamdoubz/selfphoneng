@@ -33,7 +33,7 @@ export async function createSession(
   userId: string,
   ip: string | null,
   userAgent: string | null,
-  method: 'password' | 'ldap' | 'oidc' = 'password',
+  method: 'password' | 'ldap' | 'oidc' | 'passkey' = 'password',
   /** OpenID sessions (12 §3.5): kept encrypted for the leaver check and signing out there. */
   idp?: { refreshToken: string | null; idToken: string },
 ): Promise<string> {

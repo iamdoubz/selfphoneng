@@ -7,6 +7,7 @@ import {
   CALL_DIRECTIONS,
   ReportRangeSchema,
   type ListResponse,
+  type BreakReportRow,
   type QueueReportRow,
   type ProviderBalanceDto,
   type ReportSummary,
@@ -14,7 +15,7 @@ import {
 import { requireAdmin, requireAuth } from '../auth/guards.ts';
 import type { Db } from '../db/client.ts';
 import { decrypt } from '../crypto/secrets.ts';
-import { callExtensions, calls, extensions, queues, trunks } from '../db/schema.ts';
+import { callExtensions, calls, extensions, queuePauses, queues, trunks } from '../db/schema.ts';
 import { getBalance, VoipmsError } from '../integrations/voipms/client.ts';
 import { badRequest, notFound } from '../errors.ts';
 import { todayIn } from '../generator/load.ts';
@@ -174,6 +175,30 @@ export async function reportRoutes(app: FastifyInstance) {
       }),
     );
     return { items, nextCursor: null };
+  });
+
+  /** Time on break per agent, queue and reason (16 §2); breaks are cut at the range's edges. */
+  app.get('/api/reports/breaks', admin, async (req): Promise<ListResponse<BreakReportRow>> => {
+    const { tz, from, to } = await range(db, req.query);
+    const start = sql`((${from}::date)::timestamp at time zone ${tz})`;
+    const end = sql`((${to}::date + 1)::timestamp at time zone ${tz})`;
+    const until = sql`coalesce(${queuePauses.endedAt}, now())`;
+    const items = await db
+      .select({
+        extension: extensions.number,
+        name: extensions.name,
+        queue: queues.number,
+        reason: queuePauses.reason,
+        breaks: sql<number>`count(*)::int`,
+        seconds: sql<number>`round(sum(extract(epoch from least(${until}, ${end}) - greatest(${queuePauses.startedAt}, ${start}))))::int`,
+      })
+      .from(queuePauses)
+      .innerJoin(extensions, eq(extensions.id, queuePauses.extensionId))
+      .innerJoin(queues, eq(queues.id, queuePauses.queueId))
+      .where(and(sql`${queuePauses.startedAt} < ${end}`, sql`${until} > ${start}`))
+      .groupBy(extensions.number, extensions.name, queues.number, queuePauses.reason)
+      .orderBy(asc(extensions.number), asc(queues.number), asc(queuePauses.reason));
+    return { nextCursor: null, items };
   });
 
   app.get('/api/reports/queues', admin, async (req): Promise<ListResponse<QueueReportRow>> => {

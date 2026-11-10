@@ -29,6 +29,7 @@ import { CallsPage } from './pages/admin/CallsPage.tsx';
 import { RecordingsPage } from './pages/admin/RecordingsPage.tsx';
 import { CompanyContactsPage } from './pages/user/ContactsPage.tsx';
 import { ReportsPage } from './pages/admin/ReportsPage.tsx';
+import { WallboardPage } from './pages/admin/WallboardPage.tsx';
 import { SystemPage } from './pages/admin/SystemPage.tsx';
 import { MePage } from './pages/user/MePage.tsx';
 import { SetupPage } from './pages/SetupPage.tsx';
@@ -94,6 +95,11 @@ const router = createBrowserRouter([
       { path: 'queues/:id', element: <QueuesPage /> },
       { path: 'account', element: <AccountPage /> },
     ],
+  },
+  // Its own page, without the admin menu: it's for a screen on the wall (16 §3).
+  {
+    path: '/wallboard',
+    element: <RequireAuth role="admin">{() => <WallboardPage />}</RequireAuth>,
   },
   { path: '/me/*', element: <RequireAuth>{(user) => <MePage user={user} />}</RequireAuth> },
   {

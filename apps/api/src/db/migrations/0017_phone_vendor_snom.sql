@@ -1,0 +1,1 @@
+ALTER TYPE "public"."phone_vendor" ADD VALUE 'snom' BEFORE 'generic';

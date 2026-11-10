@@ -12,6 +12,8 @@ function check(re: RegExp, kind: string, max = 200) {
   };
 }
 
+/** A break reason (16 §2): goes into a global and PauseQueueMember's arguments. */
+export const breakReason = check(/^[A-Za-z0-9](?:[A-Za-z0-9 -]*[A-Za-z0-9])?$/, 'break reason', 30);
 /** Internal numbers, DIDs. */
 export const digits = check(/^[0-9]+$/, 'digits', 32);
 /** Forward targets, external numbers. */

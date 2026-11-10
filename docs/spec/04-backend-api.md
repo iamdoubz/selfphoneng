@@ -384,7 +384,7 @@ Auth & self:
 | GET | `/api/me` | user | extension settings, runtime state |
 | PATCH | `/api/me` | user | `{dnd?, cfu?, cfb?, cfna?, voicemailEmail?, voicemailAttachAudio?, voicemailDeleteAfterEmail?, voicemailPin?}` → DB, then AstDB |
 | GET | `/api/me/softphone-qr` | user | `{url, qr, expiresAt}`: Linphone setup link and its QR (PNG data URL), 24 h (07 §5) |
-| GET | `/api/me/webrtc` | user | `{ wsUrl: "wss://<host>/ws", sipUri: "sip:101-web@<host>", authUser: "101-web", password, displayName, iceServers: [...] }` |
+| GET | `/api/me/webrtc` | user | `{ wsUrl: "wss://<host>/ws", sipUri: "sip:101-web@<host>", authUser: "101-web", password, displayName, iceServers: [...], iceRefreshSeconds }` (ICE servers: §12) |
 | GET | `/api/me/calls` | user | own call history (via `call_extensions`) |
 | GET | `/api/me/reports/summary?from&to` | user | `/api/reports/summary` of the calls that rang or were answered by me; `answered` and talk time are the ones I picked up |
 | POST | `/api/me/spam-reports` {callId, reason} | user | Report spam on an outside call that rang me; the number comes from the call. 404 not my call, 400 hidden number, 409 already blocked or already reported by me |
@@ -580,3 +580,41 @@ If SMTP isn't configured, the UI shows a warning wherever email features are use
 pino JSON to stdout. `redact: ['*.password', '*.secret', '*.token', '*.pin', '*.Secret', 'req.headers.authorization', 'req.headers.cookie']`.
 Log every apply (files changed, duration), AMI connect/disconnect, auth events, and outgoing webhook failures.
 Never log SIP passwords, voicemail PINs, AMI login or the raw text of SMS messages (log ids and lengths only).
+
+## 12. ICE servers: STUN and TURN for the browser softphone (owner, 2026-11-10)
+
+The browser softphone and the mobile app (13) get their ICE servers from `GET /api/me/webrtc`
+(`services/ice.ts`). Two settings, edited on Settings → Network → **Browser phone: STUN and
+TURN**:
+
+- `network.stunServer` (`host[:port]`): sent as `stun:<it>`. As before, the generator also gives
+  it to Asterisk as `stunaddr` (03 §4), so changing it needs a telephony restart.
+- `network.turn`: `urls` (1–4, `turn:` or `turns:`, `host[:port]`, optional
+  `?transport=udp|tcp`), and how to sign in:
+  - `auth: 'password'`: one `username` and password for everyone, sent as they are. Every
+    signed-in person with a browser phone can read them.
+  - `auth: 'secret'`: a key shared with the TURN server (coturn `use-auth-secret` /
+    `static-auth-secret`, the "TURN REST API"). Each request gets
+    `username = "<unix time it ends>:<extension number>"` and
+    `credential = base64(HMAC-SHA1(key, username))`, good for `ttlSeconds` (600–604800, default
+    86400). The key never leaves the server.
+
+  The password or key is stored encrypted (`credentialEnc`) and is write-only: `PATCH` takes
+  `credential`, an empty one keeps what is stored (only while `auth` stays the same), and `GET`
+  gives `hasCredential`. A value saved before this (`{url, username, credentialEnc}`) is read as
+  `auth: 'password'` with that one address.
+- `iceRefreshSeconds`: null, or with `secret` half of `ttlSeconds`. The softphone asks
+  `/api/me/webrtc` again that often and uses the new servers for the calls that follow
+  (`SoftphoneEngine.setIceServers`); a call under way keeps what it started with.
+- Starting values from the environment, until the setting is saved (like `AI_*`):
+  `STUN_SERVER`, and `TURN_URLS` (comma-separated) with either `TURN_SECRET`, or `TURN_USERNAME`
+  and `TURN_PASSWORD`. Values that don't fit the rules are ignored.
+
+Not here: running the TURN server (the admin's, on its own ports; `deploy/` has none), Asterisk
+using TURN itself (`turnaddr`), and a Test button.
+
+Tests: `test/ice.test.ts` (both kinds, the write-only credential, the old shape, the env values;
+the timed credential checked against HMAC-SHA1 by hand).
+
+**Open:** a real coturn with each kind, and a call from a network that needs the relay (owner).
+The mobile app doesn't renew a timed credential yet (13).

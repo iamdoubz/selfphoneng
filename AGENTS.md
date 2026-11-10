@@ -31,6 +31,8 @@ write the software around it: database, config generator, API, web UI.
 | `docs/spec/12-sso.md` | Single sign-on: OpenID Connect (Keycloak and others) and LDAP/LDAPS | Working on sign-in, users or roles |
 | `docs/spec/13-mobile.md` | The Android/iPhone app (`mobile` repo): pairing, device tokens, its tasks | Working on the mobile app or its API |
 | `docs/spec/14-spam.md` | Spam check: IPQualityScore and the FTC complaint list for unknown callers | Working on spam check or caller information |
+| `docs/spec/15-passkeys.md` | Passkeys (WebAuthn): adding, signing in, the checks | Working on sign-in |
+| `docs/spec/16-wallboard.md` | Queue wallboard and agent break reasons (`*46`) | Working on queues, agent pause or the wallboard |
 
 ## Hard rules
 

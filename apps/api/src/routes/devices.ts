@@ -17,6 +17,8 @@ import { devices, extensions } from '../db/schema.ts';
 import { badRequest, conflict, notFound } from '../errors.ts';
 import { loadContext, provisioningUrl } from '../provisioning/context.ts';
 import { grandstream } from '../provisioning/templates/grandstream.ts';
+import { polycom } from '../provisioning/templates/polycom.ts';
+import { snom } from '../provisioning/templates/snom.ts';
 import { yealink } from '../provisioning/templates/yealink.ts';
 import { audit } from '../services/audit.ts';
 
@@ -147,16 +149,23 @@ export async function deviceRoutes(app: FastifyInstance) {
   /** The file the phone would get, passwords masked (04 §7.3). */
   app.get('/api/devices/:id/config-preview', async (req) => {
     const { d } = await getDevice(IdParams.parse(req.params).id);
-    const render =
-      d.vendor === 'yealink' ? yealink : d.vendor === 'grandstream' ? grandstream : null;
-    if (!render) throw badRequest('Nothing is served to this kind of phone: set it up by hand');
+    // The file with the account (Polycom: not the master file that names it).
+    const files: Record<string, [file: string, render: typeof yealink]> = {
+      yealink: [`${d.mac}.cfg`, yealink],
+      grandstream: [`cfg${d.mac}.xml`, grandstream],
+      polycom: [`phone-${d.mac}.cfg`, polycom],
+      snom: [`snom<model>-${d.mac.toUpperCase()}.htm`, snom],
+    };
+    const [file, render] = files[d.vendor] ?? [];
+    if (!file || !render)
+      throw badRequest('Nothing is served to this kind of phone: set it up by hand');
     const { ctx } = (await loadContext(db, app.config, d.mac))!;
     // Both secrets wherever they appear (the phonebook URL carries the provisioning password).
     const content = render(ctx)
       .replaceAll(ctx.ext.sipPassword, '********')
       .replaceAll(ctx.provPassword, '********');
     return {
-      file: d.vendor === 'yealink' ? `${d.mac}.cfg` : `cfg${d.mac}.xml`,
+      file,
       content,
       /** The company time zone isn't in the phone table: phones show UTC. */
       timezoneWarning: !ctx.timezone.supported,

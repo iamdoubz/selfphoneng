@@ -142,15 +142,13 @@ missing or invalid, it logs a clear message and exits with code 1.
 ## 2. Asterisk image (`asterisk/Dockerfile`)
 
 Build Asterisk **24 LTS from source**. Pin an exact version: the newest 24.x release on the day you write it, recorded here in
-the same commit. **Pinned: `24.0.0-rc3` (2026-10-28).** The file in the repo is the source of truth; this copy is kept in sync.
+the same commit. **Pinned: `24.0.0` (2026-11-10).** The file in the repo is the source of truth; this copy is kept in sync.
 
-> **Asterisk 24 status (checked 2026-10-17):** Asterisk 24 is the LTS line, but
-> only release candidates are published so far (24.0.0-rc3 on 2026-10-28). Until 24.0.0 is final,
-> develop against the newest 24.0.0-rcN. Release candidates may sit under a
-> different download folder than `releases/`, so check the directory listing. Switch to 24.0.0 (or newer
-> 24.x) as soon as it is final, and don't ship v1.0 on a release candidate. If a module, option
-> or dialplan function in this spec turns out to have changed in 24, follow the Asterisk 24
-> docs and update the spec (AGENTS rule 10).
+> **Asterisk 24 status (2026-11-10):** 24.0.0 is final and pinned (owner). Until then the
+> project was built on the release candidates (rc2 from 2026-10-17, rc3 from 2026-10-28), which
+> is why notes in these specs say "checked on 24.0.0-rc2" or "-rc3": the upgrade check measured
+> the same things again on 24.0.0. If a module, option or dialplan function in this spec turns
+> out to have changed in 24, follow the Asterisk 24 docs and update the spec (AGENTS rule 10).
 
 **Changing the version** (owner, 2026-10-28). `apps/api/test/asterisk/verified.ts` lists what the
 code relies on Asterisk doing (the "checked on 24.0.0-rcN" notes in these specs, and the TLS
@@ -164,7 +162,7 @@ that moved with what depends on it) and `pnpm test:asterisk`, change what moved,
 ```dockerfile
 # SPDX-License-Identifier: AGPL-3.0-or-later
 FROM debian:trixie-slim AS build
-ARG ASTERISK_VERSION=24.0.0-rc3
+ARG ASTERISK_VERSION=24.0.0
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       build-essential ca-certificates curl wget pkg-config autoconf automake libtool \

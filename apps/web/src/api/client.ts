@@ -6,6 +6,9 @@ import type {
   SpamCheck,
   SpamTestResult,
   AuthMethods,
+  Passkey,
+  PasskeyCreateOptions,
+  PasskeyLoginOptions,
   OidcInput,
   OidcTestResult,
   AboutDto,
@@ -14,6 +17,7 @@ import type {
   DiagnosticsDto,
   NetworkTestDto,
   QueueReportRow,
+  BreakReportRow,
   ProviderBalanceDto,
   ReportRange,
   ReportSummary,
@@ -108,6 +112,7 @@ import type {
   AiTestResult,
   TranscriptDto,
 } from '@selfphoneng/shared';
+import type { NewPasskey, PasskeyAssertion } from '../auth/passkey.ts';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -176,6 +181,15 @@ export const authApi = {
     api<{ recoveryCodes: string[] }>('POST', '/api/auth/totp/recovery-codes', { password }),
   logout: () => api<{ ok: true; redirect?: string }>('POST', '/api/auth/logout'),
   methods: () => api<AuthMethods>('GET', '/api/auth/methods'),
+  /** Passkeys (15). The browser's part is in auth/passkey.ts. */
+  passkeys: () => api<{ items: Passkey[] }>('GET', '/api/auth/passkeys').then((r) => r.items),
+  passkeyCreateOptions: () => api<PasskeyCreateOptions>('POST', '/api/auth/passkeys/options', {}),
+  passkeyAdd: (body: NewPasskey & { name: string; password: string }) =>
+    api<{ id: string }>('POST', '/api/auth/passkeys', body),
+  passkeyRemove: (id: string) => api<{ ok: true }>('DELETE', `/api/auth/passkeys/${id}`),
+  passkeyLoginOptions: () => api<PasskeyLoginOptions>('POST', '/api/auth/passkey/options', {}),
+  passkeyLogin: (body: PasskeyAssertion) =>
+    api<{ user: AuthUser }>('POST', '/api/auth/passkey/login', body).then((r) => r.user),
   /** 12 §3.3: disconnect my OpenID account. */
   disconnectOidc: () => api<{ ok: true }>('DELETE', '/api/me/identities/oidc'),
   /** 12 §3.3: where to send the browser to connect my OpenID account. */
@@ -332,8 +346,13 @@ export const meApi = {
     api<ListResponse<MobileDeviceDto>>('GET', '/api/me/mobile-devices').then((r) => r.items),
   removePhone: (id: string) => api<{ ok: true }>('DELETE', `/api/me/mobile-devices/${id}`),
   /** Log in to (unpause) or out of (pause) a queue I'm an agent of. */
-  setQueuePaused: (queueId: string, paused: boolean) =>
-    api<{ ok: true }>('POST', `/api/me/queues/${queueId}/${paused ? 'pause' : 'unpause'}`),
+  /** `reason`: one of my breakReasons (16 §2), when stopping. */
+  setQueuePaused: (queueId: string, paused: boolean, reason?: string) =>
+    api<{ ok: true }>(
+      'POST',
+      `/api/me/queues/${queueId}/${paused ? 'pause' : 'unpause'}`,
+      paused && reason ? { reason } : {},
+    ),
   clickToCall: (number: string) => api<{ ok: true }>('POST', '/api/me/click-to-call', { number }),
   voicemail: () => api<ListResponse<VoicemailDto>>('GET', '/api/me/voicemail').then((r) => r.items),
   audioUrl: (id: string, download = false) =>
@@ -533,6 +552,10 @@ export const reportsApi = {
   summary: (r: ReportRange) => api<ReportSummary>('GET', `/api/reports/summary?${callQuery(r)}`),
   queues: (r: ReportRange) =>
     api<ListResponse<QueueReportRow>>('GET', `/api/reports/queues?${callQuery(r)}`).then(
+      (x) => x.items,
+    ),
+  breaks: (r: ReportRange) =>
+    api<ListResponse<BreakReportRow>>('GET', `/api/reports/breaks?${callQuery(r)}`).then(
       (x) => x.items,
     ),
   balance: () =>

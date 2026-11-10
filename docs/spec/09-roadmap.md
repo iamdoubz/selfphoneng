@@ -29,6 +29,24 @@ Legend: 📖 read · 🔨 build · ✅ done when
 
 ---
 
+## To chase next (owner, 2026-11-10)
+From comparing with AiPBX (github.com/mahirgul/AiPBX, v1.72.12). Not ordered against the backlog
+above yet.
+1. **More phone vendors.** Yealink and Grandstream (07 §3). AiPBX also sets up Fanvil, Snom,
+   Gigaset and Cisco. Each one needs a real phone before it's called supported.
+   - Built 2026-11-10, both experimental: **Polycom** (07 §3.3; was M12) and **Snom** (07 §3.5),
+     migration 0017. **Open:** a real phone of each.
+   - Next: Fanvil, Gigaset, Cisco SPA/MPP (07 §3.6): each waits for a config sample to trust.
+2. **Queue wallboard** (was M12), with **agent break reasons** (owner, 2026-11-10: in). Built
+   2026-11-10: [16](16-wallboard.md), migration 0018: `/wallboard`, the reasons list on Queues,
+   the reason picked on Home or with `*46<n><queue>`, and Agent breaks in Reports. **Open:**
+   `*46` dialed from a real phone, a real wall screen (16 §5).
+3. **Passkeys** (WebAuthn), beside two-step sign-in and single sign-on (12). Built 2026-11-10:
+   [15](15-passkeys.md), migration 0016, no new dependency. **Open:** a real browser and device
+   (15 §7).
+
+---
+
 ## M0 — Skeleton that boots
 
 **M0-T1 Workspace**
@@ -305,7 +323,7 @@ Each one checked against a real account before it's called supported (06's verif
 ## M12 — Nice to have (after v1.0)
 - Piper TTS for prompts (04 §6).
 - Record prompts by phone.
-- Wallboard page for queues.
+- ~~Wallboard page for queues.~~ Built 2026-11-10: 16.
 - Push gateway for mobile apps: now 13 §6.
 - Polycom provisioning (07 §3.3).
 - Multi-tenant (big redesign; needs a decision record).

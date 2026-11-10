@@ -138,6 +138,21 @@ create table mobile_devices (
 );
 create index on mobile_devices (user_id);
 
+-- Passkeys (15 §2): one more way to sign in; the public key only.
+create table passkeys (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null references users(id) on delete cascade,
+  credential_id text not null unique,      -- base64url, as the browser names it
+  public_key    text not null,             -- SPKI DER, base64
+  alg           integer not null,          -- COSE: -7 ES256, -8 EdDSA, -257 RS256
+  sign_count    bigint not null default 0,
+  name          text not null,
+  last_used_at  timestamptz,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create index on passkeys (user_id);
+
 -- ───────────── extensions (telephony identity of a user) ─────────────
 create type outbound_class as enum ('internal', 'local', 'national', 'international');
 create type record_mode   as enum ('never', 'inbound', 'outbound', 'all');
@@ -297,8 +312,19 @@ create table queue_member_state (
   queue_id      uuid not null references queues(id) on delete cascade,
   extension_id  uuid not null references extensions(id) on delete cascade,
   paused        boolean not null default false,
+  reason        text,                    -- the break reason given (16 §2); null: none, or not paused
   primary key (queue_id, extension_id)
 );
+-- Every break, for the report (16 §2): open while ended_at is null.
+create table queue_pauses (
+  id            bigserial primary key,
+  queue_id      uuid not null references queues(id) on delete cascade,
+  extension_id  uuid not null references extensions(id) on delete cascade,
+  reason        text,
+  started_at    timestamptz not null default now(),
+  ended_at      timestamptz
+);
+create index on queue_pauses (extension_id, started_at);
 -- One caller's stay in a queue, from app_queue's AMI events (QueueCallerJoin, AgentConnect,
 -- QueueCallerAbandon) and the dialplan's UserEvent SpQueueExit (03 §6.8); for queue stats.
 -- CDRs can't do this: when no agent rang, the Queue part of a call is merged into the next leg.
@@ -649,7 +675,7 @@ with a zod schema per key and a default. Missing rows return the default.
 | `network.lanIp` | string \| null | null | server's own LAN address (ICE host candidate mapping) |
 | `network.publicIpWatch` | boolean | false | |
 | `network.stunServer` | string \| null | null | e.g. `stun.example.org:3478`. null = no STUN |
-| `network.turn` | `{url,username,credentialEnc}` \| null | null | Sent to browsers for WebRTC |
+| `network.turn` | `{urls[], auth: 'password'\|'secret', username, credentialEnc, ttlSeconds}` \| null | null | The TURN relay for the browser phone and the mobile app (04 §12). GET gives `hasCredential`, never the password or key |
 | `sip.udpPort` | number | 5060 | |
 | `sip.tcpEnabled` | boolean | true | |
 | `sip.tlsEnabled` | boolean | false | needs cert in `/var/lib/selfphoneng/tls` |
@@ -688,6 +714,7 @@ with a zod schema per key and a default. Missing rows return the default.
 | `alerts.providerCalls` | boolean | true | email admins about calls voip.ms billed that this PBX didn't make (08 §8.3) |
 | `alerts.balanceDropPerHour` | number | 10 | email admins when the voip.ms balance drops more than this in an hour; 0 = off (08 §8.3) |
 | `provisioning.lanOnly` | boolean | false | only serve `/prov` to clients from local nets |
+| `queues.breakReasons` | string[] (max 9) | `[]` | break reasons agents can give (16 §2); the place in the list is the `*46` digit |
 | `provisioning.enabled` | boolean | true | |
 | `system.restartRequired` | boolean | false | set by generator |
 | `spam` | object | off, no providers | spam check (14 §7): `enabled`, `ipqs {keyEnc}`, `ftc {keyEnc, syncHours, windowDays}`, `cache {flaggedDays, cleanDays}`, `deskPhoneLabels {high, medium}` |

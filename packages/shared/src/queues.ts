@@ -82,6 +82,20 @@ export type QueueStats = {
   withinSlaPercent: number | null;
 };
 
+/** POST …/pause: why (one of `queues.breakReasons`), or nothing. */
+export const QueuePauseSchema = z.object({ reason: z.string().max(30).optional() });
+
+/** GET /api/reports/breaks: time on break per agent, queue and reason (16 §2). */
+export type BreakReportRow = {
+  extension: string;
+  name: string;
+  queue: string;
+  /** null: paused without a reason. */
+  reason: string | null;
+  breaks: number;
+  seconds: number;
+};
+
 /** GET /api/reports/queues: one row per queue. */
 export type QueueReportRow = QueueStats & {
   id: string;

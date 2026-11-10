@@ -107,11 +107,26 @@ If either fails, see [Troubleshooting](troubleshooting.md).
 
 ## Phones
 
-- **Desk phones (Yealink, Grandstream, Polycom/Poly, Snom, Fanvil):** add them on **Phones** with
-  their MAC address. The page shows the setup URL and password to enter on the phone.
+- **Desk phones (Yealink, Grandstream):** add them on **Phones** with their MAC address. The page
+  shows the setup URL and password to enter on the phone. **Polycom/Poly VVX and Snom** can be
+  picked too, marked experimental: they get their account (Snom also busy-lamp keys), but
+  haven't been tried on a real phone yet. Tell us how it goes.
+- **Fanvil, Cisco, Gigaset and others:** not set up automatically yet. Pick **Other** and enter
+  the details shown.
 - **Any other SIP phone:** use the details on the user's **Credentials** tab.
 - **Browser phone:** every user with an extension gets one on **My phone** after signing in. There
   is nothing to set up.
+
+## Queue wallboard and breaks
+
+- **Wallboard:** **Queues** → **Wallboard** opens a page for a screen on the wall: per queue, who
+  is waiting and for how long, each agent's state, and today's numbers. It needs an admin signed
+  in on that screen. **Full screen** hides the browser's bars.
+- **Break reasons:** on **Queues**, list up to nine reasons, one per line (Lunch, Meeting …).
+  Agents then pick one on their Home page before they switch a queue off, or dial `*46`, the
+  reason's number in your list, then the queue (`*462550`: reason 2, queue 550). `*45` and the
+  queue number brings them back. The wallboard shows the reason and how long; **Reports** →
+  **Agent breaks** adds the time up per agent. With no reasons listed nothing changes.
 
 ## Turning on two-step sign-in
 

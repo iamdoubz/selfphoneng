@@ -64,7 +64,12 @@ export type WebRtcCreds = {
   authUser: string;
   password: string;
   displayName: string;
-  iceServers: { urls: string; username?: string; credential?: string }[];
+  iceServers: { urls: string | string[]; username?: string; credential?: string }[];
+  /**
+   * With a timed TURN credential (04 §12): ask /api/me/webrtc again after this long and use the
+   * new iceServers for the calls that follow. null: they don't run out.
+   */
+  iceRefreshSeconds: number | null;
 };
 
 export const NUMBER_KINDS = ['user', 'ringGroup', 'queue', 'ivr', 'conference', 'paging'] as const;

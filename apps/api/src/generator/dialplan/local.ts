@@ -79,6 +79,10 @@ export function renderGlobals(snap: Snapshot): string {
     `SP_CNAM_URL=${snap.callerNames ? s.localUrl(snap.callerNames.url) : ''}`,
     `SP_CNAM_TOKEN=${snap.callerNames ? s.secret(snap.callerNames.token) : ''}`,
   ];
+  // 16 §2: *46<n><queue> pauses with reason n.
+  (st['queues.breakReasons'] ?? []).forEach((r, i) =>
+    lines.push(`SP_BREAK_${i + 1}=${s.breakReason(r)}`),
+  );
   const exts = [...snap.extensions].sort(byNumber);
   for (const e of exts) lines.push(`SP_CLASS_${s.digits(e.number)}=${CLASS_RANK[e.outboundClass]}`);
   for (const e of exts) if (e.isAdmin) lines.push(`SP_TCADMIN_${s.digits(e.number)}=1`);

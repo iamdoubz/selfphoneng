@@ -8,6 +8,7 @@ import {
   AiEndpointSchema,
   AiTtsEndpointSchema,
   ContrackInputSchema,
+  TurnInputSchema,
   LdapInputSchema,
   OidcInputSchema,
   SettingsSchemas,
@@ -75,11 +76,19 @@ async function toDto(db: Db): Promise<SettingsDto> {
     'auth.ldap': ldap,
     spam,
     'network.probeKeyEnc': probeKey,
+    'network.turn': turn,
     ...rest
   } = await getAllSettings(db);
   return {
     ...rest,
     'network.hasProbeKey': probeKey !== null,
+    'network.turn': turn && {
+      urls: turn.urls,
+      auth: turn.auth,
+      username: turn.username,
+      ttlSeconds: turn.ttlSeconds,
+      hasCredential: turn.credentialEnc !== '',
+    },
     spam: {
       ...spam,
       ipqs: spam.ipqs && { hasKey: true },
@@ -281,6 +290,22 @@ export async function settingsRoutes(app: FastifyInstance) {
             : old?.host === input.host && old.username === input.username
               ? old.passwordEnc
               : '',
+        };
+      } else if (key === 'network.turn') {
+        // The password or key is write-only (04 §12): empty keeps it, for the same kind only.
+        const input = TurnInputSchema.nullable().parse(raw);
+        const old = await getSetting(db, 'network.turn');
+        const kept = old?.auth === input?.auth ? old?.credentialEnc : undefined;
+        if (input && !input.credential && !kept)
+          throw badRequest(
+            input.auth === 'secret' ? 'Enter the TURN server’s key' : 'Enter the TURN password',
+          );
+        values[key] = input && {
+          urls: input.urls,
+          auth: input.auth,
+          username: input.auth === 'password' ? input.username : '',
+          credentialEnc: input.credential ? encrypt(input.credential) : kept,
+          ttlSeconds: input.ttlSeconds,
         };
       } else if (key === 'contacts.contrack') {
         // The company token is write-only too (11 §4.3).

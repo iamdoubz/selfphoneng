@@ -179,6 +179,40 @@ describe.skipIf(!hasTestDb)('/api/devices and /prov', () => {
     expect(file.body).toContain(`<P1361>${gs.provisioningPassword}</P1361>`);
   });
 
+  it('Polycom and Snom (experimental): each make gets only its own files', async () => {
+    const add = async (mac: string, vendor: string) =>
+      (await req('POST', '/api/devices', { mac, vendor, extensionId: extId })).json();
+    const poly = await add('0004F2ABCDEF', 'polycom');
+    const get = (file: string, d: { provisioningPassword: string }, mac: string) =>
+      prov(file, '192.168.1.50', d.provisioningPassword, mac);
+    // The master file shares its name with Yealink's config: the make decides.
+    const master = await get('0004f2abcdef.cfg', poly, '0004f2abcdef');
+    expect(master.statusCode).toBe(200);
+    expect(master.body).toContain('CONFIG_FILES="phone-0004f2abcdef.cfg"');
+    const acct = await get('phone-0004f2abcdef.cfg', poly, '0004f2abcdef');
+    expect(acct.statusCode).toBe(200);
+    expect(acct.body).toContain('reg.1.auth.userId="101"');
+    expect(acct.body).toContain(`reg.1.auth.password="${sipPassword}"`);
+    // Files it asks for that we don't serve: a plain 404, not a failure.
+    expect((await get('0004f2abcdef-phone.cfg', poly, '0004f2abcdef')).statusCode).toBe(404);
+    expect((await get('cfg0004f2abcdef.xml', poly, '0004f2abcdef')).statusCode).toBe(401);
+
+    const sn = await add('000413ABCDEF', 'snom');
+    // The phone asks with its MAC in capitals.
+    const file = await get('snomD785-000413ABCDEF.htm', sn, '000413abcdef');
+    expect(file.statusCode).toBe(200);
+    expect(file.body).toContain('<user_name idx="1" perm="">101</user_name>');
+    expect((await get('snomD785.htm', sn, '000413abcdef')).statusCode).toBe(404);
+    expect((await get('000413abcdef.cfg', sn, '000413abcdef')).statusCode).toBe(401);
+
+    const p = (await req('GET', `/api/devices/${poly.id}/config-preview`)).json();
+    expect(p.file).toBe('phone-0004f2abcdef.cfg');
+    expect(p.content).toContain('reg.1.auth.password="********"');
+    const s = (await req('GET', `/api/devices/${sn.id}/config-preview`)).json();
+    expect(s.file).toBe('snom<model>-000413ABCDEF.htm');
+    expect(s.content).not.toContain(sipPassword);
+  });
+
   it('config preview masks the passwords; generic phones have no file', async () => {
     const p = (await req('GET', `/api/devices/${device.id}/config-preview`)).json();
     expect(p.file).toBe('001565abcdef.cfg');

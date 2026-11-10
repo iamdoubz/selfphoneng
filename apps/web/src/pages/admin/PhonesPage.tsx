@@ -19,6 +19,8 @@ import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 const VENDOR: Record<PhoneVendor, string> = {
   yealink: 'Yealink',
   grandstream: 'Grandstream',
+  polycom: 'Polycom / Poly VVX (experimental)',
+  snom: 'Snom (experimental)',
   generic: 'Other (set up by hand)',
 };
 const fmtMac = (m: string) => m.match(/../g)!.join(':');
@@ -76,7 +78,7 @@ export function PhonesPage() {
                 <tr key={d.id}>
                   <td className="px-3 py-2 font-mono">{fmtMac(d.mac)}</td>
                   <td className="px-3 py-2">
-                    {VENDOR[d.vendor].replace(' (set up by hand)', '')} {d.model}
+                    {VENDOR[d.vendor].replace(/ \(.*\)$/, '')} {d.model}
                     {d.label && <span className="text-muted"> · {d.label}</span>}
                   </td>
                   <td className="px-3 py-2">
@@ -253,6 +255,18 @@ function PhoneDrawer({
             phone.
           </p>
         )}
+        {form.vendor === 'polycom' && (
+          <p className="text-sm text-muted">
+            Experimental: not tried on a real phone yet. It gets its account, the voicemail light
+            and the time; busy-lamp keys and the phonebook aren't set.
+          </p>
+        )}
+        {form.vendor === 'snom' && (
+          <p className="text-sm text-muted">
+            Experimental: not tried on a real phone yet. It gets its account and busy-lamp keys; set
+            the time zone on the phone.
+          </p>
+        )}
         {save.error && <Alert>{save.error.message}</Alert>}
       </div>
     </Dialog>
@@ -297,7 +311,9 @@ function SetupInfo({ phone }: { phone: DeviceDto }) {
   return (
     <section aria-label="Set up the phone" className="rounded-md bg-subtle p-3 text-sm">
       <p className="mb-2">
-        In the phone's web page (Settings → Auto Provision), or with DHCP option 66, set:
+        {phone.vendor === 'polycom' || phone.vendor === 'snom'
+          ? 'In the phone’s provisioning (setting server) settings, over HTTPS, or with DHCP option 66, set:'
+          : 'In the phone’s web page (Settings → Auto Provision), or with DHCP option 66, set:'}
       </p>
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
         {row('Server URL', phone.provisioningUrl)}

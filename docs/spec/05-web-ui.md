@@ -199,4 +199,4 @@ class SoftphoneEngine {
 - Recent calls (last 10, from `/api/me/calls`).
 
 ## 6. Pages to leave out of v1
-Wallboard (big-screen queue display), CRM pop-ups, chat. Don't build them.
+CRM pop-ups, chat. Don't build them. (The wallboard was on this list until 2026-11-10: now 16.)

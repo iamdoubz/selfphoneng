@@ -10,6 +10,7 @@ import {
   ContrackOptionsSchema,
   GREETINGS,
   MeUpdateSchema,
+  QueuePauseSchema,
   type ListResponse,
   type MeDto,
   type VoicemailDto,
@@ -38,7 +39,8 @@ import {
   forgetBook,
   tokenFor,
 } from '../contacts/contrack.ts';
-import { setPaused } from '../services/queues.ts';
+import { iceServersFor } from '../services/ice.ts';
+import { checkReason, setPaused } from '../services/queues.ts';
 import { badRequest, conflict, HttpError, notFound } from '../errors.ts';
 import { AudioError, MAX_UPLOAD_BYTES, toPcmWav } from '../media/audio.ts';
 import { toVoicemailDto, type watchVoicemail } from '../services/voicemail.ts';
@@ -112,6 +114,7 @@ export async function meRoutes(app: FastifyInstance) {
     const { e, s } = row;
     return {
       extension: { number: e.number, name: e.name },
+      breakReasons: await getSetting(db, 'queues.breakReasons'),
       dnd: s?.dnd ?? false,
       cfu: s?.cfu ?? null,
       cfb: s?.cfb ?? null,
@@ -218,7 +221,11 @@ export async function meRoutes(app: FastifyInstance) {
         .innerJoin(queues, eq(queues.id, queueMembers.queueId))
         .where(and(eq(queueMembers.queueId, id), eq(queueMembers.extensionId, ext.id)));
       if (!q) throw notFound("You aren't an agent of that queue");
-      await setPaused(db, app.ami, q, ext, action === 'pause');
+      const reason =
+        action === 'pause'
+          ? await checkReason(db, QueuePauseSchema.parse(req.body ?? {}).reason)
+          : null;
+      await setPaused(db, app.ami, q, ext, action === 'pause', reason);
       return { ok: true };
     });
 
@@ -298,20 +305,13 @@ export async function meRoutes(app: FastifyInstance) {
     if (!ext.webrtcEnabled)
       throw notFound('The browser softphone is turned off for your extension');
     const host = app.config.PUBLIC_HOSTNAME;
-    const stun = await getSetting(db, 'network.stunServer');
-    const turn = await getSetting(db, 'network.turn');
     return {
       wsUrl: app.config.WEBRTC_WS_URL ?? `wss://${host}/ws`,
       sipUri: `sip:${ext.number}-web@${host}`,
       authUser: `${ext.number}-web`,
       password: decrypt(ext.sipPasswordEnc),
       displayName: ext.name,
-      iceServers: [
-        ...(stun ? [{ urls: `stun:${stun}` }] : []),
-        ...(turn
-          ? [{ urls: turn.url, username: turn.username, credential: decrypt(turn.credentialEnc) }]
-          : []),
-      ],
+      ...(await iceServersFor(db, ext.number)),
     };
   });
 

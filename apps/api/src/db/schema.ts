@@ -85,7 +85,7 @@ export const sessions = pgTable(
     expiresAt: tstz().notNull(),
     ip: inet(),
     userAgent: text(),
-    /** How it was made (12 §2): password, ldap or oidc. */
+    /** How it was made (12 §2, 15): password, ldap, oidc or passkey. */
     method: text().notNull().default('password'),
     /** OpenID sessions (12 §3.5): refresh token for the leaver check, ID token for signing out. */
     idpRefreshEnc: text(),
@@ -95,7 +95,7 @@ export const sessions = pgTable(
   },
   (t) => [
     index().on(t.userId),
-    check('sessions_method_check', sql`${t.method} in ('password', 'ldap', 'oidc')`),
+    check('sessions_method_check', sql`${t.method} in ('password', 'ldap', 'oidc', 'passkey')`),
   ],
 );
 
@@ -133,6 +133,28 @@ export const apiTokens = pgTable('api_tokens', {
   revokedAt: tstz(),
   ...timestamps,
 });
+
+/** Passkeys (15 §2): one more way to sign in; the public key only. */
+export const passkeys = pgTable(
+  'passkeys',
+  {
+    id: id(),
+    userId: uuid()
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    /** base64url, as the browser names it. */
+    credentialId: text().notNull().unique(),
+    /** SPKI DER, base64. */
+    publicKey: text().notNull(),
+    /** COSE: -7 ES256, -8 EdDSA, -257 RS256. */
+    alg: integer().notNull(),
+    signCount: bigint({ mode: 'number' }).notNull().default(0),
+    name: text().notNull(),
+    lastUsedAt: tstz(),
+    ...timestamps,
+  },
+  (t) => [index().on(t.userId)],
+);
 
 /** Paired phones (13 §3): a row waits with a pairing code, then holds the device token. */
 export const mobileDevices = pgTable(
@@ -375,9 +397,29 @@ export const queueMemberState = pgTable(
       .notNull()
       .references(() => extensions.id, { onDelete: 'cascade' }),
     paused: boolean().notNull().default(false),
+    /** The break reason given when pausing (16 §2); null: none, or not paused. */
+    reason: text(),
     ...timestamps,
   },
   (t) => [primaryKey({ columns: [t.queueId, t.extensionId] })],
+);
+
+/** Every break (16 §2), for the report: open while ended_at is null. */
+export const queuePauses = pgTable(
+  'queue_pauses',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey(),
+    queueId: uuid()
+      .notNull()
+      .references(() => queues.id, { onDelete: 'cascade' }),
+    extensionId: uuid()
+      .notNull()
+      .references(() => extensions.id, { onDelete: 'cascade' }),
+    reason: text(),
+    startedAt: tstz().notNull().defaultNow(),
+    endedAt: tstz(),
+  },
+  (t) => [index().on(t.extensionId, t.startedAt)],
 );
 
 export const queueOutcome = pgEnum('queue_outcome', ['answered', 'abandoned', 'timed_out']);
@@ -538,7 +580,13 @@ export const pagingGroupMembers = pgTable(
 );
 
 // ───────────── devices (provisioning) ─────────────
-export const phoneVendor = pgEnum('phone_vendor', ['yealink', 'grandstream', 'polycom', 'generic']);
+export const phoneVendor = pgEnum('phone_vendor', [
+  'yealink',
+  'grandstream',
+  'polycom',
+  'snom',
+  'generic',
+]);
 
 export const devices = pgTable('devices', {
   id: id(),

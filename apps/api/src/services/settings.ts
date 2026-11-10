@@ -4,7 +4,7 @@ import { eq, inArray, sql } from 'drizzle-orm';
 import { SettingsSchemas, type SettingKey, type SettingValue } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
 import { settings } from '../db/schema.ts';
-import { randomAlnum } from '../crypto/secrets.ts';
+import { encrypt, randomAlnum } from '../crypto/secrets.ts';
 
 /** AI_<KIND>_URL and _MODEL (and AI_TTS_VOICE) start an install with its AI endpoints set. */
 function aiFromEnv(kind: 'LLM' | 'STT' | 'TTS') {
@@ -14,8 +14,37 @@ function aiFromEnv(kind: 'LLM' | 'STT' | 'TTS') {
   return kind === 'TTS' ? { url, model, voice } : { url, model };
 }
 
+/**
+ * STUN_SERVER, and TURN_URLS (comma-separated) with TURN_SECRET or TURN_USERNAME + TURN_PASSWORD,
+ * start an install with its ICE servers set (04 §12). Settings → Network wins once saved.
+ */
+function turnFromEnv() {
+  const e = process.env;
+  const urls = e.TURN_URLS?.split(',')
+    .map((u) => u.trim())
+    .filter(Boolean);
+  if (!urls?.length) return null;
+  if (e.TURN_SECRET) return { urls, auth: 'secret', credentialEnc: encrypt(e.TURN_SECRET) };
+  if (!e.TURN_USERNAME || !e.TURN_PASSWORD) return null;
+  return {
+    urls,
+    auth: 'password',
+    username: e.TURN_USERNAME,
+    credentialEnc: encrypt(e.TURN_PASSWORD),
+  };
+}
+
 function defaultFor<K extends SettingKey>(key: K): SettingValue<K> {
   if (key === 'general.timezone' && process.env.TZ) return process.env.TZ as SettingValue<K>;
+  // A value that doesn't fit the setting's rules is left out, like no value at all.
+  if (key === 'network.stunServer' && process.env.STUN_SERVER) {
+    const r = SettingsSchemas[key].safeParse(process.env.STUN_SERVER);
+    if (r.success) return r.data as SettingValue<K>;
+  }
+  if (key === 'network.turn') {
+    const r = SettingsSchemas[key].safeParse(turnFromEnv());
+    if (r.success) return r.data as SettingValue<K>;
+  }
   if (key === 'ai.llm' || key === 'ai.stt' || key === 'ai.tts') {
     const v = aiFromEnv(key === 'ai.llm' ? 'LLM' : key === 'ai.stt' ? 'STT' : 'TTS');
     if (v) return SettingsSchemas[key].parse(v) as SettingValue<K>;

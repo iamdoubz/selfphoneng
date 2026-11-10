@@ -22,7 +22,7 @@ import { Link, NavLink, Route, Routes, useNavigate } from 'react-router';
 import type { AuthUser } from '@selfphoneng/shared';
 import { meApi, signOut } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
-import { Alert, Brand, Button, Panel } from '../../components/ui.tsx';
+import { Alert, Brand, Button, Panel, inputClass } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
 import { SoftphoneDock } from '../../softphone/SoftphoneDock.tsx';
 import { PresencePanel } from '../../softphone/PresencePanel.tsx';
@@ -326,7 +326,7 @@ function StatusCard({ ext }: { ext: string }) {
       }
     >
       <DndSwitch me={me.data} />
-      <QueueLogins ext={ext} />
+      <QueueLogins ext={ext} reasons={me.data.breakReasons} />
       <p className="text-sm text-muted">
         {fwd.length ? `Forwarding: ${fwd.join(', ')}.` : 'Not forwarding.'}
       </p>
@@ -335,16 +335,34 @@ function StatusCard({ ext }: { ext: string }) {
 }
 
 /** One switch per queue I'm an agent of: on = logged in (not paused), like *45<queue>. */
-function QueueLogins({ ext }: { ext: string }) {
+function QueueLogins({ ext, reasons }: { ext: string; reasons: string[] }) {
   const queues = Object.values(useLive((s) => s.queues)).sort((a, b) =>
     a.number.localeCompare(b.number),
   );
+  // 16 §2: why I'm stopping, sent with the next switch I turn off.
+  const [reason, setReason] = useState('');
   const toggle = useMutation({
     mutationFn: ({ id, paused }: { id: string; paused: boolean }) =>
-      meApi.setQueuePaused(id, paused),
+      meApi.setQueuePaused(id, paused, reason || undefined),
   });
+  const myQueues = queues.filter((q) => q.members.some((m) => m.ext === ext));
   return (
     <>
+      {reasons.length > 0 && myQueues.length > 0 && (
+        <label className="flex flex-wrap items-center gap-2 text-sm">
+          When I stop taking queue calls, it’s for
+          <select
+            className={`${inputClass} w-auto`}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          >
+            <option value="">no reason given</option>
+            {reasons.map((r) => (
+              <option key={r}>{r}</option>
+            ))}
+          </select>
+        </label>
+      )}
       {queues.map((q) => {
         const mine = q.members.find((m) => m.ext === ext);
         if (!mine) return null;
@@ -358,6 +376,11 @@ function QueueLogins({ ext }: { ext: string }) {
               onChange={(e) => toggle.mutate({ id: q.id, paused: !e.target.checked })}
             />
             Taking calls from queue {q.name} ({q.number})
+            {mine.paused && mine.pausedReason && (
+              <span className="text-amber-700 dark:text-amber-400">
+                On a break: {mine.pausedReason}
+              </span>
+            )}
             <span className="text-xs text-muted">(also *45{q.number} from your phone)</span>
           </label>
         );

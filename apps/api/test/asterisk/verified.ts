@@ -4,7 +4,7 @@
 // `pnpm test:asterisk-upgrade` on the new image, act on each change it lists, then update this.
 import { readFileSync } from 'node:fs';
 
-export const VERIFIED_ASTERISK = '24.0.0-rc3';
+export const VERIFIED_ASTERISK = '24.0.0';
 
 /** The version asterisk/Dockerfile builds. */
 export function pinnedAsterisk(): string {
