@@ -65,8 +65,21 @@ onTakeOver(async () => {
 async function startSoftphone(force = false) {
   if (force) await takeOver();
   else if (!(await tryLead())) return softphone.setElsewhere();
-  await softphone.start(await meApi.webrtc());
+  const creds = await meApi.webrtc();
+  await softphone.start(creds);
+  // A timed TURN credential (04 §12) runs out: fetch a new one in time, for the next calls.
+  clearInterval(iceTimer);
+  if (creds.iceRefreshSeconds)
+    iceTimer = setInterval(
+      () =>
+        void meApi
+          .webrtc()
+          .then((c) => softphone.setIceServers(c.iceServers))
+          .catch(() => undefined), // offline for a moment: the next round tries again
+      creds.iceRefreshSeconds * 1000,
+    );
 }
+let iceTimer: ReturnType<typeof setInterval> | undefined;
 
 const STATUS = {
   off: 'Off',

@@ -70,7 +70,12 @@ export function SettingsPage() {
       {settings.data && tab === 'emergency' && <EmergencyTab s={settings.data} />}
       {settings.data && tab === 'recording' && <RecordingTab s={settings.data} />}
       {settings.data && tab === 'numbering' && <NumberingTab s={settings.data} />}
-      {settings.data && tab === 'network' && <NetworkTab s={settings.data} />}
+      {settings.data && tab === 'network' && (
+        <>
+          <NetworkTab s={settings.data} />
+          <IceServers s={settings.data} />
+        </>
+      )}
       {settings.data && tab === 'security' && <SecurityTab s={settings.data} />}
       {settings.data && tab === 'backups' && <BackupsTab s={settings.data} />}
       {settings.data && tab === 'webhooks' && <WebhooksTab s={settings.data} />}
@@ -491,6 +496,179 @@ function NumberingTab({ s }: { s: SettingsDto }) {
       <div className="flex items-center gap-3">
         <Button type="submit" variant="primary" disabled={save.isPending}>
           Save
+        </Button>
+        {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
+      </div>
+      {save.error && <Alert>{save.error.message}</Alert>}
+    </form>
+  );
+}
+
+/**
+ * STUN and TURN for the browser phone and the mobile app (04 §12): how they find a path for the
+ * audio from behind someone's home router or a strict network.
+ */
+function IceServers({ s }: { s: SettingsDto }) {
+  const save = useSave();
+  const turn = s['network.turn'];
+  const [v, setV] = useState({
+    stun: s['network.stunServer'] ?? '',
+    urls: turn?.urls.join('\n') ?? '',
+    auth: turn?.auth ?? ('secret' as 'password' | 'secret'),
+    username: turn?.username ?? '',
+    credential: '',
+    hours: String((turn?.ttlSeconds ?? 86_400) / 3600),
+  });
+  const set = (p: Partial<typeof v>) => setV({ ...v, ...p });
+  const urls = v.urls
+    .split('\n')
+    .map((u) => u.trim())
+    .filter(Boolean);
+  const kept = turn?.hasCredential && turn.auth === v.auth;
+  return (
+    <form
+      aria-labelledby="ice-h"
+      className="mt-8 flex flex-col gap-4 border-t border-line pt-6"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate({
+          'network.stunServer': v.stun.trim() || null,
+          'network.turn': urls.length
+            ? {
+                urls,
+                auth: v.auth,
+                username: v.username.trim(),
+                ...(v.credential ? { credential: v.credential } : {}),
+                ttlSeconds: Math.round(Number(v.hours) * 3600),
+              }
+            : null,
+        });
+        set({ credential: '' });
+      }}
+    >
+      <div>
+        <h2 id="ice-h" className="font-medium">
+          Browser phone: STUN and TURN
+        </h2>
+        <p className="text-sm text-muted">
+          For the browser phone and the mobile app when they are away from the office. Most installs
+          need neither. STUN tells a phone its public address; a TURN server relays the audio when a
+          strict network blocks the direct path. You run the TURN server yourself (coturn, for
+          example).
+        </p>
+      </div>
+      <Field
+        label="STUN server"
+        hint="Like stun.example.com:3478. Asterisk uses it too, to find its own public address: changing it needs a telephony restart."
+      >
+        {(p) => (
+          <input
+            {...p}
+            className={`${inputClass} max-w-sm`}
+            value={v.stun}
+            onChange={(e) => set({ stun: e.target.value })}
+          />
+        )}
+      </Field>
+      <Field
+        label="TURN server addresses"
+        hint="One per line, up to 4: turn:turn.example.com:3478, or turns:turn.example.com:5349?transport=tcp for TLS. Empty: no TURN."
+      >
+        {(p) => (
+          <textarea
+            {...p}
+            rows={2}
+            className={`${inputClass} max-w-lg font-mono`}
+            value={v.urls}
+            onChange={(e) => set({ urls: e.target.value })}
+          />
+        )}
+      </Field>
+      {urls.length > 0 && (
+        <>
+          <fieldset className="flex flex-col gap-1 text-sm">
+            <legend className="mb-1 font-medium">How phones sign in to the TURN server</legend>
+            <label className="flex items-start gap-2">
+              <input
+                type="radio"
+                name="turn-auth"
+                className="mt-1"
+                checked={v.auth === 'secret'}
+                onChange={() => set({ auth: 'secret', credential: '' })}
+              />
+              <span>
+                A time-limited key (recommended)
+                <span className="block text-xs text-muted">
+                  The TURN server and SelfPhoneNG share one key (coturn: use-auth-secret). Each
+                  person gets their own sign-in made from it, which stops working after a while.
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-2">
+              <input
+                type="radio"
+                name="turn-auth"
+                className="mt-1"
+                checked={v.auth === 'password'}
+                onChange={() => set({ auth: 'password', credential: '' })}
+              />
+              <span>
+                One username and password
+                <span className="block text-xs text-muted">
+                  The same for everyone, and every signed-in person’s browser can read it.
+                </span>
+              </span>
+            </label>
+          </fieldset>
+          {v.auth === 'password' && (
+            <Field label="TURN username">
+              {(p) => (
+                <input
+                  {...p}
+                  autoComplete="off"
+                  className={`${inputClass} max-w-sm`}
+                  value={v.username}
+                  onChange={(e) => set({ username: e.target.value })}
+                />
+              )}
+            </Field>
+          )}
+          <Field
+            label={v.auth === 'secret' ? 'Shared key' : 'TURN password'}
+            hint={kept ? 'Saved. Leave empty to keep it.' : undefined}
+          >
+            {(p) => (
+              <input
+                {...p}
+                type="password"
+                autoComplete="new-password"
+                className={`${inputClass} max-w-sm`}
+                value={v.credential}
+                onChange={(e) => set({ credential: e.target.value })}
+              />
+            )}
+          </Field>
+          {v.auth === 'secret' && (
+            <Field
+              label="Each sign-in works for (hours)"
+              hint="From 10 minutes (0.17) to 7 days (168). An open browser phone gets a new one at half time."
+            >
+              {(p) => (
+                <input
+                  {...p}
+                  inputMode="decimal"
+                  className={`${inputClass} max-w-24`}
+                  value={v.hours}
+                  onChange={(e) => set({ hours: e.target.value })}
+                />
+              )}
+            </Field>
+          )}
+        </>
+      )}
+      <div className="flex items-center gap-3">
+        <Button type="submit" variant="primary" disabled={save.isPending}>
+          Save STUN and TURN
         </Button>
         {save.isSuccess && <span className="text-sm text-muted">Saved.</span>}
       </div>

@@ -675,7 +675,7 @@ with a zod schema per key and a default. Missing rows return the default.
 | `network.lanIp` | string \| null | null | server's own LAN address (ICE host candidate mapping) |
 | `network.publicIpWatch` | boolean | false | |
 | `network.stunServer` | string \| null | null | e.g. `stun.example.org:3478`. null = no STUN |
-| `network.turn` | `{url,username,credentialEnc}` \| null | null | Sent to browsers for WebRTC |
+| `network.turn` | `{urls[], auth: 'password'\|'secret', username, credentialEnc, ttlSeconds}` \| null | null | The TURN relay for the browser phone and the mobile app (04 §12). GET gives `hasCredential`, never the password or key |
 | `sip.udpPort` | number | 5060 | |
 | `sip.tcpEnabled` | boolean | true | |
 | `sip.tlsEnabled` | boolean | false | needs cert in `/var/lib/selfphoneng/tls` |

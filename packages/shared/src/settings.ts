@@ -26,6 +26,36 @@ export const AiTtsEndpointSchema = AiEndpointSchema.extend({
 export type AiEndpoint = z.infer<typeof AiEndpointSchema>;
 export type AiTtsEndpoint = z.infer<typeof AiTtsEndpointSchema>;
 
+/**
+ * TURN (04 §12). `password`: one username and password, the same for everyone. `secret`: a key
+ * shared with the TURN server (coturn's use-auth-secret); each person gets a credential made from
+ * it that stops working after `ttlSeconds`.
+ */
+export const TURN_AUTH = ['password', 'secret'] as const;
+const TurnUrl = z
+  .string()
+  .trim()
+  .regex(
+    /^turns?:[A-Za-z0-9.-]+(:\d{1,5})?(\?transport=(udp|tcp))?$/,
+    'Like turn:turn.example.com:3478 or turns:turn.example.com:5349?transport=tcp',
+  );
+/** 10 minutes to 7 days; a day by default. */
+const TurnTtl = z.number().int().min(600).max(604_800).default(86_400);
+/** PATCH network.turn. `credential` (the password or the key) is write-only: empty keeps it. */
+export const TurnInputSchema = z
+  .object({
+    urls: z.array(TurnUrl).min(1, 'At least one address').max(4),
+    auth: z.enum(TURN_AUTH),
+    username: z.string().trim().max(100).default(''),
+    credential: z.string().max(200).optional(),
+    ttlSeconds: TurnTtl,
+  })
+  .refine((v) => v.auth !== 'password' || v.username !== '', {
+    path: ['username'],
+    message: 'Enter the username',
+  });
+export type TurnInput = z.output<typeof TurnInputSchema>;
+
 /** Letters, digits, spaces and dashes: it goes into the dialplan and to Asterisk as it is. */
 export const BreakReason = z
   .string()
@@ -58,10 +88,24 @@ export const SettingsSchemas = {
     .regex(/^[A-Za-z0-9.-]+(:\d{1,5})?$/)
     .nullable()
     .default(null),
-  'network.turn': z
-    .object({ url: z.string().min(1), username: z.string(), credentialEnc: z.string() })
-    .nullable()
-    .default(null),
+  /** The TURN relay browsers and the mobile app use (04 §12). `credentialEnc`: password or key. */
+  'network.turn': z.preprocess(
+    // Before 2026-11-10 it was { url, username, credentialEnc }, always a username and password.
+    (v) =>
+      v && typeof v === 'object' && 'url' in v && !('urls' in v)
+        ? { ...v, urls: [v.url], auth: 'password' }
+        : v,
+    z
+      .object({
+        urls: z.array(TurnUrl).min(1).max(4),
+        auth: z.enum(TURN_AUTH),
+        username: z.string().default(''),
+        credentialEnc: z.string(),
+        ttlSeconds: TurnTtl,
+      })
+      .nullable()
+      .default(null),
+  ),
   'sip.udpPort': z.number().int().min(1).max(65535).default(5060),
   'sip.tcpEnabled': z.boolean().default(true),
   'sip.tlsEnabled': z.boolean().default(false),
@@ -353,6 +397,7 @@ export type SettingsDto = {
     K in Exclude<
       SettingKey,
       | 'smtp'
+      | 'network.turn'
       | 'sms.webhookToken'
       | 'contacts.contrack'
       | 'auth.oidc'
@@ -363,6 +408,7 @@ export type SettingsDto = {
   ]: SettingValue<K>;
 } & {
   'network.hasProbeKey': boolean;
+  'network.turn': (Omit<TurnInput, 'credential'> & { hasCredential: boolean }) | null;
   smtp: (Omit<SmtpInput, 'password'> & { hasPassword: boolean }) | null;
   'contacts.contrack': { url: string; publicUrl: string | null; hasCompanyToken: boolean } | null;
   spam: SpamSettingsDto;

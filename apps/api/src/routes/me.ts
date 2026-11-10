@@ -39,6 +39,7 @@ import {
   forgetBook,
   tokenFor,
 } from '../contacts/contrack.ts';
+import { iceServersFor } from '../services/ice.ts';
 import { checkReason, setPaused } from '../services/queues.ts';
 import { badRequest, conflict, HttpError, notFound } from '../errors.ts';
 import { AudioError, MAX_UPLOAD_BYTES, toPcmWav } from '../media/audio.ts';
@@ -304,20 +305,13 @@ export async function meRoutes(app: FastifyInstance) {
     if (!ext.webrtcEnabled)
       throw notFound('The browser softphone is turned off for your extension');
     const host = app.config.PUBLIC_HOSTNAME;
-    const stun = await getSetting(db, 'network.stunServer');
-    const turn = await getSetting(db, 'network.turn');
     return {
       wsUrl: app.config.WEBRTC_WS_URL ?? `wss://${host}/ws`,
       sipUri: `sip:${ext.number}-web@${host}`,
       authUser: `${ext.number}-web`,
       password: decrypt(ext.sipPasswordEnc),
       displayName: ext.name,
-      iceServers: [
-        ...(stun ? [{ urls: `stun:${stun}` }] : []),
-        ...(turn
-          ? [{ urls: turn.url, username: turn.username, credential: decrypt(turn.credentialEnc) }]
-          : []),
-      ],
+      ...(await iceServersFor(db, ext.number)),
     };
   });
 

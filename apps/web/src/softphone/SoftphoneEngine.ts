@@ -52,6 +52,8 @@ type Tracked = {
 };
 
 export class SoftphoneEngine {
+  /** The calls' RTCPeerConnection settings; `iceServers` is swapped in place (setIceServers). */
+  private readonly pc: { iceServers: WebRtcCreds['iceServers'] } = { iceServers: [] };
   state: EngineState = {
     reg: 'off',
     error: null,
@@ -86,8 +88,14 @@ export class SoftphoneEngine {
     this.set({ reg: 'elsewhere', error: null });
   }
 
+  /** New ICE servers (a timed TURN credential renewed, 04 §12) for the calls that follow. */
+  setIceServers(iceServers: WebRtcCreds['iceServers']) {
+    this.pc.iceServers = iceServers;
+  }
+
   async start(creds: WebRtcCreds): Promise<void> {
     await this.stop();
+    this.setIceServers(creds.iceServers);
     this.stopped = false;
     this.host = new URL(creds.sipUri.replace(/^sip:/, 'sip://')).hostname;
     this.set({ reg: 'connecting', error: null });
@@ -98,9 +106,8 @@ export class SoftphoneEngine {
       authorizationPassword: creds.password,
       displayName: creds.displayName,
       contactParams: { transport: creds.wsUrl.startsWith('wss:') ? 'wss' : 'ws' },
-      sessionDescriptionHandlerFactoryOptions: {
-        peerConnectionConfiguration: { iceServers: creds.iceServers },
-      },
+      // This object is read again for every call, so setIceServers reaches the next one.
+      sessionDescriptionHandlerFactoryOptions: { peerConnectionConfiguration: this.pc },
       logLevel: 'warn',
       delegate: {
         onInvite: (inv) => this.incoming(inv),
