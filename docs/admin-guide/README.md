@@ -107,8 +107,12 @@ If either fails, see [Troubleshooting](troubleshooting.md).
 
 ## Phones
 
-- **Desk phones (Yealink, Grandstream, Polycom/Poly, Snom, Fanvil):** add them on **Phones** with
-  their MAC address. The page shows the setup URL and password to enter on the phone.
+- **Desk phones (Yealink, Grandstream):** add them on **Phones** with their MAC address. The page
+  shows the setup URL and password to enter on the phone. **Polycom/Poly VVX and Snom** can be
+  picked too, marked experimental: they get their account (Snom also busy-lamp keys), but
+  haven't been tried on a real phone yet. Tell us how it goes.
+- **Fanvil, Cisco, Gigaset and others:** not set up automatically yet. Pick **Other** and enter
+  the details shown.
 - **Any other SIP phone:** use the details on the user's **Credentials** tab.
 - **Browser phone:** every user with an extension gets one on **My phone** after signing in. There
   is nothing to set up.

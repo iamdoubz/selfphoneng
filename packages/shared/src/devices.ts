@@ -2,7 +2,8 @@
 // Desk phones the PBX provisions (02 devices, 07). Admin only.
 import { z } from 'zod';
 
-export const PHONE_VENDORS = ['yealink', 'grandstream', 'generic'] as const;
+/** Polycom and Snom are experimental (07 §3.3, §3.5): not tried on a real phone yet. */
+export const PHONE_VENDORS = ['yealink', 'grandstream', 'polycom', 'snom', 'generic'] as const;
 export type PhoneVendor = (typeof PHONE_VENDORS)[number];
 
 /** Any way of writing a MAC (00:15:65:AB:CD:EF, 0015.65ab.cdef, …) → 12 lowercase hex. */

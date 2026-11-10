@@ -6,6 +6,8 @@ import { phoneTimezone } from '@selfphoneng/shared';
 import type { PhonebookEntry, ProvisionContext } from './context.ts';
 import { dialRules } from './dialplan.ts';
 import { grandstream, grandstreamPhonebook } from './templates/grandstream.ts';
+import { gmtOffsetSeconds, polycom, polycomMaster } from './templates/polycom.ts';
+import { snom } from './templates/snom.ts';
 import { yealink, yealinkPhonebook } from './templates/yealink.ts';
 
 const ctx = (over: Partial<ProvisionContext> = {}): ProvisionContext => ({
@@ -64,6 +66,26 @@ describe('phone templates', () => {
     const out = grandstream(ctx({ vendor: 'grandstream' }));
     await expect(out).toMatchFileSnapshot('./__golden__/grandstream.xml');
     expect(out).toContain('<P3>Dan &quot;D&quot; &lt;Doe&gt; &amp; Co  x = 1</P3>');
+  });
+
+  it('Polycom: the master file names the account file; values escaped', async () => {
+    const c = ctx({ vendor: 'polycom', mac: '0004f2abcdef' });
+    expect(polycomMaster(c)).toContain('CONFIG_FILES="phone-0004f2abcdef.cfg"');
+    const out = polycom(c);
+    await expect(out).toMatchFileSnapshot('./__golden__/polycom.cfg');
+    expect(out).toContain('reg.1.displayName="Dan &quot;D&quot; &lt;Doe&gt; &amp; Co  x = 1"');
+    expect(out).toContain('tcpIpApp.sntp.gmtOffset="-21600"');
+    expect(gmtOffsetSeconds('-3:30')).toBe(-12600);
+    expect(gmtOffsetSeconds('0')).toBe(0);
+  });
+
+  it('Snom: account and BLF keys after the two line keys; the port only when unusual', async () => {
+    const out = snom(ctx({ vendor: 'snom', mac: '000413abcdef' }));
+    await expect(out).toMatchFileSnapshot('./__golden__/snom.xml');
+    expect(out).toContain('<user_host idx="1" perm="">pbx.example.com</user_host>');
+    expect(out).toContain('<fkey idx="2" context="active" label="Ann Lee"');
+    expect(out).toContain('blf sip:102@pbx.example.com;user=phone</fkey>');
+    expect(snom(ctx({ vendor: 'snom', sipPort: 5070 }))).toContain('>pbx.example.com:5070<');
   });
 
   it('phonebooks', async () => {

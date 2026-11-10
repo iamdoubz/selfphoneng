@@ -32,9 +32,11 @@ Legend: 📖 read · 🔨 build · ✅ done when
 ## To chase next (owner, 2026-11-10)
 From comparing with AiPBX (github.com/mahirgul/AiPBX, v1.72.12). Not ordered against the backlog
 above yet.
-1. **More phone vendors.** Today: Yealink and Grandstream (07 §3). AiPBX also sets up Fanvil, Snom,
-   Gigaset and Cisco. Polycom is already in M12. Each one needs a real phone before it's called
-   supported.
+1. **More phone vendors.** Yealink and Grandstream (07 §3). AiPBX also sets up Fanvil, Snom,
+   Gigaset and Cisco. Each one needs a real phone before it's called supported.
+   - Built 2026-11-10, both experimental: **Polycom** (07 §3.3; was M12) and **Snom** (07 §3.5),
+     migration 0017. **Open:** a real phone of each.
+   - Next: Fanvil, Gigaset, Cisco SPA/MPP (07 §3.6): each waits for a config sample to trust.
 2. **Queue wallboard** (already in M12), with **agent break reasons** (owner, 2026-11-10: in).
    Today `*45` only pauses (`SP/QPAUSE`); a reason is picked when pausing, shown on the wallboard
    and added up per agent in reports. Asterisk's queue pause takes a reason already.

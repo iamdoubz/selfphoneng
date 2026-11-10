@@ -9,27 +9,54 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { decrypt } from '../crypto/secrets.ts';
 import { devices, extensions } from '../db/schema.ts';
 import { linphoneXml, verifyLinphoneToken } from '../provisioning/linphone.ts';
-import { loadContext, loadPhonebook, type ProvisionContext } from '../provisioning/context.ts';
+import type { PhoneVendor } from '@selfphoneng/shared';
+import {
+  loadContext,
+  loadPhonebook,
+  type PhonebookEntry,
+  type ProvisionContext,
+} from '../provisioning/context.ts';
 import { allowProvRequest, recordProvFailure } from '../provisioning/limiter.ts';
 import { grandstream, grandstreamPhonebook } from '../provisioning/templates/grandstream.ts';
+import { polycom, polycomMaster } from '../provisioning/templates/polycom.ts';
+import { snom } from '../provisioning/templates/snom.ts';
 import { yealink, yealinkCommon, yealinkPhonebook } from '../provisioning/templates/yealink.ts';
 import { getSetting } from '../services/settings.ts';
 import { NO_LIMIT } from '../auth/guards.ts';
 
-/** File name → what it is. Anything else is a plain 404 (phones ask for files we don't serve). */
-const FILES: {
-  re: RegExp;
-  /** null: the phonebook, in the device's own vendor's format. */
-  vendor: ProvisionContext['vendor'] | null;
-  type: string;
-}[] = [
-  { re: /^([0-9a-f]{12})\.cfg$/, vendor: 'yealink', type: 'text/plain' },
-  { re: /^cfg([0-9a-f]{12})\.xml$/, vendor: 'grandstream', type: 'application/xml' },
+type Render = (c: ProvisionContext, book: () => Promise<PhonebookEntry[]>) => Promise<string>;
+const TEXT = 'text/plain';
+const XML = 'application/xml';
+const config =
+  (f: (c: ProvisionContext) => string): Render =>
+  async (c) =>
+    f(c);
+const phonebook =
+  (f: (entries: PhonebookEntry[]) => string): Render =>
+  async (_c, book) =>
+    f(await book());
+
+/**
+ * File name → what each make gets for it. A name no make here uses is a plain 404 (phones ask
+ * for files we don't serve); a name asked by a phone of another make is a failure (07 §2).
+ */
+const FILES: { re: RegExp; by: Partial<Record<PhoneVendor, [type: string, render: Render]>> }[] = [
+  // Yealink's config and Polycom's master file share the name.
+  {
+    re: /^([0-9a-f]{12})\.cfg$/,
+    by: { yealink: [TEXT, config(yealink)], polycom: [XML, config(polycomMaster)] },
+  },
+  { re: /^phone-([0-9a-f]{12})\.cfg$/, by: { polycom: [XML, config(polycom)] } },
+  { re: /^cfg([0-9a-f]{12})\.xml$/, by: { grandstream: [XML, config(grandstream)] } },
+  // snom<model>-<MAC>.htm (the model-wide snom<model>.htm is a 404: nothing in it).
+  { re: /^snom[a-z0-9]*-([0-9a-f]{12})\.htm$/, by: { snom: [XML, config(snom)] } },
   // Yealink: phonebook/<mac>.xml; Grandstream appends /phonebook.xml to the path it's given.
   {
     re: /^phonebook\/([0-9a-f]{12})(?:\.xml|\/phonebook\.xml)$/,
-    vendor: null,
-    type: 'application/xml',
+    by: {
+      yealink: [XML, phonebook(yealinkPhonebook)],
+      grandstream: [XML, phonebook(grandstreamPhonebook)],
+    },
   },
 ];
 const YEALINK_COMMON = /^y0{10}[0-9a-f]{2}\.cfg$/;
@@ -62,13 +89,6 @@ export async function provisioningRoutes(app: FastifyInstance) {
       nets.addSubnet(addr!, Number(bits), 'ipv4');
     }
     return nets.check(v4, 'ipv4');
-  }
-
-  /** The config, or (phonebook) the directory in the phone's vendor's format. */
-  async function render(c: ProvisionContext, phonebook = false): Promise<string> {
-    if (!phonebook) return c.vendor === 'yealink' ? yealink(c) : grandstream(c);
-    const entries = await loadPhonebook(db, c.ownerUserId);
-    return c.vendor === 'yealink' ? yealinkPhonebook(entries) : grandstreamPhonebook(entries);
   }
 
   const deny = (reply: FastifyReply, code: number, text: string) =>
@@ -115,12 +135,9 @@ export async function provisioningRoutes(app: FastifyInstance) {
     const mac = kind.m![1]!;
 
     const loaded = await loadContext(db, app.config, mac);
-    const found =
-      loaded &&
-      loaded.ctx.vendor !== 'generic' &&
-      (!kind.f.vendor || loaded.ctx.vendor === kind.f.vendor)
-        ? loaded
-        : null;
+    // Nothing for a phone set up by hand, or of a make that doesn't use this file name.
+    const served = loaded ? kind.f.by[loaded.ctx.vendor] : undefined;
+    const found = loaded && served ? loaded : null;
     const auth = basicAuth(req);
     const ok =
       found !== null &&
@@ -149,9 +166,10 @@ export async function provisioningRoutes(app: FastifyInstance) {
       .set({ lastProvisionedAt: sql`now()`, lastProvisionedIp: ipv4(req.ip) })
       .where(eq(devices.id, found.id));
     req.log.info({ ip: req.ip, mac }, 'provisioning: served');
+    const [type, render] = served!;
     return reply
       .header('Cache-Control', 'no-store')
-      .type(kind.f.type)
-      .send(await render(found.ctx, kind.f.vendor === null));
+      .type(type)
+      .send(await render(found.ctx, () => loadPhonebook(db, found.ctx.ownerUserId)));
   });
 }

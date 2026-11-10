@@ -120,6 +120,13 @@
       "when": 1794326663083,
       "tag": "0016_passkeys",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1794327226761,
+      "tag": "0017_phone_vendor_snom",
+      "breakpoints": true
     }
   ]
 }

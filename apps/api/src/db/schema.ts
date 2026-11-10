@@ -560,7 +560,13 @@ export const pagingGroupMembers = pgTable(
 );
 
 // ───────────── devices (provisioning) ─────────────
-export const phoneVendor = pgEnum('phone_vendor', ['yealink', 'grandstream', 'polycom', 'generic']);
+export const phoneVendor = pgEnum('phone_vendor', [
+  'yealink',
+  'grandstream',
+  'polycom',
+  'snom',
+  'generic',
+]);
 
 export const devices = pgTable('devices', {
   id: id(),
