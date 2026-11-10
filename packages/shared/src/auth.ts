@@ -66,3 +66,37 @@ export const TotpEnableSchema = z.object({
   password: z.string().min(1).max(200),
 });
 export const PasswordConfirmSchema = z.object({ password: z.string().min(1).max(200) });
+
+/** Passkeys (15). Binary values travel as base64url. */
+const B64U = z
+  .string()
+  .regex(/^[A-Za-z0-9_-]+$/)
+  .max(4096);
+export type Passkey = { id: string; name: string; createdAt: string; lastUsedAt: string | null };
+/** POST /api/auth/passkeys/options: what navigator.credentials.create needs. */
+export type PasskeyCreateOptions = {
+  challenge: string;
+  rpId: string;
+  rpName: string;
+  user: { id: string; name: string; displayName: string };
+  algs: number[];
+  /** Credential ids this person already has here: the device won't make a second one. */
+  exclude: string[];
+};
+/** POST /api/auth/passkey/options (public): what navigator.credentials.get needs. */
+export type PasskeyLoginOptions = { challenge: string; rpId: string };
+export const PasskeyAddSchema = z.object({
+  name: z.string().trim().min(1, 'Give it a name').max(60),
+  password: z.string().min(1).max(200),
+  id: B64U,
+  clientDataJSON: B64U,
+  authenticatorData: B64U,
+  publicKey: B64U,
+  alg: z.number().int(),
+});
+export const PasskeyLoginSchema = z.object({
+  id: B64U,
+  clientDataJSON: B64U,
+  authenticatorData: B64U,
+  signature: B64U,
+});

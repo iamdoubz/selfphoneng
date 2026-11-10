@@ -10,7 +10,7 @@ import {
   type UserDto,
 } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
-import { extensions, userIdentities, users } from '../db/schema.ts';
+import { extensions, passkeys, userIdentities, users } from '../db/schema.ts';
 import { HttpError, badRequest, conflict, notFound } from '../errors.ts';
 import { requireAdmin } from '../auth/guards.ts';
 import { hashPassword } from '../auth/passwords.ts';
@@ -261,6 +261,8 @@ export async function userRoutes(app: FastifyInstance) {
       .set({ passwordHash: await hashPassword(password), mustChangePassword: true })
       .where(eq(users.id, id));
     await deleteUserSessions(db, id);
+    // 15 §1: a reset is for an account someone else may have got into; their passkey goes too.
+    await db.delete(passkeys).where(eq(passkeys.userId, id));
     await audit(db, {
       actorUserId: req.user!.id,
       actorIp: req.ip,

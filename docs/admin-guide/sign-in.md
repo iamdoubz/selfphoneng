@@ -33,6 +33,22 @@ lldap …) can check passwords too: see [Directory (LDAP)](#directory-ldap).
 - Two-step sign-in (the authenticator app code) is asked for password sign-ins only. Keycloak
   sign-ins use whatever Keycloak asks for (set up OTP or passkeys there).
 
+## Passkeys
+
+Anyone with a SelfPhoneNG password can add a **passkey** and then sign in with their device's
+fingerprint, face or PIN, or a security key: **My settings** (users) or **My account** (admins)
+→ **Sign-in** → **Add a passkey**. It asks for a name and the password once more, then the
+device shows its own prompt. On the login page, **Sign in with a passkey** needs no email,
+password or authenticator code.
+
+- A passkey only works at the phone system's own address (`https://` and the name you set as
+  `PUBLIC_HOSTNAME`), not at an IP address or through an SSH tunnel to `localhost`. The password
+  still works there.
+- Lost the device: sign in with the password and **Remove** the passkey. **Reset password** on
+  Users removes all of that person's passkeys.
+- With **OpenID only**, passkeys are for admins, like passwords. Everyone else uses the provider
+  (which can have its own passkeys).
+
 ## 1. In Keycloak
 
 1. Pick the realm your people are in (or make one). The **issuer** is

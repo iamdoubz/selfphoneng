@@ -38,7 +38,9 @@ above yet.
 2. **Queue wallboard** (already in M12), with **agent break reasons** (owner, 2026-11-10: in).
    Today `*45` only pauses (`SP/QPAUSE`); a reason is picked when pausing, shown on the wallboard
    and added up per agent in reports. Asterisk's queue pause takes a reason already.
-3. **Passkeys** (WebAuthn), beside two-step sign-in and single sign-on (12).
+3. **Passkeys** (WebAuthn), beside two-step sign-in and single sign-on (12). Built 2026-11-10:
+   [15](15-passkeys.md), migration 0016, no new dependency. **Open:** a real browser and device
+   (15 §7).
 
 ---
 

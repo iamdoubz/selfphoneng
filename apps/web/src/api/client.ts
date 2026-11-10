@@ -6,6 +6,9 @@ import type {
   SpamCheck,
   SpamTestResult,
   AuthMethods,
+  Passkey,
+  PasskeyCreateOptions,
+  PasskeyLoginOptions,
   OidcInput,
   OidcTestResult,
   AboutDto,
@@ -108,6 +111,7 @@ import type {
   AiTestResult,
   TranscriptDto,
 } from '@selfphoneng/shared';
+import type { NewPasskey, PasskeyAssertion } from '../auth/passkey.ts';
 
 export class ApiError extends Error {
   readonly status: number;
@@ -176,6 +180,15 @@ export const authApi = {
     api<{ recoveryCodes: string[] }>('POST', '/api/auth/totp/recovery-codes', { password }),
   logout: () => api<{ ok: true; redirect?: string }>('POST', '/api/auth/logout'),
   methods: () => api<AuthMethods>('GET', '/api/auth/methods'),
+  /** Passkeys (15). The browser's part is in auth/passkey.ts. */
+  passkeys: () => api<{ items: Passkey[] }>('GET', '/api/auth/passkeys').then((r) => r.items),
+  passkeyCreateOptions: () => api<PasskeyCreateOptions>('POST', '/api/auth/passkeys/options', {}),
+  passkeyAdd: (body: NewPasskey & { name: string; password: string }) =>
+    api<{ id: string }>('POST', '/api/auth/passkeys', body),
+  passkeyRemove: (id: string) => api<{ ok: true }>('DELETE', `/api/auth/passkeys/${id}`),
+  passkeyLoginOptions: () => api<PasskeyLoginOptions>('POST', '/api/auth/passkey/options', {}),
+  passkeyLogin: (body: PasskeyAssertion) =>
+    api<{ user: AuthUser }>('POST', '/api/auth/passkey/login', body).then((r) => r.user),
   /** 12 §3.3: disconnect my OpenID account. */
   disconnectOidc: () => api<{ ok: true }>('DELETE', '/api/me/identities/oidc'),
   /** 12 §3.3: where to send the browser to connect my OpenID account. */

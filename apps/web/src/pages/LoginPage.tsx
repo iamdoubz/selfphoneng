@@ -4,8 +4,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useSearchParams } from 'react-router';
-import { APP_NAME, LoginFields } from '@selfphoneng/shared';
+import { APP_NAME, LoginFields, type AuthUser } from '@selfphoneng/shared';
 import { ApiError, authApi } from '../api/client.ts';
+import { getPasskey, passkeysSupported } from '../auth/passkey.ts';
 import { homeFor } from '../auth/RequireAuth.tsx';
 import { ssoErrorText, useAuthMethods } from '../components/SignInCard.tsx';
 import { Alert, Button, Field, inputClass } from '../components/ui.tsx';
@@ -43,15 +44,29 @@ export function LoginPage() {
   const ssoError = params.get('sso_error');
   const next = params.get('next');
 
+  const signedIn = (user: AuthUser) => {
+    qc.setQueryData(['me'], user);
+    // Only same-site paths: never redirect to another origin.
+    nav(next?.startsWith('/') && !next.startsWith('//') ? next : homeFor(user), { replace: true });
+  };
+  // 15: the device picks the passkey and says who it is; no email or password typed.
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const withPasskey = async () => {
+    setError(undefined);
+    setPasskeyBusy(true);
+    try {
+      signedIn(await authApi.passkeyLogin(await getPasskey(await authApi.passkeyLoginOptions())));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPasskeyBusy(false);
+    }
+  };
+
   const onSubmit = form.handleSubmit(async ({ login, password }) => {
     setError(undefined);
     try {
-      const user = await authApi.login(login, password, needCode ? code : undefined);
-      qc.setQueryData(['me'], user);
-      // Only same-site paths: never redirect to another origin.
-      nav(next?.startsWith('/') && !next.startsWith('//') ? next : homeFor(user), {
-        replace: true,
-      });
+      signedIn(await authApi.login(login, password, needCode ? code : undefined));
     } catch (e) {
       if (e instanceof ApiError && e.code === 'totp_required') {
         setNeedCode(true);
@@ -144,6 +159,11 @@ export function LoginPage() {
         <Button type="submit" variant="primary" disabled={isSubmitting}>
           {isSubmitting ? 'Signing in…' : 'Sign in'}
         </Button>
+        {passkeysSupported() && (
+          <Button onClick={withPasskey} disabled={passkeyBusy || isSubmitting}>
+            {passkeyBusy ? 'Waiting for your device…' : 'Sign in with a passkey'}
+          </Button>
+        )}
       </form>
     </AuthCard>
   );

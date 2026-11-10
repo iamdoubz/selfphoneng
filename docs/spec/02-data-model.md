@@ -138,6 +138,21 @@ create table mobile_devices (
 );
 create index on mobile_devices (user_id);
 
+-- Passkeys (15 §2): one more way to sign in; the public key only.
+create table passkeys (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid not null references users(id) on delete cascade,
+  credential_id text not null unique,      -- base64url, as the browser names it
+  public_key    text not null,             -- SPKI DER, base64
+  alg           integer not null,          -- COSE: -7 ES256, -8 EdDSA, -257 RS256
+  sign_count    bigint not null default 0,
+  name          text not null,
+  last_used_at  timestamptz,
+  created_at    timestamptz not null default now(),
+  updated_at    timestamptz not null default now()
+);
+create index on passkeys (user_id);
+
 -- ───────────── extensions (telephony identity of a user) ─────────────
 create type outbound_class as enum ('internal', 'local', 'national', 'international');
 create type record_mode   as enum ('never', 'inbound', 'outbound', 'all');
