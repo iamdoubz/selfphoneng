@@ -116,6 +116,40 @@ What the app uses besides these (all exist): `GET|PATCH /api/me`, `GET /api/me/w
 - **Open:** the owner pairs a real Android phone and an iPhone (ios-builder needs a GitHub mirror
   of the mobile repo).
 
+### 5.3 As built: MB4, calls (2026-11-10, not on a phone yet)
+
+Packages added (`npx expo install`, all MIT): `sip.js` 0.21 (the web softphone's SIP stack),
+`react-native-webrtc` 155 with `@config-plugins/react-native-webrtc` (WebRTC, and its build
+settings), `expo-callkit-telecom` 1.0 (the system call screen) and `expo-notifications` (a peer
+of it; nothing here sends a notification).
+
+- `src/calls/engine.ts`: the web's `SoftphoneEngine` ported. `registerGlobals()` gives SIP.js the
+  WebRTC names it looks for. **One call at a time** (the system screen handles one; a second
+  caller hears busy), no transfers, no audio elements, no device picker.
+- `src/calls/native.ts`: the engine and the system call screen kept in step. Every button asks
+  the system first (`answerCall`, `endCall`, `setMuted`, `setHeld`, `playDTMF`) and the engine is
+  told from the event that comes back, so the lock screen, a headset button and the app's own
+  buttons take one road. Outgoing: `startOutgoingCall` → the INVITE when the system says go →
+  `reportOutgoingCallConnected`. Incoming: `reportIncomingCall` → answered on the system screen →
+  accept → `fulfillIncomingCallConnected`. The far side hanging up: `reportCallEnded`.
+  `setRTCAudioSessionConfiguration(false)` once: on iPhone WebRTC's audio follows the system's
+  audio session. Speaker: `setAudioSessionPortOverride`.
+- Registered **while the app is open**: on the home screen, again when the app comes back to the
+  front and the connection was lost, off at Sign out. A timed TURN credential is fetched again
+  at `iceRefreshSeconds` (04 §12), as on the web.
+- `src/calls/Phone.tsx` on the home screen: the phone's status, a number field and dial pad, and
+  the call in progress (Answer / Decline, Mute, Hold, Speaker, Keypad, Hang up, a timer).
+- `app.json`: the microphone text (the camera plugin was removing it), no video button on the
+  call screen, calls in the phone's Recents. The call plugin adds the `voip` and `audio`
+  background modes.
+- Checked: `npm run typecheck`, `npm run lint`, `npx expo export` for both platforms, and the
+  generated iOS settings (microphone and camera texts, background modes).
+- **Open, all of it on real phones** (the done-when of MB4): registering; a call each way with
+  two-way audio on Wi-Fi and on mobile data; the native call screen and Recents; hold, mute,
+  keypad tones, speaker; what happens to a call when the app goes to the background. Things most
+  likely to need work: SIP.js's WebRTC code on react-native-webrtc, the audio session on iPhone,
+  and tones (RFC 4733 through the sender, else SIP INFO).
+
 ## 6. Later (not in MB1–MB8)
 
 - Push, so the app rings in the background: FCM (Play build) and UnifiedPush (F-Droid build) on
