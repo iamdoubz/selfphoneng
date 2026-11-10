@@ -1,4 +1,5 @@
 {
+  "settings": { "queues.breakReasons": ["Lunch", "Team meeting"] },
   "mohClasses": [
     {
       "name": "support-jazz",

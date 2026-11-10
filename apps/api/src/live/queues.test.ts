@@ -93,6 +93,41 @@ describe('QueueTracker', () => {
     expect(sent.length).toBe(5); // load, join, ringing, leave, idle: AgentConnect changes nothing
   });
 
+  it('a break: its reason and when it began, gone when the agent is back (16 §2)', () => {
+    const { t } = tracker();
+    t.load(DEFS, [
+      { Event: 'QueueParams', Queue: '550' },
+      {
+        Event: 'QueueMember',
+        Queue: '550',
+        Location: IFACE,
+        Status: '1',
+        Paused: '1',
+        PausedReason: 'Lunch',
+        LastPause: '1794300000',
+      },
+    ]);
+    expect(t.list()[0]!.members[0]).toMatchObject({
+      paused: true,
+      pausedReason: 'Lunch',
+      pausedSince: new Date(1794300000 * 1000).toISOString(),
+    });
+    // A status change says nothing about the break: it stays.
+    t.handle({ Event: 'QueueMemberStatus', Queue: '550', Interface: IFACE, Status: '2' });
+    expect(t.list()[0]!.members[0]).toMatchObject({ pausedReason: 'Lunch', state: 'inuse' });
+    t.handle({
+      Event: 'QueueMemberPause',
+      Queue: '550',
+      Interface: IFACE,
+      Paused: '0',
+      PausedReason: '',
+    });
+    const back = t.list()[0]!.members[0]!;
+    expect(back.paused).toBe(false);
+    expect(back.pausedReason).toBeUndefined();
+    expect(back.pausedSince).toBeUndefined();
+  });
+
   it('pause, unknown queues, and queues that went away', () => {
     const { t, sent } = tracker();
     t.load(DEFS, [

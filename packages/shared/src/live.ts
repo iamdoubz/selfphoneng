@@ -72,6 +72,9 @@ export type QueueLive = {
   members: {
     ext: string;
     paused: boolean;
+    /** While paused: the break reason, when one was given, and since when (16 §2). */
+    pausedReason?: string;
+    pausedSince?: string;
     state: ExtensionState;
     callsTaken: number;
     /** ISO time of the last call this agent finished. */

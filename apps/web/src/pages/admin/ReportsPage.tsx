@@ -129,6 +129,11 @@ export function ReportsPage({ mine = false }: { mine?: boolean }) {
     queryFn: () => reportsApi.queues(range),
     enabled: !mine,
   });
+  const breaks = useQuery({
+    queryKey: ['reports', 'breaks', range],
+    queryFn: () => reportsApi.breaks(range),
+    enabled: !mine,
+  });
   const balance = useQuery({
     queryKey: ['reports', 'balance'],
     queryFn: reportsApi.balance,
@@ -298,6 +303,39 @@ export function ReportsPage({ mine = false }: { mine?: boolean }) {
           )}
         </div>
       )}
+
+      {!mine && !!breaks.data?.length && (
+        <div className="flex flex-col gap-2">
+          <h2 className="font-medium">Agent breaks</h2>
+          <div className="overflow-x-auto">
+            <table aria-label="Break report" className="w-full text-left text-sm">
+              <thead className="text-muted">
+                <tr>
+                  {['Agent', 'Queue', 'Reason', 'Breaks', 'Time'].map((h) => (
+                    <th key={h} scope="col" className="px-2 py-1 font-normal">
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {breaks.data.map((b) => (
+                  <tr key={`${b.extension} ${b.queue} ${b.reason}`} className="tabular-nums">
+                    <td className="px-2 py-1">
+                      <span className="font-mono">{b.extension}</span> {b.name}
+                    </td>
+                    <td className="px-2 py-1 font-mono">{b.queue}</td>
+                    <td className="px-2 py-1">{b.reason ?? 'None given'}</td>
+                    <td className="px-2 py-1">{b.breaks}</td>
+                    <td className="px-2 py-1">{fmtDuration(b.seconds)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {breaks.error && <Alert>{breaks.error.message}</Alert>}
     </section>
   );
 }

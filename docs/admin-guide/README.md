@@ -117,6 +117,17 @@ If either fails, see [Troubleshooting](troubleshooting.md).
 - **Browser phone:** every user with an extension gets one on **My phone** after signing in. There
   is nothing to set up.
 
+## Queue wallboard and breaks
+
+- **Wallboard:** **Queues** → **Wallboard** opens a page for a screen on the wall: per queue, who
+  is waiting and for how long, each agent's state, and today's numbers. It needs an admin signed
+  in on that screen. **Full screen** hides the browser's bars.
+- **Break reasons:** on **Queues**, list up to nine reasons, one per line (Lunch, Meeting …).
+  Agents then pick one on their Home page before they switch a queue off, or dial `*46`, the
+  reason's number in your list, then the queue (`*462550`: reason 2, queue 550). `*45` and the
+  queue number brings them back. The wallboard shows the reason and how long; **Reports** →
+  **Agent breaks** adds the time up per agent. With no reasons listed nothing changes.
+
 ## Turning on two-step sign-in
 
 Admins can (and should) turn on two-step sign-in: header → **Account** → **Turn on two-step sign-in**. Keep

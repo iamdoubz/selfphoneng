@@ -5,6 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
   QueueCreateSchema,
+  QueuePauseSchema,
   QueueUpdateSchema,
   type Destination,
   type ListResponse,
@@ -22,7 +23,7 @@ import {
 } from '../services/destinations.ts';
 import { assertNumberAvailable } from '../services/numbering.ts';
 import { assertMohClass } from './moh.ts';
-import { setPaused } from '../services/queues.ts';
+import { checkReason, setPaused } from '../services/queues.ts';
 import { queueStats, StatsQuery } from '../services/queuestats.ts';
 
 type Row = typeof queues.$inferSelect;
@@ -210,7 +211,11 @@ export async function queueRoutes(app: FastifyInstance) {
         .innerJoin(extensions, eq(extensions.id, queueMembers.extensionId))
         .where(and(eq(queueMembers.queueId, id), eq(queueMembers.extensionId, extId)));
       if (!m) throw notFound(`That extension isn't an agent of queue ${q.number}`);
-      await setPaused(db, app.ami, q, m, action === 'pause');
+      const reason =
+        action === 'pause'
+          ? await checkReason(db, QueuePauseSchema.parse(req.body ?? {}).reason)
+          : null;
+      await setPaused(db, app.ami, q, m, action === 'pause', reason);
       await audit(db, {
         actorUserId: req.user!.id,
         actorIp: req.ip,

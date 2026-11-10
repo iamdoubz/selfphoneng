@@ -397,9 +397,29 @@ export const queueMemberState = pgTable(
       .notNull()
       .references(() => extensions.id, { onDelete: 'cascade' }),
     paused: boolean().notNull().default(false),
+    /** The break reason given when pausing (16 §2); null: none, or not paused. */
+    reason: text(),
     ...timestamps,
   },
   (t) => [primaryKey({ columns: [t.queueId, t.extensionId] })],
+);
+
+/** Every break (16 §2), for the report: open while ended_at is null. */
+export const queuePauses = pgTable(
+  'queue_pauses',
+  {
+    id: bigserial({ mode: 'number' }).primaryKey(),
+    queueId: uuid()
+      .notNull()
+      .references(() => queues.id, { onDelete: 'cascade' }),
+    extensionId: uuid()
+      .notNull()
+      .references(() => extensions.id, { onDelete: 'cascade' }),
+    reason: text(),
+    startedAt: tstz().notNull().defaultNow(),
+    endedAt: tstz(),
+  },
+  (t) => [index().on(t.extensionId, t.startedAt)],
 );
 
 export const queueOutcome = pgEnum('queue_outcome', ['answered', 'abandoned', 'timed_out']);

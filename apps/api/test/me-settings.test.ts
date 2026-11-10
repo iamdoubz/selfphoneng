@@ -54,6 +54,7 @@ describe.skipIf(!hasTestDb)('/api/me settings and phone toggles', () => {
   it('GET /api/me shows my extension and settings', async () => {
     expect((await dan('GET', '/api/me')).json()).toEqual({
       extension: { number: '101', name: 'Dan Doe' },
+      breakReasons: [],
       dnd: false,
       cfu: null,
       cfb: null,

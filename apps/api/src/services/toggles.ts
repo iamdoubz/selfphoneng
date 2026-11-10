@@ -9,7 +9,6 @@ import type { Db } from '../db/client.ts';
 import {
   extensions,
   queueMembers,
-  queueMemberState,
   queues,
   timeConditions,
   userRuntimeState,
@@ -18,6 +17,8 @@ import { HttpError } from '../errors.ts';
 import { setForward, type AstDbAmi } from './astdb.ts';
 import { audit } from './audit.ts';
 import { checkForward } from './forwards.ts';
+import { storePause } from './queues.ts';
+import { getSetting } from './settings.ts';
 
 export type ToggleDeps = {
   db: Db;
@@ -53,13 +54,13 @@ export async function handleToggle(d: ToggleDeps, m: AmiMessage): Promise<void> 
         ),
       );
     if (!agent) return;
-    await d.db
-      .insert(queueMemberState)
-      .values({ ...agent, paused: value === '1' })
-      .onConflictDoUpdate({
-        target: [queueMemberState.queueId, queueMemberState.extensionId],
-        set: { paused: value === '1' },
-      });
+    // *46<n><queue> sends the reason's place in the list (16 §2); *45 sends none.
+    const n = Number(field(m, 'Reason') ?? 0);
+    const reason =
+      value === '1' && n >= 1
+        ? ((await getSetting(d.db, 'queues.breakReasons'))[n - 1] ?? null)
+        : null;
+    await storePause(d.db, agent.queueId, agent.extensionId, value === '1', reason);
     return; // app_queue's QueueMemberPause event updates the live view
   }
   if (key !== 'DND' && key !== 'CFU') return;

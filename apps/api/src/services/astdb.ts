@@ -70,7 +70,7 @@ export async function syncAstDb(db: Db, ami: AstDbAmi): Promise<void> {
 /** Paused agents by queue and extension number. */
 export const pausedMembers = (db: Db) =>
   db
-    .select({ queue: queues.number, ext: extensions.number })
+    .select({ queue: queues.number, ext: extensions.number, reason: queueMemberState.reason })
     .from(queueMemberState)
     .innerJoin(queues, eq(queues.id, queueMemberState.queueId))
     .innerJoin(extensions, eq(extensions.id, queueMemberState.extensionId))

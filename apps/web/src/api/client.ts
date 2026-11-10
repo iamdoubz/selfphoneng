@@ -17,6 +17,7 @@ import type {
   DiagnosticsDto,
   NetworkTestDto,
   QueueReportRow,
+  BreakReportRow,
   ProviderBalanceDto,
   ReportRange,
   ReportSummary,
@@ -345,8 +346,13 @@ export const meApi = {
     api<ListResponse<MobileDeviceDto>>('GET', '/api/me/mobile-devices').then((r) => r.items),
   removePhone: (id: string) => api<{ ok: true }>('DELETE', `/api/me/mobile-devices/${id}`),
   /** Log in to (unpause) or out of (pause) a queue I'm an agent of. */
-  setQueuePaused: (queueId: string, paused: boolean) =>
-    api<{ ok: true }>('POST', `/api/me/queues/${queueId}/${paused ? 'pause' : 'unpause'}`),
+  /** `reason`: one of my breakReasons (16 §2), when stopping. */
+  setQueuePaused: (queueId: string, paused: boolean, reason?: string) =>
+    api<{ ok: true }>(
+      'POST',
+      `/api/me/queues/${queueId}/${paused ? 'pause' : 'unpause'}`,
+      paused && reason ? { reason } : {},
+    ),
   clickToCall: (number: string) => api<{ ok: true }>('POST', '/api/me/click-to-call', { number }),
   voicemail: () => api<ListResponse<VoicemailDto>>('GET', '/api/me/voicemail').then((r) => r.items),
   audioUrl: (id: string, download = false) =>
@@ -546,6 +552,10 @@ export const reportsApi = {
   summary: (r: ReportRange) => api<ReportSummary>('GET', `/api/reports/summary?${callQuery(r)}`),
   queues: (r: ReportRange) =>
     api<ListResponse<QueueReportRow>>('GET', `/api/reports/queues?${callQuery(r)}`).then(
+      (x) => x.items,
+    ),
+  breaks: (r: ReportRange) =>
+    api<ListResponse<BreakReportRow>>('GET', `/api/reports/breaks?${callQuery(r)}`).then(
       (x) => x.items,
     ),
   balance: () =>

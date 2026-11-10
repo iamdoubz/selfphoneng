@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import type { LightMyRequestResponse } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { queueCalls, queueMemberState } from '../src/db/schema.ts';
+import { queueCalls, queueMemberState, queuePauses } from '../src/db/schema.ts';
 import { syncAstDb } from '../src/services/astdb.ts';
 import { recordQueueEvent } from '../src/services/queuestats.ts';
 import { handleToggle } from '../src/services/toggles.ts';
@@ -186,6 +186,101 @@ describe.skipIf(!hasTestDb)('/api/queues', () => {
     expect(await state()).toContainEqual({ ext: '102', paused: true });
     await toggle('0');
     expect(await state()).toContainEqual({ ext: '102', paused: false });
+  });
+
+  it('break reasons (16 §2): from Home, from *46, kept for the report', async () => {
+    await t.db.delete(queuePauses);
+    const set = await admin('PATCH', '/api/settings', {
+      'queues.breakReasons': ['Lunch', 'Team meeting'],
+    });
+    expect(set.statusCode, set.body).toBe(200);
+    expect(
+      (await admin('PATCH', '/api/settings', { 'queues.breakReasons': ['Lunch', 'lunch'] }))
+        .statusCode,
+    ).toBe(400);
+    expect(
+      (await admin('PATCH', '/api/settings', { 'queues.breakReasons': ['a,b)'] })).statusCode,
+    ).toBe(400);
+    expect((await dan('GET', '/api/me')).json().breakReasons).toEqual(['Lunch', 'Team meeting']);
+    expect(await conf('extensions_globals_selfphoneng.conf')).toContain(
+      'SP_BREAK_1=Lunch\nSP_BREAK_2=Team meeting\n',
+    );
+
+    // From Home: the reason goes to app_queue and into PostgreSQL.
+    t.ami.actions.length = 0;
+    const bad = await dan('POST', `/api/me/queues/${queueId}/pause`, { reason: 'Golf' });
+    expect(bad.statusCode).toBe(400);
+    const ok = await dan('POST', `/api/me/queues/${queueId}/pause`, { reason: 'Lunch' });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(t.ami.actions.at(-1)).toEqual({
+      Action: 'QueuePause',
+      Queue: '550',
+      Interface: 'Local/101@sp-queue-member/n',
+      Paused: 'true',
+      Reason: 'Lunch',
+    });
+    const rows = () => t.db.select().from(queuePauses).orderBy(queuePauses.id);
+    expect(await rows()).toMatchObject([
+      { extensionId: ext['101'], reason: 'Lunch', endedAt: null },
+    ]);
+    const [st] = (await t.db.select().from(queueMemberState)).filter(
+      (s) => s.extensionId === ext['101'],
+    );
+    expect(st).toMatchObject({ paused: true, reason: 'Lunch' });
+
+    // *46 2 550 from the phone: the second reason; a new reason ends the break before it.
+    const toggle = (Value: string, Reason?: string) =>
+      handleToggle(
+        { db: t.db, ami: t.ami, live: t.live, log: t.app.log },
+        {
+          Event: 'UserEvent',
+          UserEvent: 'SpToggle',
+          Key: 'QPAUSE',
+          Queue: '550',
+          Ext: '101',
+          Value,
+          ...(Reason ? { Reason } : {}),
+        },
+      );
+    await toggle('1', '2');
+    const two = await rows();
+    expect(two.map((r) => r.reason)).toEqual(['Lunch', 'Team meeting']);
+    expect(two[0]!.endedAt).not.toBeNull();
+    expect(two[1]!.endedAt).toBeNull();
+
+    // Back: the break ends and the reason is gone.
+    expect((await dan('POST', `/api/me/queues/${queueId}/unpause`)).statusCode).toBe(200);
+    expect((await rows()).every((r) => r.endedAt !== null)).toBe(true);
+    expect(
+      (await t.db.select().from(queueMemberState)).find((s) => s.extensionId === ext['101']),
+    ).toMatchObject({ paused: false, reason: null });
+
+    // The report: Lunch is given an hour.
+    await t.db
+      .update(queuePauses)
+      .set({ startedAt: new Date(two[0]!.endedAt!.getTime() - 3_600_000) })
+      .where(eq(queuePauses.id, two[0]!.id));
+    const report = (await admin('GET', '/api/reports/breaks')).json().items;
+    expect(report).toEqual([
+      {
+        extension: '101',
+        name: 'Dan Doe',
+        queue: '550',
+        reason: 'Lunch',
+        breaks: 1,
+        seconds: 3600,
+      },
+      {
+        extension: '101',
+        name: 'Dan Doe',
+        queue: '550',
+        reason: 'Team meeting',
+        breaks: 1,
+        seconds: expect.any(Number),
+      },
+    ]);
+    expect((await dan('GET', '/api/reports/breaks')).statusCode).toBe(403);
+    await admin('PATCH', '/api/settings', { 'queues.breakReasons': [] });
   });
 
   it('a queue reload and an AstDB resync pause the paused agents again', async () => {

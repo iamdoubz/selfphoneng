@@ -26,6 +26,12 @@ export const AiTtsEndpointSchema = AiEndpointSchema.extend({
 export type AiEndpoint = z.infer<typeof AiEndpointSchema>;
 export type AiTtsEndpoint = z.infer<typeof AiTtsEndpointSchema>;
 
+/** Letters, digits, spaces and dashes: it goes into the dialplan and to Asterisk as it is. */
+export const BreakReason = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9](?:[A-Za-z0-9 -]{0,28}[A-Za-z0-9])?$/, 'Letters, digits, spaces and - only');
+
 export const SettingsSchemas = {
   'general.companyName': z.string().trim().min(1).max(100).default('My Company'),
   // The api replaces this default with env TZ (services/settings.ts).
@@ -108,6 +114,15 @@ export const SettingsSchemas = {
   'alerts.providerCalls': z.boolean().default(true),
   /** In the voip.ms account's currency; 0 = off. */
   'alerts.balanceDropPerHour': z.number().min(0).max(100000).default(10),
+  /**
+   * Break reasons an agent can give when they stop taking queue calls (16 §2). The place in the
+   * list is the digit in *46<n><queue>, so at most 9. Empty: no reasons asked.
+   */
+  'queues.breakReasons': z
+    .array(BreakReason)
+    .max(9)
+    .refine((v) => new Set(v.map((x) => x.toLowerCase())).size === v.length, 'Listed twice')
+    .default([]),
   'provisioning.lanOnly': z.boolean().default(false),
   'provisioning.enabled': z.boolean().default(true),
   'system.restartRequired': z.boolean().default(false),

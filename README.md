@@ -36,7 +36,7 @@ A fully open source, self-hosted business phone system. Bring your own SIP trunk
   ([how](docs/admin-guide/ata.md)).
 - SMS (built for voip.ms, parked until wanted).
 - Push notifications, so phone apps ring in the background.
-- Text-to-speech prompts, recording prompts by phone, a queue wallboard, Polycom phones.
+- Text-to-speech prompts, recording prompts by phone.
 
 ## Docs
 

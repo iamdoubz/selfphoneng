@@ -312,8 +312,19 @@ create table queue_member_state (
   queue_id      uuid not null references queues(id) on delete cascade,
   extension_id  uuid not null references extensions(id) on delete cascade,
   paused        boolean not null default false,
+  reason        text,                    -- the break reason given (16 §2); null: none, or not paused
   primary key (queue_id, extension_id)
 );
+-- Every break, for the report (16 §2): open while ended_at is null.
+create table queue_pauses (
+  id            bigserial primary key,
+  queue_id      uuid not null references queues(id) on delete cascade,
+  extension_id  uuid not null references extensions(id) on delete cascade,
+  reason        text,
+  started_at    timestamptz not null default now(),
+  ended_at      timestamptz
+);
+create index on queue_pauses (extension_id, started_at);
 -- One caller's stay in a queue, from app_queue's AMI events (QueueCallerJoin, AgentConnect,
 -- QueueCallerAbandon) and the dialplan's UserEvent SpQueueExit (03 §6.8); for queue stats.
 -- CDRs can't do this: when no agent rang, the Queue part of a call is merged into the next leg.
@@ -703,6 +714,7 @@ with a zod schema per key and a default. Missing rows return the default.
 | `alerts.providerCalls` | boolean | true | email admins about calls voip.ms billed that this PBX didn't make (08 §8.3) |
 | `alerts.balanceDropPerHour` | number | 10 | email admins when the voip.ms balance drops more than this in an hour; 0 = off (08 §8.3) |
 | `provisioning.lanOnly` | boolean | false | only serve `/prov` to clients from local nets |
+| `queues.breakReasons` | string[] (max 9) | `[]` | break reasons agents can give (16 §2); the place in the list is the `*46` digit |
 | `provisioning.enabled` | boolean | true | |
 | `system.restartRequired` | boolean | false | set by generator |
 | `spam` | object | off, no providers | spam check (14 §7): `enabled`, `ipqs {keyEnc}`, `ftc {keyEnc, syncHours, windowDays}`, `cache {flaggedDays, cleanDays}`, `deskPhoneLabels {high, medium}` |
