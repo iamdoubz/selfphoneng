@@ -5,6 +5,40 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
+## v0.0.14 — 2026-11-10
+
+**Before you update:** this version changes the database (passkeys, a new phone make, agent
+breaks); the api backs up first, by itself. It also moves to a new Asterisk, so calls drop while
+the containers restart. Portainer: change both tags to `0.0.14` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.14`.
+
+None of the new features has been tried on real hardware yet (a real browser passkey, a real
+Polycom or Snom, `*46` from a desk phone, a real TURN server). Tell us how they go.
+
+- **Passkeys:** sign in with your device's fingerprint, face or PIN, or a security key, with no
+  email, password or authenticator code. Add one under **My settings** (users) or **My account**
+  (admins) → **Sign-in**; it asks for your password once more. An admin's **Reset password**
+  removes that person's passkeys. With **OpenID only**, passkeys are for admins
+  ([Sign-in](docs/admin-guide/sign-in.md#passkeys)).
+- **Queue wallboard:** **Queues** → **Wallboard** is a page for a screen on the wall: per queue,
+  who is waiting and for how long, each agent's state, and today's numbers. Admins only.
+- **Agent break reasons:** list up to nine reasons on **Queues** (Lunch, Meeting …). Agents pick
+  one on their Home page before switching a queue off, or dial `*46`, the reason's number, then
+  the queue. The wallboard shows the reason and how long; **Reports** → **Agent breaks** adds the
+  time up. With no reasons listed nothing changes.
+- **Polycom / Poly VVX and Snom desk phones** can be picked on **Phones**, marked experimental:
+  they get their account (Polycom also the voicemail light and the time, Snom also busy-lamp
+  keys). The admin guide no longer lists Fanvil as set up automatically: it never was.
+- **STUN and TURN for the browser phone:** **Settings → Network** now has the STUN server and a
+  TURN relay for people on networks that block call audio. The TURN sign-in is one username and
+  password, or (recommended) a key shared with the TURN server that gives each person a sign-in
+  good for a set time. `STUN_SERVER` and `TURN_*` in `.env` give a new install its starting
+  values ([Network](docs/admin-guide/network.md#browser-phone-away-from-the-office-stun-and-turn)).
+- **Asterisk 24.0.0**, the final release (was the release candidate rc3). Everything SelfPhoneNG
+  relies on Asterisk doing was measured again on it, and nothing moved.
+- **Docs:** the warning Asterisk logs at start about `maxsilence` and `minsecs` is expected;
+  spec 03 §7 says why.
+
 ## v0.0.13 — 2026-10-29
 
 **Updating:** no database changes. Portainer: change both tags to `0.0.13` and redeploy. Compose:

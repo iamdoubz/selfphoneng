@@ -7,16 +7,17 @@
 A fully open source, self-hosted business phone system. Bring your own SIP trunk and numbers
 (reference provider: voip.ms). Built on Asterisk 24 + TypeScript + PostgreSQL 18, runs in Docker.
 
-**Status:** pre-1.0 (v0.0.13), for testing. See [what's left for v1](docs/v1-checklist.md).
+**Status:** pre-1.0 (v0.0.14), for testing. See [what's left for v1](docs/v1-checklist.md).
 
 ## What it does today
 
-- **Phones:** users and extensions, desk phones (Yealink, Grandstream) set up automatically, a
-  browser phone, and Linphone set up by scanning a QR code.
+- **Phones:** users and extensions, desk phones (Yealink, Grandstream; Polycom and Snom are
+  experimental) set up automatically, a browser phone, and Linphone set up by scanning a QR code.
 - **Numbers:** voip.ms trunks (registration or IP auth, UDP/TCP/TLS + SRTP), phone numbers,
   outbound rules with calling permissions, 911 with E911 caller ID and alerts.
-- **Call flows:** digital receptionists, office hours and holidays, ring groups, queues, parking,
-  pickup, conference rooms, paging and intercom, music on hold.
+- **Call flows:** digital receptionists, office hours and holidays, ring groups, queues (with a
+  wallboard and agent break reasons), parking, pickup, conference rooms, paging and intercom,
+  music on hold.
 - **Voicemail** with email (and transcripts by local AI), **call history**, **recordings**, a **live dashboard** (listen,
   whisper, barge) and reports.
 - **Spam check** (off until you turn it on): outside callers who aren't contacts are looked up
@@ -24,7 +25,7 @@ A fully open source, self-hosted business phone system. Bring your own SIP trunk
   and in call history. Calls are never blocked.
 - **Running it:** updates (`scripts/update.sh` for compose installs; a backup before every
   database change), backups and restore, background health checks, webhooks and API tokens,
-  two-step sign-in for admins, limits on outside calls at once.
+  two-step sign-in for admins, passkeys, limits on outside calls at once.
 
 ## Wanted
 
