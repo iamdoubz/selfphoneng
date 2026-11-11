@@ -38,6 +38,8 @@ export type UserDto = {
   signIn: SignInWays;
   /** Who sets the role (12 §1): the provider's label, "the directory", or null (set here). */
   roleFrom: string | null;
+  /** Where their photo is served (11 §8), or null: none. */
+  photo: string | null;
 };
 
 export type ListResponse<T> = { items: T[]; nextCursor: string | null };

@@ -578,6 +578,17 @@ create table contacts (
   notes         text
 );
 
+-- 11 §8: a user's or a builtin contact's photo. A new upload gets a new id (cached forever).
+create table photos (
+  id            uuid primary key default gen_random_uuid(),
+  user_id       uuid unique references users(id) on delete cascade,
+  contact_id    uuid unique references contacts(id) on delete cascade,
+  mime          text not null check (mime in ('image/jpeg', 'image/png', 'image/webp')),
+  data          bytea not null check (octet_length(data) <= 262144),
+  updated_at    timestamptz not null default now(),
+  check ((user_id is null) <> (contact_id is null))
+);
+
 create table sms_messages (
   id               uuid primary key default gen_random_uuid(),
   did_id           uuid not null references dids(id) on delete cascade,

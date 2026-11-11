@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// My settings (05 §4): call forwarding, do not disturb, voicemail PIN and email options, the call
+// My settings (05 §4): my photo (11 §8), call forwarding, do not disturb, voicemail PIN and email options, the call
 // report email, my Contrack account (11 §4.3), pairing the mobile app (13 §2).
 // Softphone devices and notifications live in the softphone panel. "Set up a phone app" (07 §5).
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { formatNumber, type CallReport, type MeDto, type MeUpdate } from '@selfphoneng/shared';
-import { meApi } from '../../api/client.ts';
+import {
+  formatNumber,
+  photoUrl,
+  type CallReport,
+  type MeDto,
+  type MeUpdate,
+} from '@selfphoneng/shared';
+import { meApi, photosApi } from '../../api/client.ts';
+import { useMe as useAuthUser } from '../../auth/RequireAuth.tsx';
+import { PhotoEditor } from '../../components/Avatar.tsx';
 import { PhoneAppSetup } from '../../components/PhoneAppSetup.tsx';
 import { SignInCard } from '../../components/SignInCard.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
@@ -51,9 +59,34 @@ export function MeSettingsPage() {
   return <SettingsForms me={me.data} />;
 }
 
+/** Shown on presence, in calls and next to my name in colleagues' lists. */
+function MyPhoto() {
+  const qc = useQueryClient();
+  const user = useAuthUser().data;
+  if (!user) return null;
+  const saved = (photo: string | null) => qc.setQueryData(['me'], { ...user, photo });
+  return (
+    <section aria-labelledby="photo-h" className="flex flex-col gap-3">
+      <h2 id="photo-h" className="text-lg font-semibold">
+        Photo
+      </h2>
+      <PhotoEditor
+        name={user.displayName}
+        photo={user.photo}
+        save={async (jpeg) => saved(photoUrl((await photosApi.setMine(jpeg)).id))}
+        remove={async () => {
+          await photosApi.removeMine();
+          saved(null);
+        }}
+      />
+    </section>
+  );
+}
+
 function SettingsForms({ me }: { me: MeDto }) {
   return (
     <div className="flex flex-col gap-8">
+      <MyPhoto />
       <section aria-labelledby="fwd-h" className="flex flex-col gap-3">
         <h2 id="fwd-h" className="text-lg font-semibold">
           Calls

@@ -13,11 +13,17 @@ const LOOK: Record<string, { color: string; label: string }> = {
   dnd: { color: 'bg-purple-500', label: 'Do not disturb' },
 };
 
-export function StatusDot({ ext }: { ext: ExtensionLive | undefined }) {
+export function StatusDot({
+  ext,
+  className = '',
+}: {
+  ext: ExtensionLive | undefined;
+  className?: string;
+}) {
   const key = !ext ? 'unavailable' : ext.dnd && ext.state === 'idle' ? 'dnd' : ext.state;
   const { color, label } = LOOK[key] ?? LOOK.unavailable!;
   return (
-    <span className="inline-flex items-center" title={label}>
+    <span className={`inline-flex items-center rounded-full ${className}`} title={label}>
       <span aria-hidden className={`inline-block size-2.5 rounded-full ${color}`} />
       <span className="sr-only">{label}</span>
     </span>

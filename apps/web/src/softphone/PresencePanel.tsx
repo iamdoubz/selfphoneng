@@ -5,6 +5,7 @@ import { useState } from 'react';
 import type { ExtensionLive } from '@selfphoneng/shared';
 import { meApi } from '../api/client.ts';
 import { StatusDot, statusLabel } from '../components/StatusDot.tsx';
+import { Avatar } from '../components/Avatar.tsx';
 import { Button, inputClass } from '../components/ui.tsx';
 import { useLive } from '../live/store.ts';
 import { useSoftphone } from './useSoftphone.ts';
@@ -72,7 +73,10 @@ export function PresencePanel({ me }: { me: string | null }) {
               if (id) run(softphone.blindTransfer(id, e.number));
             }}
           >
-            <StatusDot ext={e} />
+            <span className="relative shrink-0">
+              <Avatar name={e.name} photo={e.photo} />
+              <StatusDot ext={e} className="absolute -right-0.5 -bottom-0.5 ring-2 ring-surface" />
+            </span>
             <span className="min-w-0 flex-1 truncate text-sm">
               <span className="font-medium">{e.name}</span>{' '}
               <span className="text-muted">

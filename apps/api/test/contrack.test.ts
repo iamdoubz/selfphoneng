@@ -29,7 +29,11 @@ type Slim = {
   company: string | null;
   emails: { email: string }[];
   phones: { phone: string }[];
+  avatarUrl?: string | null;
 };
+/** Where the fake keeps Jane's uploaded photo (11 §8): Dan's token only. */
+const JANE_PHOTO = '/uploads/u/0b9c1d7e-1111-4222-8333-444455556666/avatars/jane.jpg';
+const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3]);
 
 /** Contrack's slim rows, one private book per token (11 §4.1). */
 function fakeContrack() {
@@ -41,6 +45,7 @@ function fakeContrack() {
         company: null,
         emails: [],
         phones: [{ phone: '+1 312 555 7777' }],
+        avatarUrl: '/api/avatar/avataaars?seed=Plumber', // generated: not shown
       },
     ],
     ctk_dan_0001: [
@@ -50,6 +55,7 @@ function fakeContrack() {
         company: 'Acme',
         emails: [{ email: 'jane@acme.example' }],
         phones: [{ phone: '(312) 555-1234' }, { phone: 'ask reception' }],
+        avatarUrl: JANE_PHOTO,
       },
     ],
     ctk_sue_0001: [],
@@ -108,6 +114,11 @@ function fakeContrack() {
       return;
     }
     if (req.method === 'GET' && req.url === '/api/contacts?view=slim') return send(200, book);
+    if (req.method === 'GET' && req.url === JANE_PHOTO) {
+      if (token !== 'ctk_dan_0001') return send(404, { error: { code: 'NOT_FOUND' } });
+      res.writeHead(200, { 'content-type': 'image/jpeg' });
+      return res.end(JPEG);
+    }
     if (req.method === 'POST' && req.url === '/api/contacts') {
       let raw = '';
       req.on('data', (c) => (raw += c));
@@ -254,9 +265,17 @@ describe.skipIf(!hasTestDb)('contacts in Contrack', () => {
         numbers: [{ label: '', number: '13125551234' }], // "ask reception" isn't a number
         notes: null,
         url: 'https://contacts.example.com/contact/jane-doe-00000001',
+        photo: `/api/photos/contrack/mine?p=${encodeURIComponent(JANE_PHOTO)}`,
       },
-      expect.objectContaining({ name: 'Plumber', book: 'company' }),
+      expect.objectContaining({ name: 'Plumber', book: 'company', photo: null }),
     ]);
+    // The photo comes through with Dan's token; the company's can't open it.
+    const img = await dan('GET', book.items[0].photo);
+    expect(img.statusCode).toBe(200);
+    expect(img.rawPayload.equals(JPEG)).toBe(true);
+    const p = encodeURIComponent(JANE_PHOTO);
+    expect((await dan('GET', `/api/photos/contrack/company?p=${p}`)).statusCode).toBe(404);
+    expect((await dan('GET', '/api/photos/contrack/mine?p=%2Fapi%2Fadmin')).statusCode).toBe(400);
   });
 
   it('adding works, editing and importing happen in Contrack', async () => {

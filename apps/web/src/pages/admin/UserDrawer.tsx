@@ -11,12 +11,14 @@ import {
   OUTBOUND_CLASSES,
   formatNumber,
   InternalNumber,
+  photoUrl,
   RoleSchema,
   type ExtensionDto,
   type SipCredentials,
   type UserDto,
 } from '@selfphoneng/shared';
-import { didsApi, extensionsApi, usersApi } from '../../api/client.ts';
+import { didsApi, extensionsApi, photosApi, usersApi } from '../../api/client.ts';
+import { PhotoEditor } from '../../components/Avatar.tsx';
 import { CLASS_LABEL } from './OutboundPage.tsx';
 import { Dialog } from '../../components/Dialog.tsx';
 import { MohOptions } from '../../components/MohOptions.tsx';
@@ -182,6 +184,7 @@ function GeneralTab({
   return (
     <form id="user-general-form" onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
       {error && <Alert>{error}</Alert>}
+      {user && <UserPhoto user={user} />}
       <Field label="Name" error={errors.displayName?.message}>
         {(a) => <input {...a} {...form.register('displayName')} className={inputClass} />}
       </Field>
@@ -655,5 +658,27 @@ function ResetTwoStep({ user }: { user: UserDto }) {
       </p>
       {reset.error && <Alert>{reset.error.message}</Alert>}
     </div>
+  );
+}
+
+/** Their photo (11 §8): on presence, in calls and in contacts' lists. */
+function UserPhoto({ user }: { user: UserDto }) {
+  const qc = useQueryClient();
+  const [photo, setPhoto] = useState(user.photo);
+  const saved = async (url: string | null) => {
+    setPhoto(url);
+    await qc.invalidateQueries({ queryKey: ['users'] });
+    await qc.invalidateQueries({ queryKey: ['me'] });
+  };
+  return (
+    <PhotoEditor
+      name={user.displayName}
+      photo={photo}
+      save={async (jpeg) => saved(photoUrl((await photosApi.setUser(user.id, jpeg)).id))}
+      remove={async () => {
+        await photosApi.removeUser(user.id);
+        await saved(null);
+      }}
+    />
   );
 }

@@ -14,7 +14,7 @@ import {
   type OutboundRouteDto,
   type RouteTestResult,
 } from '@selfphoneng/shared';
-import { didsApi, extensionsApi, routesApi, trunksApi } from '../../api/client.ts';
+import { didsApi, extensionsApi, routesApi, settingsApi, trunksApi } from '../../api/client.ts';
 import { ConfirmDialog, Dialog } from '../../components/Dialog.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 
@@ -118,6 +118,7 @@ export function OutboundPage() {
           ))}
         </ol>
       )}
+      <PrefixBox />
       <TestBox />
 
       {editing && trunks.data && (
@@ -147,6 +148,60 @@ export function OutboundPage() {
         onConfirm={() => deleting && remove.mutate(deleting.id)}
       />
     </section>
+  );
+}
+
+/** calls.outsidePrefix: 9 then the number dials out, on top of every rule's own patterns. */
+function PrefixBox() {
+  const qc = useQueryClient();
+  const settings = useQuery({ queryKey: ['settings'], queryFn: settingsApi.get });
+  const [value, setValue] = useState<string>();
+  const save = useMutation({
+    mutationFn: (p: string) => settingsApi.patch({ 'calls.outsidePrefix': p }),
+    onSuccess: (s) => {
+      qc.setQueryData(['settings'], s);
+      setValue(undefined);
+    },
+  });
+  if (!settings.data) return null;
+  const prefix = value ?? settings.data['calls.outsidePrefix'];
+  return (
+    <form
+      className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4 shadow-sm"
+      onSubmit={(e) => {
+        e.preventDefault();
+        save.mutate(prefix);
+      }}
+    >
+      <h2 className="font-medium">Outside line prefix</h2>
+      <p className="-mt-2 max-w-prose text-xs text-muted">
+        People can dial this before any outside number, like 9 then 3125550000. Dialing the number
+        on its own still works. Leave it empty to turn it off.
+      </p>
+      <div className="flex flex-wrap items-end gap-2">
+        <Field label="Prefix">
+          {(a) => (
+            <input
+              {...a}
+              value={prefix}
+              onChange={(e) => setValue(e.target.value.replace(/\D/g, '').slice(0, 2))}
+              inputMode="numeric"
+              placeholder="none"
+              className={`${inputClass} w-20 font-mono`}
+            />
+          )}
+        </Field>
+        <Button type="submit" disabled={save.isPending || value === undefined}>
+          Save
+        </Button>
+        {save.isSuccess && value === undefined && (
+          <span role="status" className="text-sm text-muted">
+            Saved
+          </span>
+        )}
+      </div>
+      {save.isError && <Alert>{save.error.message}</Alert>}
+    </form>
   );
 }
 
@@ -319,7 +374,7 @@ function RouteDrawer({
                 aria-label={`Pattern ${i + 1}`}
                 placeholder="NXXNXXXXXX"
                 aria-invalid={Boolean(errors.patterns?.[i]?.match)}
-                className={`${inputClass} flex-1 font-mono`}
+                className={`${inputClass} min-w-0 flex-1 font-mono`}
               />
               <input
                 {...form.register(`patterns.${i}.strip`, { valueAsNumber: true })}
@@ -362,7 +417,7 @@ function RouteDrawer({
             <select {...a} {...form.register('requiredClass')} className={inputClass}>
               {OUTBOUND_CLASSES.map((c) => (
                 <option key={c} value={c}>
-                  {CLASS_LABEL[c]}
+                  {c === 'internal' ? 'Everyone (even internal-only users)' : CLASS_LABEL[c]}
                 </option>
               ))}
             </select>

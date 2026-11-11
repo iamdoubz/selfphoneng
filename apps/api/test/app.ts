@@ -52,6 +52,8 @@ export function fakeAmi() {
 
 export const ADMIN = { email: 'admin@example.com', password: 'initial-admin-pw' };
 export const H = { 'x-requested-with': 'selfphoneng' };
+/** The test app's index.html; its og:image is relative, like the real one. */
+export const SPA_PAGE = '<h1>spa</h1><meta property="og:image" content="/social.png" />';
 
 export async function createTestApp(
   extend?: (app: ReturnType<typeof buildApp>) => void,
@@ -75,7 +77,7 @@ export async function createTestApp(
   });
   setSecretKey(config.APP_SECRET);
   const pub = mkdtempSync(join(tmpdir(), 'sp-public-'));
-  writeFileSync(join(pub, 'index.html'), '<h1>spa</h1>');
+  writeFileSync(join(pub, 'index.html'), SPA_PAGE);
   const app = buildApp(config, t.db, pub);
   const ami = fakeAmi();
   const genDir = mkdtempSync(join(tmpdir(), 'sp-gen-'));

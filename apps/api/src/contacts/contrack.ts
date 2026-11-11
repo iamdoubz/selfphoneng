@@ -4,7 +4,13 @@
 // for 5 minutes, so name lookups don't wait on it.
 import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { normalizeNumber, type ContactData, type ContactDto } from '@selfphoneng/shared';
+import {
+  normalizeNumber,
+  photoType,
+  type ContactData,
+  type ContactDto,
+  type PhotoType,
+} from '@selfphoneng/shared';
 import { AiError, assertLocalUrl } from '../ai/client.ts';
 import { decrypt } from '../crypto/secrets.ts';
 import type { Db } from '../db/client.ts';
@@ -66,7 +72,12 @@ type Slim = {
   company: string | null;
   emails: { email: string }[];
   phones: { phone: string }[];
+  /** A generated face (/api/avatar/…) or an uploaded photo (/uploads/u/<owner>/avatars/…). */
+  avatarUrl?: string | null;
 };
+
+/** Uploaded photos only (11 §8): a generated cartoon face says less than initials. */
+export const CONTRACK_PHOTO = /^\/uploads\/u\/[0-9a-f-]{36}\/avatars\/[\w.-]+$/;
 
 export type Contrack = { url: string; publicUrl: string | null; companyToken: string | null };
 
@@ -110,8 +121,34 @@ const toDto = (c: Contrack, s: Slim, book: ContactDto['book']): ContactDto => {
     numbers,
     notes: null,
     url: c.publicUrl ? `${c.publicUrl}/contact/${encodeURIComponent(s.id)}` : null,
+    photo:
+      s.avatarUrl && CONTRACK_PHOTO.test(s.avatarUrl)
+        ? `/api/photos/contrack/${book}?p=${encodeURIComponent(s.avatarUrl)}`
+        : null,
   };
 };
+
+/** A photo Contrack keeps (path matches CONTRACK_PHOTO), with the book's token. Null: can't. */
+export async function contrackPhoto(
+  db: Db,
+  c: Contrack,
+  owner: string | null,
+  path: string,
+): Promise<{ mime: PhotoType; data: Buffer } | null> {
+  const token = await tokenFor(db, c, owner);
+  if (!token || !CONTRACK_PHOTO.test(path)) return null;
+  assertLocalUrl(c.url);
+  const r = await fetch(new URL(path.slice(1), c.url.endsWith('/') ? c.url : `${c.url}/`), {
+    headers: { Authorization: `Bearer ${token}` },
+    redirect: 'error',
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  // Contrack makes them 256 px JPEGs; 2 MB is far past that, and as much as we'll pass on.
+  if (!r?.ok || Number(r.headers.get('content-length') ?? 0) > 2_000_000) return null;
+  const data = Buffer.from(await r.arrayBuffer());
+  const mime = data.length <= 2_000_000 ? photoType(data) : null;
+  return mime ? { mime, data } : null;
+}
 
 type Book = { contacts: ContactDto[]; at: number; error: string | null };
 /** By owner: a user id, or '' for the company account. Keyed by token too, so a new one refetches. */

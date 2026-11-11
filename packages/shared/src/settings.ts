@@ -153,6 +153,12 @@ export const SettingsSchemas = {
   // Toll fraud (08 §1): outside calls going out at once, per extension and in total. 0 = no limit.
   'calls.maxPerExtension': z.number().int().min(0).max(100).default(3),
   'calls.maxTotal': z.number().int().min(0).max(1000).default(10),
+  // Outside-line prefix (05 §2): 9 + an outside number dials that number. '' = off. coerce:
+  // drizzle JSON.parses a jsonb string again on read, so a stored "9" comes back as 9.
+  'calls.outsidePrefix': z.coerce
+    .string()
+    .regex(/^[0-9]{0,2}$/, 'At most 2 digits')
+    .default('9'),
   // Fraud alerts (08 §8.3): emails to admins.
   'alerts.riskyCalls': z.boolean().default(true),
   'alerts.providerCalls': z.boolean().default(true),

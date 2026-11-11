@@ -6,6 +6,7 @@ import type { UserDto } from '@selfphoneng/shared';
 import { usersApi } from '../../api/client.ts';
 import { ConfirmDialog, Dialog } from '../../components/Dialog.tsx';
 import { Alert, Button } from '../../components/ui.tsx';
+import { Avatar } from '../../components/Avatar.tsx';
 import { UserDrawer } from './UserDrawer.tsx';
 import { StatusDot } from '../../components/StatusDot.tsx';
 import { useLive } from '../../live/store.ts';
@@ -173,7 +174,8 @@ function UsersTable({
         {users.map((u) => (
           <li key={u.id} className="rounded-xl border border-line bg-surface shadow-sm p-3">
             <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
+              <Avatar name={u.displayName} photo={u.photo} />
+              <div className="min-w-0 flex-1">
                 <p className="font-medium">
                   {u.displayName}
                   {u.extension && <span className="ml-2 text-sm text-muted">{ext(u)}</span>}
@@ -209,7 +211,12 @@ function UsersTable({
           {users.map((u) => (
             <tr key={u.id} className="border-b border-line">
               <td className="py-2">{ext(u)}</td>
-              <td className="py-2 font-medium">{u.displayName}</td>
+              <td className="py-2 font-medium">
+                <span className="flex items-center gap-2">
+                  <Avatar name={u.displayName} photo={u.photo} size="sm" />
+                  {u.displayName}
+                </span>
+              </td>
               <td className="py-2">{u.email}</td>
               <td className="py-2">{badge(u)}</td>
               <td className="py-2">{ways(u)}</td>

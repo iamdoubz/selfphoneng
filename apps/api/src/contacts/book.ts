@@ -2,9 +2,10 @@
 // Address books (11 §2): a user's (owner = their id) and the company's (owner null), kept in the
 // `contacts` table (builtin) or in Contrack (contacts.provider = 'contrack', 11 §4). Every caller
 // goes through these functions and doesn't care which.
-import { asc, eq, isNull, or, sql } from 'drizzle-orm';
+import { asc, eq, getTableColumns, isNull, or, sql } from 'drizzle-orm';
 import {
   normalizeNumber,
+  photoUrl,
   type ContactBookDto,
   type ContactCopyResult,
   type ContactData,
@@ -12,7 +13,7 @@ import {
   type ContactImportResult,
 } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
-import { contacts } from '../db/schema.ts';
+import { contacts, photos } from '../db/schema.ts';
 import { HttpError, badRequest } from '../errors.ts';
 import {
   ContrackError,
@@ -30,7 +31,8 @@ const inBook = (owner: Owner) =>
   owner ? eq(contacts.ownerUserId, owner) : isNull(contacts.ownerUserId);
 
 type Row = typeof contacts.$inferSelect;
-export const toDto = (r: Row): ContactDto => ({
+/** `photoId` when the query joined photos; without it the DTO says "no photo". */
+export const toDto = (r: Row & { photoId?: string | null }): ContactDto => ({
   id: r.id,
   book: r.ownerUserId ? 'mine' : 'company',
   name: r.name,
@@ -39,7 +41,15 @@ export const toDto = (r: Row): ContactDto => ({
   numbers: r.numbers as ContactData['numbers'],
   notes: r.notes,
   url: null,
+  photo: photoUrl(r.photoId),
 });
+
+/** Contacts with their photo's id, for toDto. */
+export const selectWithPhoto = (db: Db) =>
+  db
+    .select({ ...getTableColumns(contacts), photoId: photos.id })
+    .from(contacts)
+    .leftJoin(photos, eq(photos.contactId, contacts.id));
 
 /** Contrack's errors as API answers (409 for "connect first", 502 for Contrack itself). */
 const asHttp = (err: unknown): never => {
@@ -82,9 +92,7 @@ async function contrackList(db: Db, c: Contrack, owner: Owner) {
 export async function readBooks(db: Db, userId: string | null): Promise<ContactBookDto> {
   const c = await contrackSettings(db);
   if (!c) {
-    const rows = await db
-      .select()
-      .from(contacts)
+    const rows = await selectWithPhoto(db)
       .where(
         userId
           ? or(eq(contacts.ownerUserId, userId), isNull(contacts.ownerUserId))

@@ -20,6 +20,7 @@ import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 import { useLive } from '../../live/store.ts';
 import { fmtNumber } from './CallsPage.tsx';
 import { available, since, useNow } from './DashboardPage.tsx';
+import { NumberAvatar } from '../user/ContactsPage.tsx';
 
 const STRATEGY_LABEL: Record<(typeof QUEUE_STRATEGIES)[number], string> = {
   rrmemory: 'Take turns (round robin)',
@@ -266,6 +267,7 @@ function QueueDetail({ id }: { id: string }) {
                   className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm"
                 >
                   <span className="w-12 font-mono">{e?.number}</span>
+                  <NumberAvatar number={e?.number} name={e?.name ?? ''} size="sm" />
                   <span className="min-w-0 flex-1 truncate">{e?.name}</span>
                   <span className="text-muted">
                     {paused

@@ -19,6 +19,7 @@ import {
   type TotpSetup,
   type TotpStatus,
 } from '@selfphoneng/shared';
+import { photoUrl } from '@selfphoneng/shared';
 import QRCode from 'qrcode';
 import { decrypt, encrypt } from '../crypto/secrets.ts';
 import {
@@ -37,6 +38,7 @@ import {
 } from '../auth/passkeys.ts';
 import type { Db } from '../db/client.ts';
 import { extensions, passkeys, sessions, userIdentities, users } from '../db/schema.ts';
+import { photoIdOf } from './photos.ts';
 import { endSessionUrl, oidcError } from '../sso/oidc.ts';
 import { directorySignIn, directoryWarning } from '../sso/directory.ts';
 import { ldapAuthenticate } from '../sso/ldap.ts';
@@ -102,6 +104,7 @@ export async function toAuthUser(db: Db, u: CurrentUser): Promise<AuthUser> {
     mustChangePassword: u.mustChangePassword,
     extension: ext ?? null,
     signIn: signInWays(u, ids),
+    photo: photoUrl(await photoIdOf(db, u.id)),
   };
 }
 

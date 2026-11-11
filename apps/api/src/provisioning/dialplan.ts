@@ -3,10 +3,11 @@
 // send them at once instead of waiting for # or a timeout. Made from what is dialable: 911/9911,
 // the enabled outbound routes, the lengths internal numbers use, and * codes.
 import { eq } from 'drizzle-orm';
-import type { RoutePattern } from '@selfphoneng/shared';
+import { withOutsidePrefix, type RoutePattern } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
 import { outboundRoutes } from '../db/schema.ts';
 import { internalNumberLengths } from '../services/numbering.ts';
+import { getSetting } from '../services/settings.ts';
 
 /** One rule: the characters allowed at each position; `more` = one or more digits follow (x+). */
 export type DialRule = { pos: string[]; more: boolean };
@@ -98,14 +99,18 @@ export const ruleText = (r: DialRule) => r.pos.map(set).join('') + (r.more ? 'x+
 /** Grandstream's Dial Plan: `{ 911 | 9911 | [2-9]xx[2-9]xxxxxx | … }`. */
 export const grandstreamDialPlan = (rules: DialRule[]) => `{ ${rules.map(ruleText).join(' | ')} }`;
 
-/** The rules for this install (enabled outbound routes, internal number lengths). */
+/** The rules for this install: enabled outbound routes, with and without the outside-line
+ * prefix, and internal number lengths. */
 export async function loadDialRules(db: Db): Promise<DialRule[]> {
   const routes = await db
     .select({ patterns: outboundRoutes.patterns })
     .from(outboundRoutes)
     .where(eq(outboundRoutes.enabled, true));
+  const prefix = await getSetting(db, 'calls.outsidePrefix');
   return dialRules(
-    routes.flatMap((r) => (r.patterns as RoutePattern[]).map((p) => p.match)),
+    routes.flatMap((r) =>
+      withOutsidePrefix(r.patterns as RoutePattern[], prefix).map((p) => p.match),
+    ),
     await internalNumberLengths(db),
   );
 }

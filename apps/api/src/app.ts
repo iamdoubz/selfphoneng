@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import Fastify from 'fastify';
 import fastifyCookie from '@fastify/cookie';
 import fastifyRateLimit from '@fastify/rate-limit';
@@ -43,6 +43,7 @@ import { integrationRoutes } from './routes/integrations.ts';
 import { reportRoutes } from './routes/reports.ts';
 import { aboutRoutes } from './routes/about.ts';
 import { contactRoutes } from './routes/contacts.ts';
+import { photoRoutes } from './routes/photos.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -162,6 +163,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.register(meRoutes);
   app.register(mobileRoutes);
   app.register(contactRoutes);
+  app.register(photoRoutes);
   app.register(soundRoutes);
   app.register(ringGroupRoutes);
   app.register(queueRoutes);
@@ -181,15 +183,26 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.register(reportRoutes);
   app.register(aboutRoutes);
 
+  // The page, read once: link previews need og:image as a full URL, and only the api knows this
+  // install's hostname. So "/", /index.html and every app route get this copy, not the file.
+  const indexFile = join(publicDir, 'index.html');
+  const page = existsSync(indexFile)
+    ? readFileSync(indexFile, 'utf8').replaceAll(
+        'content="/social.png"',
+        `content="https://${config.PUBLIC_HOSTNAME}/social.png"`,
+      )
+    : null;
   // Always registered: reply.sendFile also streams voicemail audio (with Range) from the spool.
   app.register(fastifyStatic, {
     root: publicDir,
     serve: existsSync(publicDir),
     wildcard: false,
+    index: false,
+    allowedPath: (path) => path !== '/index.html',
   });
   app.setNotFoundHandler((req, reply) => {
-    if (existsSync(publicDir) && req.method === 'GET' && !NON_SPA.test(req.url))
-      return reply.sendFile('index.html');
+    if (page !== null && req.method === 'GET' && !NON_SPA.test(req.url))
+      return reply.type('text/html; charset=utf-8').header('Cache-Control', 'no-cache').send(page);
     return sendError(reply, notFound());
   });
   return app;

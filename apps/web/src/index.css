@@ -64,3 +64,12 @@
     font-size: 16px;
   }
 }
+
+/* inputClass's default width. In the components layer so a width utility on the same field
+   (w-16, max-w-32) wins: Tailwind emits .w-full after .w-16, so with both, w-full won and the
+   outbound rule's strip and prepend boxes squeezed the pattern box to nothing. */
+@layer components {
+  .sp-input {
+    width: 100%;
+  }
+}

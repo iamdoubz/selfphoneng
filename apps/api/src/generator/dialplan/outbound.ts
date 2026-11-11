@@ -2,7 +2,7 @@
 // Outbound routes (03 §6.12). Asterisk orders patterns inside one context by how specific they
 // are, not by file order, so each route gets its own context and sp-outbound-routes includes
 // them in position order: an include is only searched after the ones before it.
-import { CLASS_RANK } from '@selfphoneng/shared';
+import { CLASS_RANK, withOutsidePrefix } from '@selfphoneng/shared';
 import type { Snapshot } from '../load.ts';
 import * as s from '../sanitize.ts';
 
@@ -14,6 +14,7 @@ export function renderOutbound(snap: Snapshot): string {
 
   const perExt = snap.settings['calls.maxPerExtension'];
   const total = snap.settings['calls.maxTotal'];
+  const prefix = snap.settings['calls.outsidePrefix'];
   // Outside calls at once (08 §1): per extension (the caller, or whose forward this is) and in
   // total. A call with no extension (an admin's external destination) only counts in the total.
   const limits = [
@@ -42,7 +43,7 @@ export function renderOutbound(snap: Snapshot): string {
 
     const seen = new Set<string>();
     const pat = [`[sp-or-${id}]`];
-    for (const p of r.patterns) {
+    for (const p of withOutsidePrefix(r.patterns, prefix)) {
       const match = s.pattern(p.match);
       if (seen.has(match)) continue; // a duplicate would be a load error
       seen.add(match);

@@ -26,6 +26,7 @@ import {
   copyToContrack,
   createContact,
   readBooks,
+  selectWithPhoto,
   toDto,
   type Owner,
 } from '../contacts/book.ts';
@@ -113,12 +114,12 @@ export async function contactRoutes(app: FastifyInstance) {
       await assertBuiltin(db);
       await mine(req.user!, id);
       const c = ContactInputSchema.parse(req.body);
-      const [row] = await db
+      await db
         .update(contacts)
         .set({ ...c, numbers: cleanNumbers(c), updatedAt: new Date() })
-        .where(eq(contacts.id, id))
-        .returning();
+        .where(eq(contacts.id, id));
       await log(req, 'update', id, `Changed the company contact ${c.name}`);
+      const [row] = await selectWithPhoto(db).where(eq(contacts.id, id));
       return toDto(row!);
     });
 

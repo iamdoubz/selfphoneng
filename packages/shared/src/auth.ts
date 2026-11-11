@@ -37,6 +37,8 @@ export type AuthUser = {
   mustChangePassword: boolean;
   extension: { id: string; number: string; name: string } | null;
   signIn: SignInWays;
+  /** My photo (11 §8), or null. */
+  photo: string | null;
 };
 
 /** The ways a user can sign in (12 §2): their password, a connected OpenID account, the directory. */

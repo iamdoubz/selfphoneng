@@ -10,6 +10,7 @@ import { ConfirmDialog } from '../../components/Dialog.tsx';
 import { Alert, Button, inputClass } from '../../components/ui.tsx';
 import { fmtNumber } from './CallsPage.tsx';
 import { StatusDot, statusLabel } from '../../components/StatusDot.tsx';
+import { Avatar } from '../../components/Avatar.tsx';
 import { useLive } from '../../live/store.ts';
 import { ParkedCalls } from '../../components/ParkedCalls.tsx';
 
@@ -92,6 +93,7 @@ export function DashboardPage() {
               <li key={e.number} className="flex items-center gap-3 px-3 py-2 text-sm">
                 <StatusDot ext={e} />
                 <span className="w-14 font-mono">{e.number}</span>
+                <Avatar name={e.name} photo={e.photo} size="sm" />
                 <span className="flex-1 truncate">{e.name}</span>
                 <span className="text-muted">{statusLabel(e)}</span>
                 {e.contacts && (

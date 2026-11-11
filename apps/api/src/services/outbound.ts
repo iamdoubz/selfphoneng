@@ -8,6 +8,7 @@ import {
   patternRegex,
   type RoutePattern,
   type RouteTestResult,
+  withOutsidePrefix,
 } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
 import { dids, extensions, outboundRoutes, trunks } from '../db/schema.ts';
@@ -74,8 +75,11 @@ export async function testRoute(
     .from(outboundRoutes)
     .where(eq(outboundRoutes.enabled, true))
     .orderBy(asc(outboundRoutes.position), asc(outboundRoutes.id));
+  const prefix = await getSetting(db, 'calls.outsidePrefix');
   for (const r of routes) {
-    const p = (r.patterns as RoutePattern[]).find((x) => patternRegex(x.match).test(n));
+    const p = withOutsidePrefix(r.patterns as RoutePattern[], prefix).find((x) =>
+      patternRegex(x.match).test(n),
+    );
     if (!p) continue;
     if (CLASS_RANK[ext.outboundClass] < CLASS_RANK[r.requiredClass])
       return {

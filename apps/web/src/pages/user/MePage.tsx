@@ -22,6 +22,7 @@ import { Link, NavLink, Route, Routes, useNavigate } from 'react-router';
 import type { AuthUser } from '@selfphoneng/shared';
 import { meApi, signOut } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
+import { Avatar } from '../../components/Avatar.tsx';
 import { Alert, Brand, Button, Panel, inputClass } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
 import { SoftphoneDock } from '../../softphone/SoftphoneDock.tsx';
@@ -31,7 +32,7 @@ import { MyCallsPage, otherParty, useCallBack } from './MyCallsPage.tsx';
 import { fmtNumber } from '../admin/CallsPage.tsx';
 import { ParkedCalls } from '../../components/ParkedCalls.tsx';
 import { DndSwitch, MeSettingsPage, showTarget, useMe } from './MeSettingsPage.tsx';
-import { ContactsPage, useContactName, useContactShares } from './ContactsPage.tsx';
+import { ContactsPage, NumberAvatar, useContactName, useContactShares } from './ContactsPage.tsx';
 import { ReportsPage } from '../admin/ReportsPage.tsx';
 
 const link = 'text-link underline';
@@ -239,7 +240,10 @@ function Row({
 function Home({ user }: { user: AuthUser }) {
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-2xl font-semibold">Hi {user.displayName}</p>
+      <p className="flex items-center gap-3 text-2xl font-semibold">
+        <Avatar name={user.displayName} photo={user.photo} size="lg" />
+        Hi {user.displayName}
+      </p>
       <SharedNotice />
       {user.extension && <StatusCard ext={user.extension.number} />}
       <div className="grid gap-4 md:grid-cols-2">
@@ -281,7 +285,12 @@ function NewVoicemails() {
           {fresh.slice(0, 5).map((m) => (
             <Row
               key={m.id}
-              icon={<Voicemail className="size-4 text-link" />}
+              icon={
+                <NumberAvatar
+                  number={m.callerNumber}
+                  name={nameOf(m.callerNumber) ?? callerOf(m)}
+                />
+              }
               title={nameOf(m.callerNumber) ?? callerOf(m)}
               detail={`${when(m.receivedAt)} · ${mmss(m.durationS)}`}
             />

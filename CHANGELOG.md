@@ -5,6 +5,27 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
+## v0.0.15 — 2026-11-11
+
+**Before you update:** this version changes the database (photos); the api backs up first, by
+itself. Portainer: change both tags to `0.0.15` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.15`.
+
+- **Photos:** people and contacts can have a small photo, shown on People, the call card and the
+  ringing screen, contacts, voicemail, parked calls, the dashboard, the wallboard and queues (not
+  in call history). Add yours under **My settings** → **Photo**; admins set anyone's on **Users**,
+  and contacts get theirs in the contact drawer. The browser shrinks a picture to a 256 px JPEG;
+  the server takes 256 KB at most, JPEG, PNG or WebP only. In Contrack mode the photos uploaded in
+  Contrack show up here.
+- **Dial 9 for an outside line:** **Outbound rules** → **Outside line prefix**, `9` by default:
+  9 then a number goes out like the number alone, which still works too. Empty turns it off.
+  Desk phones learn it the next time they fetch their settings.
+- **Fixed:** the Pattern box on an outbound rule was squeezed to nothing by Strip and Prepend
+  (and other small boxes, such as Settings' number fields, were full width).
+- **Outbound rules:** the lowest "Who may use it" now reads **Everyone (even internal-only
+  users)**. Calls to your own extensions never use these rules or a trunk.
+- **Link previews:** a link to your phone system shows its name and a picture in chat apps.
+
 ## v0.0.14 — 2026-11-10
 
 **Before you update:** this version changes the database (passkeys, a new phone make, agent

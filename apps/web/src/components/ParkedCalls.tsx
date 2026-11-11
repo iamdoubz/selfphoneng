@@ -3,6 +3,7 @@
 import { useLive } from '../live/store.ts';
 import { fmtNumber } from '../pages/admin/CallsPage.tsx';
 import { since, useNow } from '../pages/admin/DashboardPage.tsx';
+import { NumberAvatar } from '../pages/user/ContactsPage.tsx';
 
 export function ParkedCalls({ onPickUp }: { onPickUp?: (slot: string) => void }) {
   const parked = Object.values(useLive((s) => s.parked)).sort((a, b) =>
@@ -29,6 +30,7 @@ export function ParkedCalls({ onPickUp }: { onPickUp?: (slot: string) => void })
               className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm"
             >
               <span className="w-10 font-mono font-semibold">{p.slot}</span>
+              <NumberAvatar number={p.callerNumber} name={p.callerName ?? ''} size="sm" />
               <span className="min-w-0 flex-1 truncate">
                 {p.callerName ? `${p.callerName} ` : ''}
                 <span className="text-muted">{fmtNumber(p.callerNumber)}</span>

@@ -345,3 +345,35 @@ server built from the pinned `openapi.json`; one e2e script against a real Contr
   recipient accepts (it goes into their own book) or denies (nothing is added). An import or an
   accepted share skips contacts already in the book (§2.1, §3.1).
 - Owner, 2026-10-23: admins and users can import .vcf files (§3.1).
+
+## 8. Photos (owner, 2026-11-11)
+
+People and contacts can have a small photo, shown wherever a person or a number is (contacts,
+users, People/presence, the call card and the ringing screen, voicemail, parked calls, the
+dashboard, the wallboard, queue agents, the header and Home), but **not in call history**. A
+number with no photo shows its name's initials. The mobile app wants them too (13 §6).
+
+- **Who sets them:** everyone their own (My settings → Photo), admins anyone's (Users → General),
+  users their own book's contacts, admins the company book's (the contact drawer, builtin mode
+  only, once the contact is saved). Admin changes go in the audit log.
+- **Storage:** the `photos` table (02), one row per user or builtin contact, deleted with it. In
+  Postgres rather than files: they are small, the nightly backup has them, nothing to clean up.
+  Each upload gets a **new id**, so `GET /api/photos/:id` is `Cache-Control: private, immutable`.
+  Anyone signed in sees people's photos (presence already shows everyone); a contact's photo only
+  its book's readers.
+- **Limits:** the browser crops a picked picture to the middle and makes it a 256 px JPEG
+  (`shrinkPhoto`, canvas, no library) before upload, usually 10–40 KB. The server reads at most
+  **256 KB** (`PHOTO_MAX_BYTES`, Fastify `bodyLimit`: 413), parses only `image/jpeg`, `image/png`
+  and `image/webp` bodies (others 415) and checks the first bytes too (400), never trusting the
+  header or a file name. SVG is never accepted: it can carry scripts. The table's checks repeat
+  the type and size limits.
+- **Contrack:** Contrack 2.0.2 has contact photos (`avatarUrl` in `api/contacts?view=slim`; upload
+  `POST /api/contacts/{id}/avatar`, JPEG/PNG/GIF/WebP/AVIF up to 10 MB, kept as a 256 px JPEG).
+  Only uploaded ones are shown (`/uploads/u/<owner>/avatars/<file>`), not the cartoon face it
+  generates for everyone. Contrack serves them only to that owner's token, so
+  `GET /api/photos/contrack/{mine|company}?p=<path>` fetches one with the book's token (at most
+  2 MB, JPEG/PNG/WebP by its first bytes). Photos are added in Contrack, like every other change.
+- **Where photos come from in the page:** `ContactDto.photo`, `UserDto.photo`, `AuthUser.photo`,
+  and `ExtensionLive.photo` (the extension's user's), so presence updates when someone changes
+  theirs. `NumberAvatar` looks a number up: the extension's person, then my contacts, then the
+  company's.

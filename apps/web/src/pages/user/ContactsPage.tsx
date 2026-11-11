@@ -1,18 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Contacts (spec 11): my book with the company's (read-only) at /me/contacts, the company's at
 // /admin/contacts. Add, edit, import (.vcf, .csv), share (an offer the colleague accepts or
-// denies), click to call. useContactName() gives every page names for numbers.
+// denies), click to call. useContactName() gives every page names for numbers, NumberAvatar
+// their photos (11 §8).
 import { X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ComponentProps } from 'react';
 import {
   formatNumber,
   normalizeNumber,
+  photoUrl,
   type ContactDto,
   type ContactImportResult,
   type ContactInput,
 } from '@selfphoneng/shared';
-import { contactsApi, type ContactBase } from '../../api/client.ts';
+import { contactsApi, photosApi, type ContactBase } from '../../api/client.ts';
+import { Avatar, PhotoEditor } from '../../components/Avatar.tsx';
 import { Dialog, ConfirmDialog } from '../../components/Dialog.tsx';
 import { Alert, Button, Field, inputClass } from '../../components/ui.tsx';
 import { useLive } from '../../live/store.ts';
@@ -24,23 +27,54 @@ const COMPANY: ContactBase = '/api/contacts';
 const key = (base: ContactBase) => ['contacts', base];
 const show = (n: string) => (n.length > 6 ? formatNumber(n) : n);
 
-/** Name for a number from my book, then the company's (11 §1); undefined when there's none. */
-export function useContactName() {
+/** The contact for a number from my book, then the company's (11 §1); undefined when none. */
+function useContactOf() {
   const list = useQuery({ queryKey: key(MINE), queryFn: () => contactsApi.list(MINE) });
-  const names = useMemo(() => {
-    const m = new Map<string, string>();
+  // ponytail: one map per caller; one shared map if pages ever show hundreds of avatars.
+  const byNumber = useMemo(() => {
+    const m = new Map<string, ContactDto>();
     for (const c of list.data?.items ?? [])
-      for (const n of c.numbers) if (!m.has(n.number)) m.set(n.number, c.name);
+      for (const n of c.numbers) if (!m.has(n.number)) m.set(n.number, c);
     return m;
   }, [list.data]);
   return (number: string | null | undefined) => {
     if (!number) return undefined;
     try {
-      return names.get(normalizeNumber(number)) ?? names.get(number);
+      return byNumber.get(normalizeNumber(number)) ?? byNumber.get(number);
     } catch {
-      return names.get(number);
+      return byNumber.get(number);
     }
   };
+}
+
+/** Name for a number from my book, then the company's (11 §1); undefined when there's none. */
+export function useContactName() {
+  const contactOf = useContactOf();
+  return (number: string | null | undefined) => contactOf(number)?.name;
+}
+
+/** Photo for a number: the extension's person, then my contacts and the company's (11 §8). */
+export function usePhotoOf() {
+  const exts = useLive((s) => s.extensions);
+  const contactOf = useContactOf();
+  return (number: string | null | undefined) =>
+    (number && exts[number]?.photo) || contactOf(number)?.photo || null;
+}
+
+/** The photo (or initials) for whoever has this number. */
+export function NumberAvatar({
+  number,
+  name,
+  size,
+  className,
+}: {
+  number: string | null | undefined;
+  name: string;
+  size?: ComponentProps<typeof Avatar>['size'];
+  className?: string;
+}) {
+  const photoOf = usePhotoOf();
+  return <Avatar name={name} photo={photoOf(number)} size={size} className={className} />;
 }
 
 /** "Add to contacts" from a call or a voicemail: the drawer, filled with the number. */
@@ -80,7 +114,7 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
   const list = useQuery({ queryKey: key(base), queryFn: () => contactsApi.list(base) });
   const { call, note } = useCallBack();
   const [q, setQ] = useState('');
-  const [editing, setEditing] = useState<(ContactInput & { id?: string }) | null>(null);
+  const [editing, setEditing] = useState<Editing | null>(null);
   const [deleting, setDeleting] = useState<ContactDto | null>(null);
   const [importing, setImporting] = useState(false);
   const [picked, setPicked] = useState<Set<string>>(new Set());
@@ -181,6 +215,7 @@ function ContactBook({ base, title }: { base: ContactBase; title: string }) {
                 }}
               />
             )}
+            <Avatar name={c.name} photo={c.photo} />
             <span className="min-w-40 flex-1">
               <span className="font-medium">{c.name}</span>
               {c.company && <span className="text-muted"> · {c.company}</span>}
@@ -283,13 +318,16 @@ function CopyToContrack({ base, count }: { base: ContactBase; count: number }) {
 
 const LABELS = ['mobile', 'work', 'home', 'main', 'fax', 'other'];
 
-function ContactDrawer(props: {
-  base: ContactBase;
-  contact: ContactInput & { id?: string };
-  onClose: () => void;
-}) {
+type Editing = ContactInput & { id?: string; photo?: string | null };
+
+function ContactDrawer(props: { base: ContactBase; contact: Editing; onClose: () => void }) {
   const qc = useQueryClient();
-  const { id, ...start } = props.contact;
+  const { id, photo: startPhoto, ...start } = props.contact;
+  const [photo, setPhoto] = useState(startPhoto ?? null);
+  const photoSaved = async (url: string | null) => {
+    setPhoto(url);
+    await qc.invalidateQueries({ queryKey: ['contacts'] });
+  };
   const [form, setForm] = useState({
     name: start.name,
     company: start.company ?? '',
@@ -334,6 +372,21 @@ function ContactDrawer(props: {
           save.mutate();
         }}
       >
+        {id ? (
+          <PhotoEditor
+            name={form.name}
+            photo={photo}
+            save={async (jpeg) =>
+              photoSaved(photoUrl((await photosApi.setContact(props.base, id, jpeg)).id))
+            }
+            remove={async () => {
+              await photosApi.removeContact(props.base, id);
+              await photoSaved(null);
+            }}
+          />
+        ) : (
+          <p className="text-xs text-muted">Save the contact first to add a photo.</p>
+        )}
         {(['name', 'company', 'email'] as const).map((k) => (
           <Field key={k} label={k[0]!.toUpperCase() + k.slice(1)}>
             {(p) => (

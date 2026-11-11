@@ -9,8 +9,9 @@ import {
   type ListResponse,
   type UserDto,
 } from '@selfphoneng/shared';
+import { photoUrl } from '@selfphoneng/shared';
 import type { Db } from '../db/client.ts';
-import { extensions, passkeys, userIdentities, users } from '../db/schema.ts';
+import { extensions, passkeys, photos, userIdentities, users } from '../db/schema.ts';
 import { HttpError, badRequest, conflict, notFound } from '../errors.ts';
 import { requireAdmin } from '../auth/guards.ts';
 import { hashPassword } from '../auth/passwords.ts';
@@ -19,6 +20,7 @@ import { randomAlnum } from '../crypto/secrets.ts';
 import { audit } from '../services/audit.ts';
 import { getSetting } from '../services/settings.ts';
 import { signInWays } from './auth.ts';
+import { photoIdOf } from './photos.ts';
 
 type UserRow = typeof users.$inferSelect;
 type IdentityRow = {
@@ -33,6 +35,7 @@ export const toUserDto = (
   extension: UserDto['extension'] = null,
   ids: IdentityRow[] = [],
   from: RoleSources = { oidc: null, ldap: false },
+  photoId: string | null = null,
 ): UserDto => ({
   id: u.id,
   email: u.email,
@@ -46,6 +49,7 @@ export const toUserDto = (
   extension,
   signIn: signInWays(u, ids),
   roleFrom: roleFrom(ids, from),
+  photo: photoUrl(photoId),
 });
 
 /** The providers that set roles now (12 §1): adminGroups / adminFilter set and in use. */
@@ -130,9 +134,10 @@ export async function userRoutes(app: FastifyInstance) {
   // ponytail: one page with every user (v1 targets ≤100 users); cursor paging when it's needed.
   app.get('/api/users', async (): Promise<ListResponse<UserDto>> => {
     const rows = await db
-      .select({ u: users, extId: extensions.id, extNumber: extensions.number })
+      .select({ u: users, extId: extensions.id, extNumber: extensions.number, photoId: photos.id })
       .from(users)
       .leftJoin(extensions, eq(extensions.userId, users.id))
+      .leftJoin(photos, eq(photos.userId, users.id))
       .orderBy(asc(users.displayName), asc(users.id));
     const ids = await identitiesOf(db);
     const from = await roleSources(db);
@@ -143,6 +148,7 @@ export async function userRoutes(app: FastifyInstance) {
           r.extId && r.extNumber ? { id: r.extId, number: r.extNumber } : null,
           ids.filter((i) => i.userId === r.u.id),
           from,
+          r.photoId,
         ),
       ),
       nextCursor: null,
@@ -156,6 +162,7 @@ export async function userRoutes(app: FastifyInstance) {
       await extOf(db, id),
       await identitiesOf(db, id),
       await roleSources(db),
+      await photoIdOf(db, id),
     );
   });
 
@@ -231,7 +238,7 @@ export async function userRoutes(app: FastifyInstance) {
         after: Object.fromEntries(changed.map((k) => [k, after[k]])),
       },
     });
-    return toUserDto(after, await extOf(db, id), ids, from);
+    return toUserDto(after, await extOf(db, id), ids, from, await photoIdOf(db, id));
   });
 
   app.delete('/api/users/:id', async (req) => {

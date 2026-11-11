@@ -64,7 +64,7 @@ export function Panel({
   );
 }
 
-export const inputClass = `w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm ${focusRing} aria-invalid:border-red-500`;
+export const inputClass = `sp-input rounded-md border border-line-strong bg-surface px-3 py-2 text-sm ${focusRing} aria-invalid:border-red-500`;
 
 /** Label + control + error text. `children` gets the id and aria props to spread on the control. */
 export function Field({
