@@ -5,10 +5,11 @@ tag (08 §3.1): `selfphoneng-api`, `selfphoneng-asterisk` and `selfphoneng-probe
 the Gitea registry. From v0.0.3 the release also has the probe as downloads for machines without
 Docker.
 
-## Unreleased
+## v0.0.15 — 2026-11-11
 
 **Before you update:** this version changes the database (photos); the api backs up first, by
-itself.
+itself. Portainer: change both tags to `0.0.15` and redeploy. Compose:
+`sudo scripts/update.sh v0.0.15`.
 
 - **Photos:** people and contacts can have a small photo, shown on People, the call card and the
   ringing screen, contacts, voicemail, parked calls, the dashboard, the wallboard and queues (not
@@ -23,6 +24,7 @@ itself.
   (and other small boxes, such as Settings' number fields, were full width).
 - **Outbound rules:** the lowest "Who may use it" now reads **Everyone (even internal-only
   users)**. Calls to your own extensions never use these rules or a trunk.
+- **Link previews:** a link to your phone system shows its name and a picture in chat apps.
 
 ## v0.0.14 — 2026-11-10
 

@@ -8,7 +8,7 @@ A fully open source, self-hosted business phone system: the everyday features of
 own server. You bring a SIP trunk and phone numbers (the reference provider is voip.ms);
 SelfPhoneNG does the rest.
 
-**Status:** pre-1.0 (v0.0.14), for testing. See [what's left for v1](docs/v1-checklist.md).
+**Status:** pre-1.0 (v0.0.15), for testing. See [what's left for v1](docs/v1-checklist.md).
 
 |               |                                                                                 |
 | ------------- | ------------------------------------------------------------------------------- |
