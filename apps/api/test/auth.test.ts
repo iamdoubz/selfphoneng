@@ -156,7 +156,13 @@ describe.skipIf(!hasTestDb)('auth', () => {
 
   it('healthz checks the DB; the SPA fallback skips /api and /prov', async () => {
     expect((await get('/healthz')).json()).toEqual({ ok: true });
-    expect((await get('/admin/users')).body).toBe('<h1>spa</h1>');
+    // The page, wherever it's asked for, with og:image as a full URL for link previews.
+    const page = '<h1>spa</h1><meta property="og:image" content="https://pbx.test/social.png" />';
+    for (const url of ['/', '/index.html', '/admin/users']) {
+      const r = await get(url);
+      expect(r.body, url).toBe(page);
+      expect(r.headers['content-type'], url).toMatch(/^text\/html/);
+    }
     expect((await get('/api/nope')).statusCode).toBe(404);
     expect((await get('/prov/x.cfg')).statusCode).toBe(404);
   });

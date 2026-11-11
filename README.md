@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="apps/web/public/logo-512.png" alt="SelfPhoneNG" width="220">
+  <img src="apps/web/public/social.png" alt="SelfPhoneNG" width="640">
 </p>
 
 # SelfPhoneNG
