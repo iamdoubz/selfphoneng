@@ -24,7 +24,7 @@ import { onTakeOver, stepDown, takeOver, tryLead } from './leader.ts';
 import { CALL_DRAG, softphone, type CallInfo } from './SoftphoneEngine.ts';
 import { useSoftphone } from './useSoftphone.ts';
 import { startRinging, stopRinging } from './sounds.ts';
-import { useContactName } from '../pages/user/ContactsPage.tsx';
+import { NumberAvatar, useContactName } from '../pages/user/ContactsPage.tsx';
 
 const KEY = 'softphone.enabled';
 const remembered = () => {
@@ -365,6 +365,7 @@ function IncomingCall({
           <h2 id="ring-title" className="text-sm font-medium text-muted">
             Incoming call
           </h2>
+          <NumberAvatar number={call.remote} name={name} size="xl" />
           <p className="text-3xl font-semibold break-words">{name}</p>
           {name !== call.remote && (
             <p className="text-muted tabular-nums">
@@ -518,7 +519,8 @@ function CallCard({
       onDragStart={(e) => e.dataTransfer.setData(CALL_DRAG, call.id)}
     >
       <div className="flex flex-col gap-1">
-        <p className="flex flex-wrap items-baseline gap-x-2">
+        <p className="flex flex-wrap items-center gap-x-2">
+          <NumberAvatar number={call.remote} name={name} />
           <span className="font-semibold">{name}</span>
           <span className="text-sm text-muted">
             {label}

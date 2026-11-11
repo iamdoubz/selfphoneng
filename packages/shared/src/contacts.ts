@@ -46,6 +46,8 @@ export type ContactDto = ContactData & {
   book: 'mine' | 'company';
   /** Contrack: the contact's page there (editing happens in Contrack). */
   url: string | null;
+  /** Where its photo is served (11 §8), or null: none. */
+  photo: string | null;
 };
 
 /** GET /api/me/contacts and /api/contacts: the book(s), and where they live. */

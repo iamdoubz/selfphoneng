@@ -24,6 +24,7 @@ import {
 } from 'drizzle-orm/pg-core';
 
 const citext = customType<{ data: string }>({ dataType: () => 'citext' });
+const bytea = customType<{ data: Buffer }>({ dataType: () => 'bytea' });
 const tstz = () => timestamp({ withTimezone: true });
 const createdAt = () => tstz().notNull().defaultNow();
 const timestamps = {
@@ -778,6 +779,31 @@ export const contacts = pgTable('contacts', {
   notes: text(),
   ...timestamps,
 });
+
+/**
+ * A user's or a builtin contact's photo (11 §8). Replacing one gives it a new id, so
+ * /api/photos/:id can be cached forever. The checks repeat the API's limits.
+ */
+export const photos = pgTable(
+  'photos',
+  {
+    id: id(),
+    userId: uuid()
+      .unique()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    contactId: uuid()
+      .unique()
+      .references(() => contacts.id, { onDelete: 'cascade' }),
+    mime: text().notNull(),
+    data: bytea().notNull(),
+    updatedAt: tstz().notNull().defaultNow(),
+  },
+  (t) => [
+    check('photos_one_owner', sql`(${t.userId} is null) <> (${t.contactId} is null)`),
+    check('photos_mime', sql`${t.mime} in ('image/jpeg', 'image/png', 'image/webp')`),
+    check('photos_size', sql`octet_length(${t.data}) <= 262144`),
+  ],
+);
 
 /** A call put on (or checked for) a person's Contrack timeline (11 §4.4): never twice. */
 export const contrackCallLog = pgTable(

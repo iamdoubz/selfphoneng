@@ -9,6 +9,7 @@ import { extensionsApi, queuesApi } from '../../api/client.ts';
 import { Alert, Button } from '../../components/ui.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
 import { available, since, useNow } from './DashboardPage.tsx';
+import { NumberAvatar } from '../user/ContactsPage.tsx';
 
 type Member = QueueLive['members'][number];
 
@@ -105,6 +106,7 @@ function QueueCard({
             return (
               <li key={m.ext} className="flex items-center gap-3 py-1.5">
                 <span className="w-12 font-mono text-muted">{m.ext}</span>
+                <NumberAvatar number={m.ext} name={names.get(m.ext) ?? ''} size="sm" />
                 <span className="min-w-0 flex-1 truncate">{names.get(m.ext) ?? ''}</span>
                 <span className={`font-medium tabular-nums ${TONE[s.tone]}`}>{s.text}</span>
               </li>

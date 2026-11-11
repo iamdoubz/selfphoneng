@@ -27,6 +27,18 @@ export const RoutePatternSchema = z.object({
 });
 export type RoutePattern = z.infer<typeof RoutePatternSchema>;
 
+/**
+ * A route's patterns, plus each one dialed after the outside-line prefix (calls.outsidePrefix):
+ * with prefix 9, 93125550000 goes out like 3125550000. Dialing without it still works.
+ */
+export const withOutsidePrefix = (patterns: RoutePattern[], prefix: string): RoutePattern[] =>
+  prefix
+    ? [
+        ...patterns,
+        ...patterns.map((p) => ({ ...p, match: prefix + p.match, strip: p.strip + prefix.length })),
+      ]
+    : patterns;
+
 const RouteFields = z.object({
   name: z.string().trim().min(1, 'Required').max(60),
   enabled: z.boolean(),

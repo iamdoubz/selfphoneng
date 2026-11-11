@@ -97,6 +97,21 @@ describe.skipIf(!hasTestDb)('outbound routes API', () => {
     });
   });
 
+  it('9 first works like the number alone (calls.outsidePrefix), and can be turned off', async () => {
+    const r = await test(ext.id, '93125550000');
+    expect(r).toMatchObject({ ok: true, pattern: '9NXXNXXXXXX', dialed: '13125550000' });
+    await settle();
+    expect(dialplan()).toContain(
+      'exten => _9NXXNXXXXXX,1,Goto(sp-route-' +
+        routes[1]!.id +
+        ',1${FILTER(0-9*#+,${EXTEN:1})},1)',
+    );
+    await req('PATCH', '/api/settings', { 'calls.outsidePrefix': '' });
+    expect((await test(ext.id, '93125550000')).ok).toBe(false);
+    const back = await req('PATCH', '/api/settings', { 'calls.outsidePrefix': '9' });
+    expect(back.statusCode, back.body).toBe(200);
+  });
+
   it('class local may call toll-free but not national; international is off', async () => {
     expect((await test(local.id, '18005551234')).ok).toBe(true);
     const denied = await test(local.id, '13125550000');

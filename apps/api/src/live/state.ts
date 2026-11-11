@@ -11,10 +11,11 @@ import type {
   LiveSnapshot,
   TrunkLive,
 } from '@selfphoneng/shared';
+import { photoUrl } from '@selfphoneng/shared';
 import type { AmiClient } from '../ami/client.ts';
 import { field, type AmiMessage } from '../ami/events.ts';
 import type { Db } from '../db/client.ts';
-import { extensions, queues, trunks, userRuntimeState } from '../db/schema.ts';
+import { extensions, photos, queues, trunks, userRuntimeState } from '../db/schema.ts';
 import { CallTracker } from './calls.ts';
 import { ParkingTracker } from './parking.ts';
 import { QueueTracker } from './queues.ts';
@@ -227,14 +228,21 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
   /** Extensions from the DB. */
   private async loadExtensions(): Promise<void> {
     const rows = await this.db
-      .select({ number: extensions.number, name: extensions.name, dnd: userRuntimeState.dnd })
+      .select({
+        number: extensions.number,
+        name: extensions.name,
+        dnd: userRuntimeState.dnd,
+        photoId: photos.id,
+      })
       .from(extensions)
-      .leftJoin(userRuntimeState, eq(userRuntimeState.extensionId, extensions.id));
+      .leftJoin(userRuntimeState, eq(userRuntimeState.extensionId, extensions.id))
+      .leftJoin(photos, eq(photos.userId, extensions.userId));
     const seen = new Set<string>();
     for (const r of rows) {
       seen.add(r.number);
       const cur = this.exts.get(r.number);
-      if (cur && cur.name === r.name && cur.dnd === Boolean(r.dnd)) continue;
+      const photo = photoUrl(r.photoId);
+      if (cur && cur.name === r.name && cur.dnd === Boolean(r.dnd) && cur.photo === photo) continue;
       this.exts.set(r.number, {
         number: r.number,
         name: r.name,
@@ -242,6 +250,7 @@ export class LiveState extends EventEmitter<{ message: [LiveMessage] }> {
         contacts: cur?.contacts ?? [],
         online: cur?.online ?? false,
         dnd: Boolean(r.dnd),
+        photo,
       });
       this.changed(r.number);
     }

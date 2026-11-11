@@ -28,3 +28,4 @@ export * from './calls.ts';
 export * from './contacts.ts';
 export * from './integrations.ts';
 export * from './spam.ts';
+export * from './photos.ts';

@@ -22,6 +22,8 @@ export type ExtensionLive = {
   /** Any registered device (desk phone, app or browser). */
   online: boolean;
   dnd: boolean;
+  /** The extension's user's photo (11 §8), or null. */
+  photo: string | null;
 };
 
 export type TrunkLive = {

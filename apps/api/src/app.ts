@@ -43,6 +43,7 @@ import { integrationRoutes } from './routes/integrations.ts';
 import { reportRoutes } from './routes/reports.ts';
 import { aboutRoutes } from './routes/about.ts';
 import { contactRoutes } from './routes/contacts.ts';
+import { photoRoutes } from './routes/photos.ts';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -162,6 +163,7 @@ export function buildApp(config: Config, db: Db, publicDir = resolve('public')) 
   app.register(meRoutes);
   app.register(mobileRoutes);
   app.register(contactRoutes);
+  app.register(photoRoutes);
   app.register(soundRoutes);
   app.register(ringGroupRoutes);
   app.register(queueRoutes);

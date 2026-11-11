@@ -193,4 +193,8 @@ Packages added (all MIT): `expo-symbols` (SF Symbols on iPhone, Material icons o
   ringing it. Needs a decision record (Play Services is closed source). Replaces M12's "Push
   gateway for mobile apps".
 - App Store and Play listings (and AGPL vs App Store terms).
+- Photos (11 §8, owner 2026-11-11): show people's and contacts' photos where the web app does
+  (presence, the call screens, contacts, voicemail; not call history), from `ExtensionLive.photo`
+  and `ContactDto.photo`, with the device token. Setting my own photo from the phone's camera or
+  library (`PUT /api/me/photo`, a 256 px JPEG made on the phone).
 - TURN for strict mobile networks (`network.turn` already reaches `/api/me/webrtc`).

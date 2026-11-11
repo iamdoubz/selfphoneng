@@ -31,6 +31,7 @@ import type { AuthUser } from '@selfphoneng/shared';
 import { signOut, systemApi } from '../../api/client.ts';
 import { ThemeToggle } from '../../components/ThemeToggle.tsx';
 import { Brand, Button } from '../../components/ui.tsx';
+import { Avatar } from '../../components/Avatar.tsx';
 import { subscribeLive, useLive } from '../../live/store.ts';
 
 // Grouped by job rather than spec order, so the 21 pages scan as six short lists.
@@ -166,7 +167,10 @@ export function AdminLayout({ user }: { user: AuthUser }) {
           </Button>
           <Brand className="md:hidden" />
           <div className="ml-auto flex items-center gap-1 whitespace-nowrap sm:gap-2">
-            <span className="hidden text-sm text-muted sm:inline">{user.displayName}</span>
+            <span className="hidden items-center gap-2 text-sm text-muted sm:inline-flex">
+              <Avatar name={user.displayName} photo={user.photo} size="sm" />
+              {user.displayName}
+            </span>
             <ThemeToggle />
             {/* On phones this lives in the menu instead. */}
             <span className="hidden sm:contents">

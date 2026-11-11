@@ -371,6 +371,19 @@ export const meApi = {
 /** My book is /api/me/contacts (it lists the company's too); the company's is /api/contacts. */
 export type ContactBase = '/api/me/contacts' | '/api/contacts';
 
+/** Photos (11 §8): the body is the JPEG shrinkPhoto made. */
+export const photosApi = {
+  setMine: (jpeg: Blob) => upload<{ id: string }>('PUT', '/api/me/photo', jpeg),
+  removeMine: () => api<{ ok: true }>('DELETE', '/api/me/photo'),
+  setUser: (id: string, jpeg: Blob) =>
+    upload<{ id: string }>('PUT', `/api/users/${id}/photo`, jpeg),
+  removeUser: (id: string) => api<{ ok: true }>('DELETE', `/api/users/${id}/photo`),
+  setContact: (base: ContactBase, id: string, jpeg: Blob) =>
+    upload<{ id: string }>('PUT', `${base}/${id}/photo`, jpeg),
+  removeContact: (base: ContactBase, id: string) =>
+    api<{ ok: true }>('DELETE', `${base}/${id}/photo`),
+};
+
 export const contactsApi = {
   list: (base: ContactBase) => api<ContactBookDto>('GET', base),
   copyToContrack: (base: ContactBase) => api<ContactCopyResult>('POST', `${base}/copy-to-contrack`),

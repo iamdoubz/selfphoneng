@@ -5,7 +5,7 @@ import { useRef, useState } from 'react';
 import { formatNumber, type GreetingKind, type VoicemailDto } from '@selfphoneng/shared';
 import { meApi } from '../../api/client.ts';
 import { ConfirmDialog } from '../../components/Dialog.tsx';
-import { AddToContacts, useContactName } from './ContactsPage.tsx';
+import { AddToContacts, NumberAvatar, useContactName } from './ContactsPage.tsx';
 import { Alert, Button, inputClass } from '../../components/ui.tsx';
 
 export const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -78,6 +78,7 @@ function Messages() {
             key={m.id}
             className="flex flex-col gap-2 rounded-xl border border-line bg-surface shadow-sm p-3 sm:flex-row sm:items-center"
           >
+            <NumberAvatar number={m.callerNumber} name={who(m)} className="hidden sm:inline-flex" />
             <div className="min-w-0 flex-1">
               <p className={isNew(m) ? 'font-semibold' : ''}>
                 {who(m)}
