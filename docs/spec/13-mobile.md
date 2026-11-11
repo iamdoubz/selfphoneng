@@ -113,10 +113,9 @@ What the app uses besides these (all exist): `GET|PATCH /api/me`, `GET /api/me/w
 - `npx expo export` bundles both platforms; a release APK (arm64) builds on Windows. That needed
   CMake 3.31 (`cmake.dir` in `android/local.properties`): the Android SDK's default CMake 3.22 has a
   `ninja` without long-path support, and React Native's codegen paths pass 260 characters.
-- **Open:** the owner pairs a real Android phone and an iPhone (ios-builder needs a GitHub mirror
-  of the mobile repo).
+- iPhone paired 2026-11-10 (5.3). **Open:** a real Android phone.
 
-### 5.3 As built: MB4, calls (2026-11-10, not on a phone yet)
+### 5.3 As built: MB4, calls (2026-11-10, tried on an iPhone)
 
 Packages added (`npx expo install`, all MIT): `sip.js` 0.21 (the web softphone's SIP stack),
 `react-native-webrtc` 155 with `@config-plugins/react-native-webrtc` (WebRTC, and its build
@@ -144,11 +143,47 @@ of it; nothing here sends a notification).
   background modes.
 - Checked: `npm run typecheck`, `npm run lint`, `npx expo export` for both platforms, and the
   generated iOS settings (microphone and camera texts, background modes).
-- **Open, all of it on real phones** (the done-when of MB4): registering; a call each way with
-  two-way audio on Wi-Fi and on mobile data; the native call screen and Recents; hold, mute,
-  keypad tones, speaker; what happens to a call when the app goes to the background. Things most
-  likely to need work: SIP.js's WebRTC code on react-native-webrtc, the audio session on iPhone,
-  and tones (RFC 4733 through the sender, else SIP INFO).
+- **On an iPhone** (iOS 26.6, 2026-11-10, app open): paired; registered; a call in from an
+  outside number rang on the system call screen, two-way audio, hold worked; a call out from the
+  app connected. Install: ios-builder builds Debug unless told otherwise, and a Debug IPA has no
+  JS bundle (it wants Metro) and debug dylibs that fail re-signing ("integrity could not be
+  verified"), so mobile `builder.json` sets `ios.configuration` to `Release`. The free-account
+  re-sign changes the app id to `bet.dou.selfphoneng.<team>`, which matters for VoIP push (§6).
+- **Open:** mute, keypad tones, speaker, Recents; mobile data and a Wi-Fi ↔ mobile data switch
+  mid-call; hang-up from each side; the app going to the background mid-call; all of it on
+  Android. Ringing with the app closed waits for push (§6).
+
+### 5.4 As built: MB5–MB7, and DND from MB8 (mobile `5dcba8b`, 2026-11-10, tried on an iPhone)
+
+Packages added (all MIT): `expo-symbols` (SF Symbols on iPhone, Material icons on Android) and
+`expo-audio` (voicemail playback). Expo went to 58.0.23: `expo-font` 58.0.11 wants the newer
+`expo-modules-core`, and without it the app closed at launch (dyld "Symbol not found").
+
+- **Tabs** (`expo-router/native-tabs`, the system tab bar): Calls, Contacts, Keypad, Voicemail
+  (with the count of new messages), Settings. Each tab has its own stack with a large title.
+  The home screen is gone: the dial pad is the Keypad tab, and the call in progress covers
+  whichever tab is open.
+- **Look:** iOS system colours (`PlatformColor`), so dark mode follows the phone; on Android a
+  light and a dark set. Lists use `contentInsetAdjustmentBehavior="automatic"` so nothing starts
+  under the see-through title bar. The dial pad and call screen are drawn like the iPhone's
+  Phone app (round keys with letters, long-press 0 for `+`; Mute, Keypad, Speaker, Hold).
+- **Calls (MB5):** `/api/me/calls` 50 at a time, loaded as you scroll; All / Missed; missed in
+  red; names from the call or the contact book; tap to call back.
+- **Contacts (MB7):** A–Z with a search bar (name, company or digits); a contact's page with tap
+  to call, email, notes, and whether it's a company or own contact.
+- **Voicemail (MB6):** a dot on new ones; open one to play it (the audio route with the device
+  token), read the transcript, call back or delete. Playing it marks it heard (`folder: Old`).
+- **Settings (MB8 in part):** name, extension, the phone's status; DND and voicemail-by-email
+  switches (`PATCH /api/me`); forwarding shown read-only ("change these in My settings on the
+  web"); server; Sign out with a confirm.
+- **Icon:** the SelfPhoneNG mark from `apps/web/public/logo.png`, without the word, on `#090e21`.
+- CI: the ios-builder workflow's DerivedData cache was keyed by run only, so a stale Xcode module
+  cache failed the build ("ExpoModulesCore-Swift.h has been modified since the module file was
+  built"). The key now includes the lock file's hash; it applies once it is on mobile `main`.
+- **On an iPhone 16e** (2026-11-10): every tab, a contact's page, an opened voicemail with its
+  transcript, the Keypad and the icon checked by screenshot. **Open:** playing a voicemail; a call
+  with the new call screen; the DND switch; the Keypad tab's status bar icons don't draw right;
+  Android. **MB8 left:** editing forwarding, voicemail PIN, greetings.
 
 ## 6. Later (not in MB1–MB8)
 
